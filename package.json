@@ -1,0 +1,17 @@
+{
+  "name": "urbanflow-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter \"./packages/*\" build",
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "bench": "pnpm --filter @urbanflow/bench bench"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
