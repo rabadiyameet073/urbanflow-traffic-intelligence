@@ -14,6 +14,9 @@ export const SECURITY_HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cross-Origin-Resource-Policy': 'same-site',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
+  'Content-Security-Policy': "default-src 'self'; connect-src 'self' https: ws: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';",
   'Cache-Control': 'no-store',
 };
 
@@ -76,3 +79,4 @@ export async function readJson<T>(req: Request, maxBytes: number): Promise<T> {
     throw new Error('INVALID_JSON');
   }
 }
+

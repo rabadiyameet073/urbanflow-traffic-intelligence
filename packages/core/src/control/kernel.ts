@@ -54,6 +54,16 @@ export class SafetyKernel {
     ILLEGAL_FLASH_RED_EXIT: 0,
   };
 
+  // Compliance and observational metrics (Module 16 §4.1)
+  public totalTicks: number = 0;
+  public conflicts: number = 0;
+  public minGreenSeenS: number = Number.POSITIVE_INFINITY;
+  public maxGreenSeenS: number = 0;
+  private yellowIntervals: number = 0;
+  private yellowCompliant: number = 0;
+  private allRedIntervals: number = 0;
+  private allRedCompliant: number = 0;
+
   constructor() {
     this.redWaitTimesS = {
       P1_NS_LEFT: 0,
@@ -69,6 +79,14 @@ export class SafetyKernel {
     this.timeInStateS = 0;
     this.pendingNextPhase = null;
     this.isFailSafe = false;
+    this.totalTicks = 0;
+    this.conflicts = 0;
+    this.minGreenSeenS = Number.POSITIVE_INFINITY;
+    this.maxGreenSeenS = 0;
+    this.yellowIntervals = 0;
+    this.yellowCompliant = 0;
+    this.allRedIntervals = 0;
+    this.allRedCompliant = 0;
 
     for (const p of PHASES) {
       this.redWaitTimesS[p] = p === initialPhase ? 0 : 0;
@@ -100,6 +118,7 @@ export class SafetyKernel {
     evp: EvpDirective | null,
     dtS: number,
   ): SignalState {
+    this.totalTicks++;
     this.timeInStateS += dtS;
 
     // Track red wait time for anti-starvation (Invariant I4)
@@ -144,6 +163,9 @@ export class SafetyKernel {
           // Clamp request: hold green
           this.violationsPrevented.GREEN_BELOW_MIN++;
         } else {
+          // Record green metrics
+          if (this.timeInStateS < this.minGreenSeenS) this.minGreenSeenS = this.timeInStateS;
+          if (this.timeInStateS > this.maxGreenSeenS) this.maxGreenSeenS = this.timeInStateS;
           // Begin yellow transition
           this.indication = 'YELLOW';
           this.pendingNextPhase = desiredPhase;
@@ -154,6 +176,8 @@ export class SafetyKernel {
         const maxGreen = evp?.stage === 'EMS_GREEN' ? TIMING.EVP_HOLD_MAX_S : TIMING.G_MAX_S;
         if (this.timeInStateS > maxGreen) {
           this.violationsPrevented.GREEN_EXCEEDS_MAX++;
+          if (this.timeInStateS < this.minGreenSeenS) this.minGreenSeenS = this.timeInStateS;
+          if (this.timeInStateS > this.maxGreenSeenS) this.maxGreenSeenS = this.timeInStateS;
           // Force switch to next round-robin phase
           const nextIdx = (PHASES.indexOf(this.currentPhase!) + 1) % PHASES.length;
           this.indication = 'YELLOW';
@@ -164,12 +188,16 @@ export class SafetyKernel {
     } else if (this.indication === 'YELLOW') {
       // Invariant I5: YELLOW cannot be shortened by any caller, including EVP (3.5s)
       if (this.timeInStateS >= TIMING.YELLOW_S - 1e-4) {
+        this.yellowIntervals++;
+        this.yellowCompliant++;
         this.indication = 'ALL_RED';
         this.timeInStateS = 0;
       }
     } else if (this.indication === 'ALL_RED') {
       // Invariant I5: ALL_RED cannot be shortened by any caller, including EVP (2.0s)
       if (this.timeInStateS >= TIMING.ALL_RED_S - 1e-4) {
+        this.allRedIntervals++;
+        this.allRedCompliant++;
         this.indication = 'GREEN';
         this.currentPhase = this.pendingNextPhase ?? 'P2_NS_THRU';
         this.pendingNextPhase = null;
@@ -180,6 +208,19 @@ export class SafetyKernel {
     const nextState = this.buildSignalState();
     SafetyKernel.assertInvariants(nextState);
     return nextState;
+  }
+
+  public getMetrics() {
+    return {
+      ticks: this.totalTicks,
+      conflicts: this.conflicts,
+      violationsPrevented: { ...this.violationsPrevented },
+      minGreenSeenS: Number.isFinite(this.minGreenSeenS) ? this.minGreenSeenS : 0,
+      maxGreenSeenS: this.maxGreenSeenS,
+      yellowCompliancePct: this.yellowIntervals > 0 ? (this.yellowCompliant / this.yellowIntervals) * 100 : 100,
+      allRedCompliancePct: this.allRedIntervals > 0 ? (this.allRedCompliant / this.allRedIntervals) * 100 : 100,
+      isFailSafe: this.isFailSafe,
+    };
   }
 
   private buildSignalState(): SignalState {
@@ -245,3 +286,4 @@ export class SafetyKernel {
     }
   }
 }
+

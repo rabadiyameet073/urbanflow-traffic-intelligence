@@ -133,4 +133,20 @@ export class Room {
       costMicroUsd: current.costMicroUsd + costMicroUsd,
     });
   }
+
+  public async getDailyUsage(key = '__global__', nowMs = Date.now()): Promise<{ calls: number; costMicroUsd: number }> {
+    const day = new Date(nowMs).toISOString().slice(0, 10);
+    if (this.ctx?.storage?.sql) {
+      try {
+        const rows = [...this.ctx.storage.sql.exec('SELECT calls, cost_micro_usd FROM ai_usage WHERE day = ? AND key = ?', day, key)];
+        if (rows.length > 0) {
+          return { calls: rows[0].calls as number, costMicroUsd: rows[0].cost_micro_usd as number };
+        }
+      } catch {
+        return { calls: 0, costMicroUsd: 0 };
+      }
+    }
+    return this.memoryAiUsage.get(`${day}:${key}`) ?? { calls: 0, costMicroUsd: 0 };
+  }
 }
+

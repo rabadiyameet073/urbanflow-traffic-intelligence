@@ -43,4 +43,10 @@ export class BudgetGuard {
     await this.room.recordAiUsage(ipHash, costMicroUsd);
     await this.room.recordAiUsage('__global__', costMicroUsd);
   }
+
+  public async getDailyCount(): Promise<number> {
+    const usage = await this.room.getDailyUsage('__global__');
+    return usage.calls;
+  }
 }
+

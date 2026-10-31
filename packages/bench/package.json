@@ -5,6 +5,7 @@
   "main": "./src/index.ts",
   "scripts": {
     "bench": "tsx src/index.ts",
+    "repro": "tsx src/repro.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -17,3 +18,4 @@
     "vitest": "^2.1.4"
   }
 }
+

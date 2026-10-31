@@ -20,6 +20,9 @@ export * from './control/adaptive.js';
 export * from './control/evp.js';
 export * from './control/what_if.js';
 export * from './control/ntcip1202.js';
+export * from './control/watchdog.js';
+export * from './helpers/share-codec.js';
+export * from './helpers/debug-bundle.js';
 export * from './vision/camera_mode.js';
 
 export * from './scenarios.js';
