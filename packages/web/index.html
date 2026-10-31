@@ -3,9 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <meta name="description" content="UrbanFlow AI: Adaptive Traffic-Signal Intelligence with Safety Kernel and Meta AI Copilot" />
-    <meta name="theme-color" content="#0B0F14" />
-    <title>UrbanFlow AI — Adaptive Traffic Control Platform</title>
+    <title>UrbanFlow AI – Adaptive Traffic Signals & Emergency Preemption</title>
+    <meta name="description" content="Open-source traffic-signal simulation: adaptive control vs fixed-time on identical arrivals, safe emergency preemption and a guarded Meta AI copilot." />
+    <link rel="canonical" href="https://urbanflow.pages.dev/" />
+    <meta name="theme-color" content="#0B0F14" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F6F8FA" media="(prefers-color-scheme: light)" />
+
+    <!-- Open Graph & Social Cards (Module 33 §2) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="UrbanFlow AI" />
+    <meta property="og:description" content="Adaptive traffic control with safe emergency preemption. Simulation, not real roads." />
+    <meta property="og:url" content="https://urbanflow.pages.dev/" />
+    <meta property="og:image" content="https://urbanflow.pages.dev/og.png" />
+    <meta property="og:image:alt" content="Twin view of two intersections: fixed-time versus adaptive control." />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <!-- Preload fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,6 +25,20 @@
     <link rel="stylesheet" href="/src/styles/tokens.css" />
     <link rel="stylesheet" href="/src/styles/base.css" />
     <link rel="stylesheet" href="/src/styles/components.css" />
+
+    <!-- Structured Data (JSON-LD, XSS-safe escaped) (Module 33 §3) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "UrbanFlow AI",
+      "applicationCategory": "SimulationApplication",
+      "operatingSystem": "Web",
+      "description": "Traffic-signal simulation with adaptive control, emergency preemption and an AI copilot.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "license": "https://opensource.org/license/mit"
+    }
+    </script>
   </head>
   <body>
     <div id="app"></div>

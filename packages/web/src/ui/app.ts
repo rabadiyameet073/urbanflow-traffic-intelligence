@@ -2,8 +2,9 @@
  * Module 40, 41, 42, 43: Complete Control-Room Application UI
  */
 import { store } from '../state/store.js';
-import { SCENARIO_LIBRARY } from '@urbanflow/core';
+import { SCENARIO_LIBRARY, LANES } from '@urbanflow/core';
 import { judgeTour } from './judge/tour.js';
+import { STRINGS } from '../i18n/strings.js';
 
 export function renderApp(root: HTMLElement): {
   canvasFixed: HTMLCanvasElement;
@@ -12,59 +13,94 @@ export function renderApp(root: HTMLElement): {
 } {
   root.innerHTML = `
     <div class="app-container">
+      <!-- Accessible Live Announcement Region (Module 32 §2) -->
+      <div id="a11y-live-status" class="sr-only" aria-live="polite" aria-atomic="true">
+        Traffic simulation ready.
+      </div>
+
       <!-- 1. Header Bar -->
       <header class="app-header">
         <div class="brand-section">
-          <span class="badge badge-mode">SIMULATION ONLY</span>
-          <h1 class="brand-title">UrbanFlow AI</h1>
-          <span class="badge">Identical arrivals (seed 42)</span>
+          <span class="badge badge-mode">${STRINGS.brand.simulationOnly}</span>
+          <h1 class="brand-title">${STRINGS.brand.title}</h1>
+          <span class="badge">${STRINGS.brand.identicalArrivals(42)}</span>
           <span class="badge badge-safety" id="hdr-safety-badge">● 0 conflicts in 0 ticks</span>
         </div>
         <div class="header-controls">
-          <select id="scenario-select" class="btn btn-secondary" aria-label="Select Scenario">
+          <select id="scenario-select" class="btn btn-secondary" aria-label="${STRINGS.header.scenarioSelectLabel}">
             ${SCENARIO_LIBRARY.map((s) => `<option value="${s.id}">${s.name}</option>`).join('')}
           </select>
-          <div class="btn-group" role="group" aria-label="Speed controls">
-            <button class="btn btn-secondary" id="btn-pause" aria-label="Pause Simulation">⏸</button>
-            <button class="btn btn-secondary" id="speed-1">1×</button>
-            <button class="btn btn-secondary" id="speed-5">5×</button>
-            <button class="btn btn-secondary" id="speed-20">20×</button>
+          <div class="btn-group" role="group" aria-label="${STRINGS.header.speedControlsLabel}">
+            <button class="btn btn-secondary" id="btn-pause" aria-label="${STRINGS.header.pauseLabel}">⏸</button>
+            <button class="btn btn-secondary" id="speed-1" aria-label="1x speed">1×</button>
+            <button class="btn btn-secondary" id="speed-5" aria-label="5x speed">5×</button>
+            <button class="btn btn-secondary" id="speed-20" aria-label="20x speed">20×</button>
           </div>
-          <button class="btn btn-danger" id="btn-spawn-ems">🚑 Spawn ambulance</button>
-          <button class="btn btn-primary" id="btn-judge-tour">▶ Watch 90-second demo</button>
-          <button class="btn btn-secondary" id="btn-theme-toggle" aria-label="Toggle dark/light theme">◑ Theme</button>
+          <button class="btn btn-danger" id="btn-spawn-ems">${STRINGS.header.spawnAmbulance}</button>
+          <button class="btn btn-primary" id="btn-judge-tour">${STRINGS.header.watchJudgeDemo}</button>
+          <button class="btn btn-secondary" id="btn-shortcuts" aria-label="${STRINGS.header.helpShortcuts}">⌨ Help</button>
+          <button class="btn btn-secondary" id="btn-theme-toggle" aria-label="${STRINGS.header.themeToggle}">◑ Theme</button>
         </div>
       </header>
 
       <!-- 2. Twin Intersections Canvas View -->
       <main class="twins-container">
         <!-- Twin A: Fixed-Time Baseline -->
-        <section class="twin-card" aria-label="Fixed-Time Baseline Controller">
+        <section class="twin-card" aria-label="${STRINGS.twins.fixedTitle}">
           <div class="twin-header">
-            <div class="twin-title">Fixed-Time Baseline (90s Cycle)</div>
+            <div class="twin-title">${STRINGS.twins.fixedTitle}</div>
             <span class="badge" id="los-fixed">LOS C</span>
           </div>
           <div class="canvas-viewport">
-            <canvas id="canvas-fixed" width="700" height="440"></canvas>
+            <canvas id="canvas-fixed" role="img" aria-label="${STRINGS.twins.canvasAriaLabel} Fixed-Time Controller" width="700" height="440"></canvas>
           </div>
           <div class="timeline-ribbon" id="ribbon-fixed" title="Fixed Phase Timeline (last 60s)"></div>
         </section>
 
         <!-- Twin B: UrbanFlow Adaptive -->
-        <section class="twin-card" aria-label="UrbanFlow Adaptive Controller">
+        <section class="twin-card" aria-label="${STRINGS.twins.adaptiveTitle}">
           <div class="twin-header">
-            <div class="twin-title">UrbanFlow Adaptive Controller</div>
+            <div class="twin-title">${STRINGS.twins.adaptiveTitle}</div>
             <div style="display: flex; gap: 6px;">
-              <span class="badge badge-ai">Muse Spark</span>
+              <span class="badge badge-ai">${STRINGS.twins.badgeAi}</span>
               <span class="badge badge-safety" id="los-adaptive">LOS A</span>
             </div>
           </div>
           <div class="canvas-viewport">
-            <canvas id="canvas-adaptive" width="700" height="440"></canvas>
+            <canvas id="canvas-adaptive" role="img" aria-label="${STRINGS.twins.canvasAriaLabel} Adaptive Controller" width="700" height="440"></canvas>
           </div>
           <div class="timeline-ribbon" id="ribbon-adaptive" title="Adaptive Phase Timeline (last 60s)"></div>
         </section>
       </main>
+
+      <!-- Accessible Data Table Alternative (Module 32 §2) -->
+      <details class="a11y-lane-table-details">
+        <summary class="btn btn-secondary btn-sm">${STRINGS.twins.tableToggle}</summary>
+        <div id="a11y-lane-table-container">
+          <table class="lane-data-table" aria-label="Current lane queue and signal states">
+            <thead>
+              <tr>
+                <th>Approach Lane</th>
+                <th>Signal Indication</th>
+                <th>Queue (m)</th>
+                <th>Vehicles Waiting</th>
+              </tr>
+            </thead>
+            <tbody id="lane-table-body">
+              ${LANES.map((lane) => `<tr><td>${lane}</td><td>RED</td><td>0m</td><td>0</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- Keyboard Shortcuts Help Dialog (Module 32 §4) -->
+      <dialog id="keyboard-help-dialog" aria-labelledby="kbd-dialog-title">
+        <h2 id="kbd-dialog-title" style="margin-top: 0;">${STRINGS.keyboardModal.title}</h2>
+        <ul style="line-height: 1.8; padding-left: 20px;">
+          ${STRINGS.keyboardModal.shortcuts.map((s) => `<li><kbd style="font-family: var(--font-mono); background: var(--color-surface-elevated); padding: 2px 6px; border-radius: 4px;">${s.key}</kbd> — ${s.desc}</li>`).join('')}
+        </ul>
+        <button class="btn btn-primary" id="btn-close-kbd" style="margin-top: 12px;">${STRINGS.keyboardModal.closeBtn}</button>
+      </dialog>
 
       <!-- 3. KPI Comparison Grid -->
       <section class="kpi-grid" aria-label="Key Performance Indicators Comparison">
@@ -248,9 +284,44 @@ export function renderApp(root: HTMLElement): {
     judgeTour.stop();
   });
 
+  const kbdDialog = document.getElementById('keyboard-help-dialog') as HTMLDialogElement;
+  document.getElementById('btn-shortcuts')!.addEventListener('click', () => {
+    kbdDialog.showModal();
+  });
+  document.getElementById('btn-close-kbd')!.addEventListener('click', () => {
+    kbdDialog.close();
+  });
+
+  // Global Keyboard Map (Module 32 §4)
   window.addEventListener('keydown', (e) => {
+    // Avoid triggering shortcuts while typing inside text inputs
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
     if (e.key === 'Escape') {
       judgeTour.stop();
+      if (kbdDialog.open) kbdDialog.close();
+    } else if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      const next = !store.isPaused.get();
+      store.isPaused.set(next);
+      document.getElementById('btn-pause')!.textContent = next ? '▶' : '⏸';
+    } else if (e.key === 'a' || e.key === 'A') {
+      store.simFixed.spawnEms('NB-TR');
+      store.simAdaptive.spawnEms('NB-TR');
+      document.getElementById('evp-status-badge')!.textContent = 'ACTIVE';
+    } else if (e.key === 'r' || e.key === 'R') {
+      const currentScen = (document.getElementById('scenario-select') as HTMLSelectElement).value;
+      store.resetScenario(currentScen, 42);
+    } else if (e.key === '1') {
+      store.speed.set(1.0);
+    } else if (e.key === '2') {
+      store.speed.set(5.0);
+    } else if (e.key === '3') {
+      store.speed.set(20.0);
+    } else if (e.key === '?') {
+      kbdDialog.showModal();
     }
   });
 
@@ -322,6 +393,26 @@ export function renderApp(root: HTMLElement): {
     // Safety badge update
     const s = store.safetyStats.get();
     document.getElementById('hdr-safety-badge')!.textContent = `● ${s.conflicts} conflicts in ${s.ticks} ticks (${s.violationsPrevented} violations prevented)`;
+
+    // Accessible Live Status Announcement & Data Table (Module 32 §2)
+    const liveStatus = document.getElementById('a11y-live-status');
+    if (liveStatus) {
+      const activePhase = store.simAdaptive.observe().signal.phase ?? 'P2_NS_THRU';
+      liveStatus.textContent = `Phase ${activePhase} active. Adaptive Person-Delay ${a.personDelayS.toFixed(1)}s vs Fixed ${f.personDelayS.toFixed(1)}s. 0 conflicts in ${s.ticks} ticks.`;
+    }
+
+    const tableBody = document.getElementById('lane-table-body');
+    if (tableBody) {
+      const sig = store.simAdaptive.observe().signal;
+      tableBody.innerHTML = LANES.map((lane) => {
+        const ind = sig.lanes[lane];
+        const indText = ind === 'G' ? 'GO (Green)' : ind === 'Y' ? 'CLEAR (Yellow)' : 'STOP (Red)';
+        const lObj = store.simAdaptive.lanes[lane];
+        const queueM = lObj ? Math.round(lObj.pos[0] ?? 0) : 0;
+        const count = lObj ? lObj.count : 0;
+        return `<tr><td>${lane}</td><td>${indText}</td><td>${queueM}m</td><td>${count}</td></tr>`;
+      }).join('');
+    }
   };
 
   return {

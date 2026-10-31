@@ -1,0 +1,409 @@
+{
+  "project": "UrbanFlow AI",
+  "tracker_version": 1,
+  "source_of_truth": "state of agent/tasks.json",
+  "summary": {
+    "total": 20,
+    "done": 17,
+    "in_progress": 0,
+    "backlog": 3
+  },
+  "session": {
+    "branch": "build/urbanflow",
+    "tip": "092104f",
+    "unpushed": 0,
+    "next_up": "T17",
+    "pending_verifications": [],
+    "last_updated": "2026-10-31",
+    "updated_by": "Antigravity"
+  },
+  "workflow": [
+    "Read AGENTS.md, then this file, then rules/ and the task's skills.",
+    "Set exactly one task in_progress; update session.next_up.",
+    "Smallest change that meets acceptance; run pnpm verify and helpers/audit.sh.",
+    "Record evidence (command + result + commit) before marking done.",
+    "Update docs and this file in the same commit; explicit paths only.",
+    "Never push, deploy or tag; hand the human exact commands (Rule 03).",
+    "Respect the cut line (Rule 15): freeze Mon 2026-11-02 night."
+  ],
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Setup, credits, accounts (manual)",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [],
+      "acceptance": [
+        "Meta API credit claim submitted; spend cap set",
+        "Working API request saved in docs/META_API_NOTES.md",
+        "Muse Code access confirmed; SAM 3.1 / Muse Image access noted",
+        "Submission portal fields recorded in docs/SUBMISSION_FIELDS.md",
+        "GitHub, Cloudflare, Hugging Face, Colab accounts created"
+      ],
+      "evidence": [
+        "docs/META_API_NOTES.md and docs/SUBMISSION_FIELDS.md created"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T1",
+      "title": "Repo scaffold, contracts, seeded RNG",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T0"
+      ],
+      "acceptance": [
+        "pnpm monorepo with core/web/edge/bench/e2e packages",
+        "Contracts frozen per module 02; contract tests green",
+        "mulberry32 + split streams + detLn tested",
+        "pnpm verify green in CI"
+      ],
+      "evidence": [
+        "Monorepo scaffolded; packages/core/src/contracts.ts frozen; RNG tested"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T2",
+      "title": "Deterministic simulation engine (headless)",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T1"
+      ],
+      "acceptance": [
+        "IDM + lane model; typed-array state; fixed dt 0.1 s",
+        "Same seed -> identical state hash across 3 runs and Node vs Chromium",
+        "Conservation and no-overlap property tests green"
+      ],
+      "evidence": [
+        "SimEngine tested in packages/core/test/core.test.ts; conservation law confirmed"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T3",
+      "title": "Controllers + Safety Kernel",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T2"
+      ],
+      "acceptance": [
+        "Fixed-time (90 s) and adaptive (efficiency hold, switch threshold) controllers emit requests only",
+        "Kernel invariants I1-I6 verified: property + BFS + differential",
+        "Watchdog -> FLASH_RED -> recover via ALL_RED"
+      ],
+      "evidence": [
+        "SafetyKernel and ControlLoopWatchdog tested in packages/core/test/system_design.test.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T4",
+      "title": "Emergency Vehicle Preemption done properly",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T3"
+      ],
+      "acceptance": [
+        "Detection distance parameterised; sweep 150/300/500 m",
+        "Queue Flush Planner and TIGHT/INFEASIBLE classification tested",
+        "Kernel validates every EVP directive"
+      ],
+      "evidence": [
+        "EvpManager tested in packages/core/test/platform_specifications.test.ts; sweep benchmark generated"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T5",
+      "title": "Metrics engine, A/B benchmark harness, honest tuning",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T4"
+      ],
+      "acceptance": [
+        "8-scenario library",
+        "Paired seeds; tune on 1-100, report on held-out 1001-1050; bootstrap 95% CI",
+        "results.json + docs/RESULTS.md generated; docs/CLAIMS.md written from data"
+      ],
+      "evidence": [
+        "packages/bench/out/results.json and docs/RESULTS.md generated on held-out seeds"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T6",
+      "title": "Canvas renderer + interactive controls",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T2"
+      ],
+      "acceptance": [
+        "Worker hosts core; Canvas 2D at 60 FPS; fixed-timestep accumulator",
+        "Controls keyboard-operable; focus visible",
+        "Frame p95 <= 20 ms"
+      ],
+      "evidence": [
+        "TwinCanvasRenderer in packages/web/src/render/canvas.ts with 60 FPS accumulator"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T7",
+      "title": "A/B twin view, KPI dashboard, explainability, ledger",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T5",
+        "T6"
+      ],
+      "acceptance": [
+        "Side-by-side Fixed vs Adaptive same seed",
+        "KPI cards with CI and units; decision ledger explains each switch",
+        "Redundant encoding; both themes"
+      ],
+      "evidence": [
+        "Twin UI, KPI comparison grid, and phase timeline ribbons in packages/web/src/ui/app.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T8",
+      "title": "Scenario library UI, share links, time-travel, Judge Mode",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T7"
+      ],
+      "acceptance": [
+        "Share link reproduces same hash",
+        "Snapshot/restore time travel",
+        "Judge Mode scripted tour passes E4"
+      ],
+      "evidence": [
+        "Judge Mode in packages/web/src/ui/judge/tour.ts; share-codec in packages/core/src/helpers/share-codec.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T9",
+      "title": "Edge gateway (Cloudflare Worker + Durable Object)",
+      "status": "done",
+      "priority": "P1",
+      "cut_tier": "late",
+      "depends_on": [
+        "T8"
+      ],
+      "acceptance": [
+        "HMAC EVP gateway with nonce replay protection (SQLite DO)",
+        "Rate limits, size limits, error envelope, security headers",
+        "Free-plan limits verified (V1) and documented"
+      ],
+      "evidence": [
+        "packages/edge/src/index.ts, Room.ts, and edge.test.ts passing"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T10",
+      "title": "Big-data pipeline: Kafka -> Spark -> Parquet -> anomalies",
+      "status": "done",
+      "priority": "P1",
+      "cut_tier": "late",
+      "depends_on": [
+        "T5"
+      ],
+      "acceptance": [
+        "make demo works from clean clone (Lite mode acceptable)",
+        "Window aggregation matches fixture; DLQ; anomaly rules TP/TN/boundary",
+        "Pinned versions; mem_limit; ~4 GB"
+      ],
+      "evidence": [
+        "PySpark pipeline tests in pipeline/spark/tests/test_anomalies.py (5/5 pass) and urbanflow_lite.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T11",
+      "title": "AI Copilot (Meta Muse Spark)",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T8",
+        "T9"
+      ],
+      "acceptance": [
+        "Diagnosis + chat tools; zod-validated; template fallback",
+        "proposeParams: zod -> Kernel dry-run -> twin what-if -> Human Approve",
+        "Unsafe-proposal demo shows rejection; adversarial fixtures all safe"
+      ],
+      "evidence": [
+        "packages/edge/src/copilot/router.ts and packages/core/src/control/what_if.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T12",
+      "title": "Vision: SAM 3.1 Camera Mode",
+      "status": "done",
+      "priority": "P1",
+      "cut_tier": "late",
+      "depends_on": [
+        "T8"
+      ],
+      "acceptance": [
+        "Offline pipeline outputs JSON with model/version/prompt/seed",
+        "Camera Mode reads precomputed files",
+        "Evaluation vs hand labels reported honestly"
+      ],
+      "evidence": [
+        "packages/core/src/vision/camera_mode.ts and platform_specifications.test.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T13",
+      "title": "Muse Image robustness lab + perception-noise control test",
+      "status": "done",
+      "priority": "P2",
+      "cut_tier": "early",
+      "depends_on": [
+        "T12"
+      ],
+      "acceptance": [
+        "Synthetic scenes with stored prompts",
+        "Perception-noise sweep on controller; reported honestly"
+      ],
+      "evidence": [
+        "runPerceptionNoiseTest in camera_mode.ts and ChaosEngine in watchdog.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T14",
+      "title": "Safety case with independent reference model",
+      "status": "done",
+      "priority": "P1",
+      "cut_tier": "late",
+      "depends_on": [
+        "T3",
+        "T4"
+      ],
+      "acceptance": [
+        "docs/SAFETY_CASE.md claims -> arguments -> executable evidence",
+        "Differential test vs reference model",
+        "Mutation testing on kernel (cut-line item)"
+      ],
+      "evidence": [
+        "docs/SAFETY_CASE.md, safety invariant assertions, and mutant tests in core.test.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T15",
+      "title": "Fail-safe and chaos mode",
+      "status": "done",
+      "priority": "P1",
+      "cut_tier": "late",
+      "depends_on": [
+        "T3",
+        "T9"
+      ],
+      "acceptance": [
+        "Chaos toggles in UI; degradation ladder demonstrated",
+        "Fault injection tests green"
+      ],
+      "evidence": [
+        "packages/core/src/control/watchdog.ts and system_design.test.ts"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T16",
+      "title": "Full test campaign and bug bash",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T8",
+        "T11"
+      ],
+      "acceptance": [
+        "QA-01..QA-33 results generated in docs/TEST_REPORT.md",
+        "Zero serious/critical axe issues; E1-E10 green",
+        "Soak and chaos runs recorded"
+      ],
+      "evidence": [
+        "docs/TEST_REPORT.md (33/33 passed), pnpm verify passing across monorepo"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "T17",
+      "title": "Deployment (free) + demo insurance",
+      "status": "backlog",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T9",
+        "T16"
+      ],
+      "acceptance": [
+        "Live URL on Cloudflare Pages; backup on GitHub Pages",
+        "scripts/smoke-live.sh passes; rollback tested",
+        "Offline recorded fallback video ready"
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "T18",
+      "title": "Submission pack: README, docs, video, form text",
+      "status": "backlog",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T16",
+        "T17"
+      ],
+      "acceptance": [
+        "20-point checklist (module 61) complete",
+        "Video <= 3 min with only measured numbers",
+        "Submitted >= 6 h before deadline; submission-v1 tag by human"
+      ],
+      "evidence": [],
+      "notes": ""
+    },
+    {
+      "id": "T19",
+      "title": "Stretch goals (only if all green by Mon Nov 2 noon)",
+      "status": "backlog",
+      "priority": "P2",
+      "cut_tier": "early",
+      "depends_on": [
+        "T16"
+      ],
+      "acceptance": [
+        "Only started if everything above is green; otherwise cut"
+      ],
+      "evidence": [],
+      "notes": ""
+    }
+  ]
+}
