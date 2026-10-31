@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/edge" },
-    { "path": "./packages/bench" }
+    { "path": "./packages/bench" },
+    { "path": "./packages/web" }
   ]
 }
