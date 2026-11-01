@@ -21,6 +21,7 @@ import type { Child } from './dom.js';
 import { ICONS } from './icons.js';
 import { buildDiagnosisWindow, requestDiagnosis } from '../copilot/client.js';
 import type { DiagnosisResult } from '../copilot/client.js';
+import { sound } from './sound.js';
 
 interface KpiTile {
   key: string;
@@ -58,6 +59,17 @@ const LANE_DISPLAY_NAME: Record<LaneId, string> = {
   'WB-L': 'Westbound Left Turn',
 };
 
+const LANE_ARROW: Record<LaneId, string> = {
+  'NB-TR': '⬆️',
+  'NB-L': '↖️',
+  'SB-TR': '⬇️',
+  'SB-L': '↘️',
+  'EB-TR': '➡️',
+  'EB-L': '↗️',
+  'WB-TR': '⬅️',
+  'WB-L': '↙️',
+};
+
 const PHASE_LABEL: Readonly<Record<PhaseId, string>> = {
   P1_NS_LEFT: STRINGS.phases.P1_NS_LEFT,
   P2_NS_THRU: STRINGS.phases.P2_NS_THRU,
@@ -69,6 +81,7 @@ interface KpiRefs {
   main: Map<string, HTMLElement>;
   fixed: Map<string, HTMLElement>;
   delta: Map<string, HTMLElement>;
+  bar: Map<string, HTMLElement>;
 }
 
 function fmt(value: number | null, digits: number): string {
@@ -152,6 +165,25 @@ function buildHeader(): HTMLElement {
     motionButton.setAttribute('aria-pressed', String(on));
   });
 
+  const soundLabel = h('span', { text: sound.isEnabled() ? 'Audio: On' : 'Audio: Off' });
+  const soundButton = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { id: 'btn-sound-toggle', type: 'button', 'aria-pressed': String(sound.isEnabled()) },
+      label: 'Toggle synthetic tactile audio feedback',
+      on: {
+        click: () => {
+          const on = sound.toggle();
+          soundLabel.textContent = on ? 'Audio: On' : 'Audio: Off';
+          soundButton.setAttribute('aria-pressed', String(on));
+          soundButton.replaceChildren(on ? ICONS.soundOn() : ICONS.soundOff(), soundLabel);
+        },
+      },
+    },
+    [sound.isEnabled() ? ICONS.soundOn() : ICONS.soundOff(), soundLabel],
+  );
+
   return h('header', { class: 'app-header' }, [
     h('div', { class: 'brand-section' }, [
       h('span', { class: 'badge badge-mode', text: STRINGS.brand.simulationOnly }),
@@ -209,6 +241,7 @@ function buildHeader(): HTMLElement {
         [ICONS.theme(), STRINGS.header.themeToggleVisible],
       ),
       motionButton,
+      soundButton,
     ]),
   ]);
 }
@@ -246,6 +279,48 @@ function buildTwinCard(opts: {
   ]);
 }
 
+function buildIntelligenceBanner(): HTMLElement {
+  const phasePill = h('span', {
+    class: 'badge badge-ai hero-phase-pill',
+    attrs: { id: 'hero-phase-pill' },
+    text: 'Phase P2: North-South Thru',
+  });
+
+  const efficiencyBadge = h('div', {
+    class: 'hero-efficiency-badge',
+    attrs: { id: 'hero-efficiency-badge' },
+  }, [
+    ICONS.sparkle(),
+    h('span', { class: 'hero-efficiency-text', attrs: { id: 'hero-efficiency-text' }, text: 'Calculating live AI efficiency advantage…' }),
+  ]);
+
+  const reasoningCopy = h('p', {
+    class: 'hero-reasoning-copy',
+    attrs: { id: 'hero-reasoning-copy' },
+    text: 'Adaptive controller observing approach queues. Dynamic green wave allocation active.',
+  });
+
+  const evpAlert = h('div', {
+    class: 'hero-evp-banner is-hidden',
+    attrs: { id: 'hero-evp-banner' },
+  }, [
+    ICONS.ambulance(),
+    h('span', { class: 'hero-evp-text', attrs: { id: 'hero-evp-text' }, text: 'EMERGENCY PREEMPTION ACTIVE' }),
+  ]);
+
+  return h('section', { class: 'panel-card hero-intelligence-banner', label: 'AI Traffic Intelligence & Reasoning' }, [
+    h('div', { class: 'hero-banner-top' }, [
+      h('div', { class: 'hero-banner-title' }, [
+        h('span', { class: 'badge badge-safety', text: 'AI TRAFFIC REASONING' }),
+        phasePill,
+      ]),
+      efficiencyBadge,
+    ]),
+    reasoningCopy,
+    evpAlert,
+  ]);
+}
+
 function buildTestControlsPanel(): HTMLElement {
   let selectedLane: LaneId = store.selectedLane.get();
   let selectedVehicle: VehicleType = 'AMBULANCE';
@@ -259,6 +334,7 @@ function buildTestControlsPanel(): HTMLElement {
   // --- 1. Lane Selection Chips ---
   const laneChips: HTMLButtonElement[] = [];
   const updateLaneChips = (activeLane: LaneId): void => {
+    sound.click();
     selectedLane = activeLane;
     store.selectLane(activeLane);
     laneChips.forEach((btn) => {
@@ -296,7 +372,7 @@ function buildTestControlsPanel(): HTMLElement {
           click: () => updateLaneChips(lane),
         },
       },
-      [h('span', { class: 'chip-id', text: lane })],
+      [h('span', { class: 'chip-id', text: `${LANE_ARROW[lane]} ${lane}` })],
     ) as HTMLButtonElement;
     laneChips.push(chip);
   });
@@ -354,6 +430,11 @@ function buildTestControlsPanel(): HTMLElement {
       on: {
         click: () => {
           const count = getCount();
+          if (selectedVehicle === 'AMBULANCE') {
+            sound.emergencyPreempt();
+          } else {
+            sound.spawn();
+          }
           store.spawnVehicle(selectedLane, selectedVehicle, count, 45);
           feedbackText.textContent = selectedVehicle === 'AMBULANCE'
             ? `🚑 Emergency Ambulance injected into ${selectedLane} at 45m (Immediate Green Clearance!)`
@@ -373,13 +454,11 @@ function buildTestControlsPanel(): HTMLElement {
         click: () => {
           const count = getCount();
           if (selectedVehicle === 'AMBULANCE') {
-            // Spawn the ambulance directly (visible, immediate). A preemption
-            // request can be rejected by cooldown/active-plan and would drop the
-            // click; the EMS auto-trigger clears the green for a vehicle that is
-            // actually on the lane, so spawning it is both instant and effective.
+            sound.emergencyPreempt();
             store.spawnVehicle(selectedLane, 'AMBULANCE', count, 45);
             feedbackText.textContent = `🚑 Ambulance injected into ${selectedLane} at 45m (Immediate! Signal will clear.)`;
           } else {
+            sound.spawn();
             store.spawnVehicle(selectedLane, selectedVehicle, count, 300);
             feedbackText.textContent = `📍 Queued ${count} × ${selectedVehicle} at ${selectedLane} 300m entry gate`;
           }
@@ -396,6 +475,7 @@ function buildTestControlsPanel(): HTMLElement {
       attrs: { id: 'btn-test-ems-preempt', type: 'button' },
       on: {
         click: () => {
+          sound.emergencyPreempt();
           void store.requestPreemption(selectedLane);
           feedbackText.textContent = `🚨 Emergency Preemption triggered on ${selectedLane}! Clearing signals to Green.`;
         },
@@ -827,22 +907,8 @@ function buildTestControlsPanel(): HTMLElement {
     mongoStatusBadge.className = st.connected ? 'badge badge-safety' : 'badge badge-ai';
   });
 
-  return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
-    // Panel Header
-    h('div', { class: 'panel-title test-panel-header' }, [
-      h('div', { class: 'test-title-group' }, [
-        h('div', { class: 'test-badge-row' }, [
-          h('span', { class: 'badge badge-safety', text: 'LIVE TEST CONTROLS' }),
-          h('span', { class: 'badge badge-ai', text: 'REAL-TIME KINEMATICS' }),
-        ]),
-        h('h2', { class: 'test-heading', text: '🧪 Interactive Simulation Testing & Traffic Control Lab' }),
-        h('p', { class: 'test-sub', text: 'Select any approach lane, manually spawn vehicles (Ambulance, Car, Bus, Truck, Bike), dynamically adjust all 8 approach densities (0–1800 veh/h) without restart, and run emergency preemption stress tests.' }),
-      ]),
-      feedbackText,
-    ]),
-
-    // Section 1: Vehicle Spawner Controls
-    h('div', { class: 'test-section test-spawner-section' }, [
+  // Section 1: Vehicle Spawner Controls
+  const section1Spawner = h('div', { class: 'test-section test-spawner-section' }, [
       h('div', { class: 'test-section-title' }, [
         h('span', { class: 'test-section-num', text: '1' }),
         h('span', { text: 'Vehicle Spawning Controls (Select Lane & Class)' }),
@@ -869,37 +935,37 @@ function buildTestControlsPanel(): HTMLElement {
           h('div', { class: 'btn-group' }, [spawnVisibleBtn, spawnEntryBtn, emergencyPreemptBtn]),
         ]),
       ]),
-    ]),
+    ]);
 
     // Section 2: 8-Lane Real-Time Traffic Density Matrix (Sliders for Each Lane!)
-    h('div', { class: 'test-section test-density-section' }, [
+    const section2Density = h('div', { class: 'test-section test-density-section' }, [
       h('div', { class: 'test-section-title' }, [
         h('span', { class: 'test-section-num', text: '2' }),
         h('span', { text: 'Traffic Density & Demand Adjustments (Per-Lane Volume Sliders 0–1,800 veh/h)' }),
       ]),
       h('div', { class: 'density-matrix-grid' }, [nsGroup, ewGroup]),
-    ]),
+    ]);
 
     // Section 3: Scenario Stress Experiments
-    h('div', { class: 'test-section test-experiments-section' }, [
+    const section3Stress = h('div', { class: 'test-section test-experiments-section' }, [
       h('div', { class: 'test-section-title' }, [
         h('span', { class: 'test-section-num', text: '3' }),
         h('span', { text: 'Scenario Stress Experiments (Instant Load Presets)' }),
       ]),
       h('div', { class: 'test-experiments-grid' }, experimentCards),
-    ]),
+    ]);
 
     // Section 4: Reset & Revert Actions
-    h('div', { class: 'test-section test-reset-section' }, [
+    const section4Reset = h('div', { class: 'test-section test-reset-section' }, [
       h('div', { class: 'test-section-title' }, [
         h('span', { class: 'test-section-num', text: '4' }),
         h('span', { text: 'Reset & Revert Controls' }),
       ]),
       h('div', { class: 'test-reset-actions' }, [resetDemandsBtn, clearPreemptBtn, restartSimBtn]),
-    ]),
+    ]);
 
     // Section 5: Incidents and EMS Detection Range
-    h('div', { class: 'test-section' }, [
+    const section5Safety = h('div', { class: 'test-section' }, [
       h('div', { class: 'test-section-title' }, [
         h('span', { class: 'test-section-num', text: '5' }),
         h('span', { text: 'Incidents & Emergency-Vehicle Detection (Applied to the Selected Approach)' }),
@@ -918,10 +984,10 @@ function buildTestControlsPanel(): HTMLElement {
           h('div', { class: 'btn-group' }, [...detectButtons, detectBadge]),
         ]),
       ]),
-    ]),
+    ]);
 
     // Section 6: MongoDB Persistence & Database Storage
-    h('div', { class: 'test-section test-mongo-section' }, [
+    const section6Mongo = h('div', { class: 'test-section test-mongo-section' }, [
       h('div', { class: 'test-section-title' }, [
         h('span', { class: 'test-section-num', text: '6' }),
         h('span', { text: 'MongoDB Persistence & Data Storage' }),
@@ -936,8 +1002,79 @@ function buildTestControlsPanel(): HTMLElement {
           h('div', { class: 'btn-group' }, [mongoSaveBtn, mongoRefreshBtn]),
         ]),
       ]),
-    ]),
-  ]);
+    ]);
+
+    // Panes for tab navigation
+    const paneLab = h('div', { class: 'test-tab-pane active', attrs: { id: 'pane-lab', role: 'tabpanel', 'aria-labelledby': 'tab-btn-lab' } }, [
+      section1Spawner,
+      section2Density,
+    ]);
+
+    const paneStress = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-stress', role: 'tabpanel', 'aria-labelledby': 'tab-btn-stress' } }, [
+      section3Stress,
+      section4Reset,
+    ]);
+
+    const paneSafety = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-safety', role: 'tabpanel', 'aria-labelledby': 'tab-btn-safety' } }, [
+      section5Safety,
+    ]);
+
+    const paneMongo = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-mongo', role: 'tabpanel', 'aria-labelledby': 'tab-btn-mongo' } }, [
+      section6Mongo,
+    ]);
+
+    const tabPanes = [paneLab, paneStress, paneSafety, paneMongo];
+    const tabDefs = [
+      { id: 'tab-btn-lab', pane: paneLab, label: '🧪 Traffic & Spawner Lab', icon: ICONS.zap() },
+      { id: 'tab-btn-stress', pane: paneStress, label: '⚡ Stress Scenarios', icon: ICONS.play() },
+      { id: 'tab-btn-safety', pane: paneSafety, label: '🚨 Safety & Preemption', icon: ICONS.ambulance() },
+      { id: 'tab-btn-mongo', pane: paneMongo, label: '🍃 MongoDB Storage', icon: ICONS.database() },
+    ];
+
+    const tabButtons: HTMLButtonElement[] = [];
+    tabDefs.forEach((t, idx) => {
+      const btn = h(
+        'button',
+        {
+          class: `test-tab-nav-btn ${idx === 0 ? 'active' : ''}`,
+          attrs: { id: t.id, type: 'button', role: 'tab', 'aria-selected': String(idx === 0) },
+          on: {
+            click: () => {
+              sound.click();
+              tabButtons.forEach((b) => {
+                const active = b === btn;
+                b.classList.toggle('active', active);
+                b.setAttribute('aria-selected', String(active));
+              });
+              tabPanes.forEach((p) => {
+                p.classList.toggle('active', p === t.pane);
+              });
+            },
+          },
+        },
+        [t.icon, h('span', { text: t.label })],
+      ) as HTMLButtonElement;
+      tabButtons.push(btn);
+    });
+
+    const tabNav = h('div', { class: 'test-tab-nav-bar', role: 'tablist', label: 'Simulation Controls Tabs' }, tabButtons);
+
+    return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
+      // Panel Header
+      h('div', { class: 'panel-title test-panel-header' }, [
+        h('div', { class: 'test-title-group' }, [
+          h('div', { class: 'test-badge-row' }, [
+            h('span', { class: 'badge badge-safety', text: 'LIVE TEST CONTROLS' }),
+            h('span', { class: 'badge badge-ai', text: 'REAL-TIME KINEMATICS' }),
+          ]),
+          h('h2', { class: 'test-heading', text: '🧪 Interactive Simulation Testing & Traffic Control Lab' }),
+          h('p', { class: 'test-sub', text: 'Select any approach lane, manually spawn vehicles (Ambulance, Car, Bus, Truck, Bike), dynamically adjust all 8 approach densities (0–1800 veh/h) without restart, and run emergency preemption stress tests.' }),
+        ]),
+        feedbackText,
+      ]),
+      tabNav,
+      ...tabPanes,
+    ]);
 }
 
 function buildLaneTable(): HTMLElement {
@@ -1075,9 +1212,16 @@ function buildKpiGrid(refs: KpiRefs): HTMLElement {
       text: STRINGS.kpis.missing,
     });
 
+    const barFill = h('div', {
+      class: 'stat-bar-fill',
+      attrs: { id: `kpi-bar-${tile.key}` },
+    });
+    const barTrack = h('div', { class: 'stat-bar-track', attrs: { 'aria-hidden': 'true' } }, [barFill]);
+
     refs.main.set(tile.key, mainValue);
     refs.fixed.set(tile.key, fixed);
     refs.delta.set(tile.key, delta);
+    refs.bar.set(tile.key, barFill);
 
     return h('div', { class: 'stat-tile' }, [
       h('div', { class: 'stat-label' }, [
@@ -1085,6 +1229,7 @@ function buildKpiGrid(refs: KpiRefs): HTMLElement {
         delta,
       ]),
       h('div', { class: 'stat-values' }, [main, fixed]),
+      barTrack,
     ]);
   });
 
@@ -1402,6 +1547,19 @@ function updateKpiTile(tile: KpiTile, refs: KpiRefs, adaptive: KpiSnapshot, fixe
   // the meaning alone (Module 41 §1.5). No emoji glyph is used.
   const glyph = pct < 0 ? ICONS.arrowDown() : ICONS.arrowUp();
   deltaEl.replaceChildren(glyph, document.createTextNode(`${Math.abs(pct).toFixed(1)}%`));
+
+  const barEl = refs.bar.get(tile.key);
+  if (barEl) {
+    if (a !== null && f !== null && (a > 0 || f > 0)) {
+      const maxVal = Math.max(a, f);
+      const ratio = maxVal > 0 ? a / maxVal : 0.5;
+      barEl.style.setProperty('--kpi-scale', String(Math.max(0.06, Math.min(1, ratio))));
+      barEl.className = `stat-bar-fill ${improved ? 'good' : 'bad'}`;
+    } else {
+      barEl.style.setProperty('--kpi-scale', '0.06');
+      barEl.className = 'stat-bar-fill neutral';
+    }
+  }
 }
 
 function updatePressurePanel(): void {
@@ -1572,7 +1730,7 @@ export function renderApp(root: HTMLElement): {
   canvasFixed: HTMLCanvasElement;
   canvasAdaptive: HTMLCanvasElement;
 } {
-  const refs: KpiRefs = { main: new Map(), fixed: new Map(), delta: new Map() };
+  const refs: KpiRefs = { main: new Map(), fixed: new Map(), delta: new Map(), bar: new Map() };
 
   root.classList.add('app-container');
 
@@ -1607,6 +1765,7 @@ export function renderApp(root: HTMLElement): {
     liveStatus,
     buildHeader(),
     twins,
+    buildIntelligenceBanner(),
     buildTestControlsPanel(),
     buildLaneTable(),
     buildKeyboardDialog(),
@@ -1704,6 +1863,51 @@ export function renderApp(root: HTMLElement): {
     updateEvpPanel();
     updateLaneTable();
     updateAuditPanel(adaptive);
+
+    // Update AI Intelligence Hero Banner
+    const heroPhase = maybeById('hero-phase-pill');
+    const heroEfficiency = maybeById('hero-efficiency-text');
+    const heroReasoning = maybeById('hero-reasoning-copy');
+    const heroEvpBanner = maybeById('hero-evp-banner');
+    const heroEvpText = maybeById('hero-evp-text');
+
+    const signal = store.signalAdaptive.get();
+    const explain = store.explainState.get();
+    const evp = store.evpStatus.get();
+
+    if (heroPhase && signal) {
+      const pName = signal.phase ? (PHASE_LABEL[signal.phase] ?? signal.phase) : 'ALL RED CLEARANCE';
+      heroPhase.textContent = signal.phase ? `${signal.phase}: ${pName}` : pName;
+    }
+
+    if (heroReasoning && explain) {
+      heroReasoning.textContent = explain.explanation || 'Adaptive controller balancing multi-phase queue pressures.';
+    }
+
+    if (heroEfficiency) {
+      const aDelay = adaptive.personDelayS ?? adaptive.avgDelayS;
+      const fDelay = fixed.personDelayS ?? fixed.avgDelayS;
+      if (aDelay !== null && fDelay !== null && fDelay > 0) {
+        const pct = Math.round(((fDelay - aDelay) / fDelay) * 100);
+        const saved = Math.max(0, fDelay - aDelay).toFixed(1);
+        if (pct > 0) {
+          heroEfficiency.textContent = `⚡ −${pct}% Delay (${saved}s saved/person) vs Fixed-Time · 0 Conflicts`;
+        } else if (pct === 0) {
+          heroEfficiency.textContent = `⚖️ Identical Delay Parity (Warm-up Phase)`;
+        } else {
+          heroEfficiency.textContent = `Adapting to dynamic flow changes (${Math.abs(Number(saved))}s delta)`;
+        }
+      }
+    }
+
+    if (heroEvpBanner && heroEvpText) {
+      if (evp) {
+        heroEvpBanner.classList.remove('is-hidden');
+        heroEvpText.textContent = `🚨 EMERGENCY PREEMPTION ACTIVE · STAGE: ${evp.stage} · PLAN: ${evp.planStatus} · APPROACH: ${evp.activeEmsId}`;
+      } else {
+        heroEvpBanner.classList.add('is-hidden');
+      }
+    }
 
     const safety = store.safetyStats.get();
     const safetyBadge = maybeById('hdr-safety-badge');

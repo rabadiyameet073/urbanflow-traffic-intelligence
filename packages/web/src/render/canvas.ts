@@ -17,6 +17,7 @@ import {
   FRAME_FLAG,
   FRAME_INDEX,
   LANES,
+  LANE_WIDTH_M,
   SIGNAL_HEAD,
   VEHICLE_STRIDE,
   VIEWPORT_HALF_EXTENT_M,
@@ -104,6 +105,10 @@ export class TwinCanvasRenderer {
   private readonly staticLayer: HTMLCanvasElement;
   private staticKey = '';
   private reducedMotion = false;
+  /** The approach the operator is acting on, highlighted on the overlay. */
+  private selectedLane: LaneId | null = null;
+  /** The approach currently hovered by the pointer. */
+  private hoverLane: LaneId | null = null;
 
   // Two most recent frames, copied because the worker reuses its buffers.
   private prev = new Float32Array(FRAME_FLOATS);
@@ -179,8 +184,86 @@ export class TwinCanvasRenderer {
         ? Math.max(0, Math.min(1, (nowMs - this.curAtMs) / this.intervalMs))
         : 1;
 
+    this.drawLaneSelection(viewport, palette);
     this.drawVehicles(viewport, palette, alpha, nowMs);
     this.drawSignalHeads(viewport, palette);
+  }
+
+  /**
+   * Highlight the approach the operator is acting on (Module 31 §3 "selection
+   * ring"). Drawn under the vehicles, so a queue is never hidden by it.
+   *
+   * Colour is not the only channel that says which lane is selected: the Lab
+   * panel names it in text, and the stripe lies along that lane's own axis
+   * instead of tinting the whole approach (Module 41 §1.5, Rule 13).
+   */
+  public setSelectedLane(lane: LaneId | null): void {
+    this.selectedLane = lane;
+  }
+
+  /**
+   * Set the approach currently hovered under pointer crosshair.
+   */
+  public setHoverLane(lane: LaneId | null): void {
+    this.hoverLane = lane;
+  }
+
+  private drawLaneSelection(viewport: Viewport, palette: CanvasPalette): void {
+    const ctx = this.ctx;
+
+    // Draw subtle hover corridor if hovering over a lane that is not selected
+    if (this.hoverLane && this.hoverLane !== this.selectedLane) {
+      const hAnchor = laneAnchor(this.hoverLane);
+      const hNear = worldToCanvas(hAnchor.x, hAnchor.y, viewport);
+      const hFar = worldToCanvas(hAnchor.x - hAnchor.dx * 45, hAnchor.y - hAnchor.dy * 45, viewport);
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = palette.car;
+      ctx.lineWidth = Math.max(3, LANE_WIDTH_M * viewport.pxPerMetre);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(hNear.px, hNear.py);
+      ctx.lineTo(hFar.px, hFar.py);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const lane = this.selectedLane;
+    if (!lane) return;
+
+    const anchor = laneAnchor(lane);
+    // 45 m of approach: inside the culled extent at every supported canvas size.
+    const near = worldToCanvas(anchor.x, anchor.y, viewport);
+    const far = worldToCanvas(anchor.x - anchor.dx * 45, anchor.y - anchor.dy * 45, viewport);
+
+    ctx.save();
+    // Glowing selection corridor
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = palette.caution;
+    ctx.lineWidth = Math.max(4, LANE_WIDTH_M * viewport.pxPerMetre);
+    ctx.lineCap = 'round';
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(near.px, near.py);
+    ctx.lineTo(far.px, far.py);
+    ctx.stroke();
+
+    // Approach label pill on asphalt
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = palette.caution;
+    const midX = (near.px + far.px) / 2;
+    const midY = (near.py + far.py) / 2;
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#0B0F14';
+    const textWidth = ctx.measureText(lane).width;
+    ctx.fillRect(midX - textWidth / 2 - 4, midY - 7, textWidth + 8, 14);
+    ctx.fillStyle = palette.caution;
+    ctx.fillText(lane, midX, midY);
+
+    ctx.restore();
   }
 
   /** Lane under a canvas point, for click-to-select (Module 31 §3, hit testing). */
