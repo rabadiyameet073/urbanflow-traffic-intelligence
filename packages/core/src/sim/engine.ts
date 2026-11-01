@@ -1,6 +1,12 @@
 /**
  * Module 20: Bit-Deterministic Simulation Engine
  * High-performance, zero-randomness physics engine using typed arrays.
+ *
+ * Hot-loop non-null assertions (Module 50 §4 — one file-level justification,
+ * not per-line): every `!` on an indexed read below is bounded by a loop
+ * invariant — `i < LANES.length`, `slot < lane.count`, or `j <
+ * entryBuffer.length` — never by optimism. `noUncheckedIndexedAccess` keeps
+ * every *other* index a compile error.
  */
 import {
   LANES,
@@ -10,8 +16,10 @@ import {
   VEHICLE_SPECS,
   TIMING,
   SimConfig,
+  SimConfigPatch,
   DEFAULT_SIM_CONFIG,
   SignalState,
+  INITIAL_SIGNAL_STATE,
   Observation,
   LaneObservation,
   DomainEvent,
@@ -19,6 +27,7 @@ import {
 } from '../contracts.js';
 import { splitRng, detLn } from '../helpers/rng.js';
 import { hashState } from '../helpers/hash.js';
+import { emptyIdleSecondsByClass } from '../metrics/metrics.js';
 import { SimLane } from './lane.js';
 import { FLAG_BRAKING, FLAG_EMS, FLAG_IN_BOX, FLAG_FILTERING, ActiveIncident, QueuedArrival } from './types.js';
 
@@ -47,8 +56,24 @@ export class SimEngine {
   public totalExited: number = 0;
   public totalDenied: number = 0;
 
+  /** Running maximum stopped-queue length in metres (Module 02 §4 `maxQueueM`). */
+  public peakQueueM: number = 0;
+
+  /** Cumulative seconds below 1 m/s per vehicle class (input to idle fuel / CO2). */
+  public readonly idleSecondsByClass: Record<VehicleType, number> = emptyIdleSecondsByClass();
+
   constructor(config: Partial<SimConfig> = {}) {
-    this.config = { ...DEFAULT_SIM_CONFIG, ...config };
+    const merged = { ...DEFAULT_SIM_CONFIG, ...config };
+    // `applyParams` mutates the config in place, so each engine has to own its
+    // nested records. Without these copies, two engines built from one config
+    // object (the twins in `worker/twin.ts`) would share a single modal split
+    // and a single demand map, and an edit to either would silently change the
+    // other — the comparison would stop being a comparison.
+    this.config = {
+      ...merged,
+      laneDemandVph: { ...DEFAULT_SIM_CONFIG.laneDemandVph, ...(config.laneDemandVph ?? {}) },
+      modalSplit: { ...DEFAULT_SIM_CONFIG.modalSplit, ...(config.modalSplit ?? {}) },
+    };
 
     this.lanes = {} as Record<LaneId, SimLane>;
     this.arrivalRngs = {} as Record<LaneId, () => number>;
@@ -62,16 +87,11 @@ export class SimEngine {
       this.nextArrivalTimes[lane] = 0;
     }
 
+    // Copy, never share: the boot state is a frozen contract constant and two
+    // engines must not alias one object.
     this.currentSignal = {
-      phase: null,
-      indication: 'ALL_RED',
-      timeInStateS: 0,
-      lanes: {
-        'NB-TR': 'R', 'NB-L': 'R',
-        'SB-TR': 'R', 'SB-L': 'R',
-        'EB-TR': 'R', 'EB-L': 'R',
-        'WB-TR': 'R', 'WB-L': 'R',
-      },
+      ...INITIAL_SIGNAL_STATE,
+      lanes: { ...INITIAL_SIGNAL_STATE.lanes },
     };
 
     this.scheduleInitialArrivals();
@@ -98,6 +118,10 @@ export class SimEngine {
     this.totalArrivals = 0;
     this.totalExited = 0;
     this.totalDenied = 0;
+    this.peakQueueM = 0;
+    for (const type of VEHICLE_TYPES) {
+      this.idleSecondsByClass[type] = 0;
+    }
 
     for (const lane of LANES) {
       this.lanes[lane]!.reset();
@@ -161,6 +185,7 @@ export class SimEngine {
             this.config.speedLimitMps * 0.8,
             this.simTimeS,
             item.isEms,
+            item.emsId,
           );
           if (slot !== -1) {
             lane.arrivalRing[lane.ringHead] = (lane.arrivalRing[lane.ringHead] ?? 0) + 1;
@@ -189,8 +214,59 @@ export class SimEngine {
 
   // --- External Control & Interactions ---
 
-  public spawnEms(lane: LaneId): string {
+  /**
+   * Inject an emergency vehicle directly into a lane at `distanceM` upstream of
+   * the stop line, rather than queueing it at the approach boundary.
+   *
+   * Module 03 sweeps the detection distance (150/300/500 m) to show why late
+   * detection cannot be rescued by the controller. That sweep is only meaningful
+   * if the reported distance is also the vehicle's actual physical position, so
+   * this variant writes straight into the lane instead of the entry buffer.
+   * The lane must therefore be long enough to contain `distanceM`; requests
+   * beyond `laneLengthM` are clamped and fall back to the boundary spawn.
+   */
+  public spawnEmsAt(lane: LaneId, distanceM: number): string {
     const emsId = `ems-${lane}-${Math.floor(this.simTimeS * 10)}`;
+    const simLane = this.lanes[lane];
+    if (!simLane) return emsId;
+
+    const spawnPos = Math.min(distanceM, this.config.laneLengthM);
+    const slot = simLane.insertOrdered(
+      'AMBULANCE',
+      spawnPos,
+      TIMING.EMS_CRUISE_MPS,
+      this.simTimeS,
+      true,
+      emsId,
+    );
+    if (slot === -1) {
+      return this.enqueueEms(lane, emsId);
+    }
+    // Operator-injected vehicles are arrivals too, so the conservation law closes.
+    this.totalArrivals++;
+
+    this.eventQueue.push({
+      kind: 'emsMilestone',
+      simTimeS: this.simTimeS,
+      emsId,
+      lane,
+      milestone: 'spawned',
+    });
+
+    return emsId;
+  }
+
+  /**
+   * Module 20 §6: `spawnEms` places the vehicle at the *detection* distance
+   * doing 54 km/h, so the distance the controller is asked to rescue is the
+   * distance the vehicle actually has to cover.
+   */
+  public spawnEms(lane: LaneId): string {
+    return this.spawnEmsAt(lane, this.config.emsDetectDistanceM);
+  }
+
+  /** Boundary fallback for a full lane: queue the EMS at the entry point. */
+  private enqueueEms(lane: LaneId, emsId: string): string {
     const simLane = this.lanes[lane];
     if (!simLane) return emsId;
 
@@ -201,6 +277,8 @@ export class SimEngine {
       isEms: true,
       emsId,
     });
+    // Operator-injected vehicles are arrivals too, so the conservation law closes.
+    this.totalArrivals++;
 
     this.eventQueue.push({
       kind: 'emsMilestone',
@@ -245,8 +323,84 @@ export class SimEngine {
 
   // --- Physics Step ---
 
+  /**
+   * Apply a bounded parameter patch to future work only (Module 31 §2.1 `setParams`).
+   *
+   * Nothing already on the road is rewritten: demand and geometry changes take
+   * effect from the next scheduled arrival. The caller is responsible for the
+   * Kernel dry-run before this is reached, and for clamping through
+   * `SimConfigSchema` — this method trusts its input.
+   *
+   * Determinism note: re-arming a lane draws from that lane's *existing* seeded
+   * stream rather than reseeding it, so the same patch applied at the same tick
+   * always produces the same future. Replay-based time travel depends on that.
+   */
+  public applyParams(patch: SimConfigPatch): void {
+    if (patch.modalSplit) {
+      // Merge first, then renormalise: a caller may edit one class at a time,
+      // and renormalising a partial map would silently zero the others.
+      const base = this.config.modalSplit;
+      const car = patch.modalSplit.CAR ?? base.CAR ?? 0;
+      const bike = patch.modalSplit.BIKE ?? base.BIKE ?? 0;
+      const bus = patch.modalSplit.BUS ?? base.BUS ?? 0;
+      const truck = patch.modalSplit.TRUCK ?? base.TRUCK ?? 0;
+      // AMBULANCE is never sampled from the modal split (it is injected), so it
+      // is excluded from the sum and keeps its configured value.
+      const total = car + bike + bus + truck;
+      if (total > 1e-9) {
+        this.config.modalSplit.CAR = car / total;
+        this.config.modalSplit.BIKE = bike / total;
+        this.config.modalSplit.BUS = bus / total;
+        this.config.modalSplit.TRUCK = truck / total;
+      }
+    }
+
+    if (patch.laneDemandVph) {
+      for (const lane of LANES) {
+        const vph = patch.laneDemandVph[lane];
+        if (vph === undefined) continue;
+        this.config.laneDemandVph[lane] = vph;
+        this.rearmLane(lane);
+      }
+    }
+
+    // Geometry and policy fields are read every tick, so assignment is enough.
+    if (patch.laneLengthM !== undefined) this.config.laneLengthM = patch.laneLengthM;
+    if (patch.speedLimitMps !== undefined) this.config.speedLimitMps = patch.speedLimitMps;
+    if (patch.emsDetectDistanceM !== undefined) {
+      this.config.emsDetectDistanceM = patch.emsDetectDistanceM;
+    }
+    if (patch.emsFiltering !== undefined) this.config.emsFiltering = patch.emsFiltering;
+    if (patch.durationS !== undefined) this.config.durationS = patch.durationS;
+  }
+
+  /** Reschedule one lane's next arrival from its current stream position. */
+  private rearmLane(lane: LaneId): void {
+    const vph = this.config.laneDemandVph[lane] ?? 0;
+    if (vph <= 0) {
+      this.nextArrivalTimes[lane] = Number.POSITIVE_INFINITY;
+      return;
+    }
+    const ratePerS = vph / 3600;
+    const u = 1 - this.arrivalRngs[lane]!();
+    const gap = -detLn(Math.max(1e-12, u)) / ratePerS;
+    this.nextArrivalTimes[lane] = this.simTimeS + gap;
+  }
+
   public step(signal: SignalState): void {
     const dt = TIMING.SIM_DT_S;
+    // Module 20 §9 lists `signalTransition` among the domain events. The engine
+    // is where a change becomes observable, so the event is emitted here rather
+    // than reconstructed later from two samples.
+    if (signal.phase !== this.currentSignal.phase || signal.indication !== this.currentSignal.indication) {
+      const { phase, indication } = signal;
+      this.eventQueue.push({
+        kind: 'signalTransition',
+        simTimeS: this.simTimeS,
+        phase,
+        indication,
+      });
+    }
     this.currentSignal = signal;
     this.simTimeS += dt;
     this.tickCount++;
@@ -317,7 +471,11 @@ export class SimEngine {
           const leaderPos = lane.pos[leaderSlot] as number;
           const leaderType = lane.getVehicleType(leaderSlot);
           const leaderLen = VEHICLE_SPECS[leaderType].lengthM;
-          leaderDist = leaderPos - pos - leaderLen;
+          // `pos` grows upstream: the follower sits at a LARGER position than its
+          // leader, so the gap is `pos - leaderPos - leaderLen`. Inverting this
+          // produced a permanently negative gap, pinning every second vehicle at
+          // its entry point and blocking the approach forever.
+          leaderDist = pos - leaderPos - leaderLen;
           leaderVel = lane.vel[leaderSlot] as number;
         }
 
@@ -352,7 +510,7 @@ export class SimEngine {
         let effectiveV0 = v0;
         if (isEms && this.config.emsFiltering && pos > 0) {
           lane.flags[slot] = lane.flags[slot]! | FLAG_FILTERING;
-          effectiveV0 = Math.min(v0, 8.0); // max 8 m/s on shoulder
+          effectiveV0 = Math.min(v0, TIMING.EMS_YIELD_MPS); // shoulder cap (§6)
           if (signalIndication === 'G') {
             effectiveGap = Math.max(leaderDist, 20.0);
           }
@@ -364,7 +522,7 @@ export class SimEngine {
         const sqrtAB = Math.sqrt(spec.maxAccel * spec.comfortDecel);
         const sStar = spec.minGapS0 + vel * spec.timeHeadwayT + (vel * deltaV) / (2 * sqrtAB);
 
-        // x2*x2 instead of Math.pow(x, 4)
+        // x2*x2 instead of a power call (Rule 07 §3)
         const ratioV = vel / effectiveV0;
         const ratioV2 = ratioV * ratioV;
         const ratioV4 = ratioV2 * ratioV2;
@@ -382,9 +540,13 @@ export class SimEngine {
         lane.vel[slot] = nextVel;
         lane.pos[slot] = nextPos;
 
-        // Waiting time & stops
+        // Waiting time, idle-fuel accrual and stops
         if (nextVel < 1.0) {
           lane.wait[slot] = (lane.wait[slot] as number) + dt;
+          this.idleSecondsByClass[typ] += dt;
+          if (nextPos > 0 && nextPos > this.peakQueueM) {
+            this.peakQueueM = nextPos;
+          }
           if (vel >= 1.0) {
             lane.stops[slot] = Math.min(255, (lane.stops[slot] as number) + 1);
           }
@@ -412,6 +574,7 @@ export class SimEngine {
           const waitTime = lane.wait[frontSlot] as number;
           const stops = lane.stops[frontSlot] as number;
           const isEms = (lane.flags[frontSlot]! & FLAG_EMS) !== 0;
+          const emsId = isEms ? lane.takeEmsId(frontSlot) : null;
 
           // Free-flow transit time = (laneLength + box) / min(speedLimit, spec.maxSpeed)
           const freeFlowTransitS =
@@ -439,7 +602,7 @@ export class SimEngine {
             this.eventQueue.push({
               kind: 'emsMilestone',
               simTimeS: this.simTimeS,
-              emsId: `ems-${laneId}`,
+              emsId: emsId ?? `ems-${laneId}-${Math.round(entryTime * 10)}`,
               lane: laneId,
               milestone: 'boxExited',
               delayS,
@@ -465,6 +628,17 @@ export class SimEngine {
       let nearestEmsDist: number | null = null;
       let occupiedLengthM = 0;
 
+      // Module 20 §8: the queue is the *contiguous* run of queued vehicles
+      // starting at the stop line. Taking the furthest stopped vehicle anywhere
+      // in the lane reported a jam that did not exist whenever one stopped
+      // vehicle sat upstream of a moving one.
+      for (let i = 0; i < lane.count; i++) {
+        const slot = lane.order[i] as number;
+        if ((lane.vel[slot] as number) >= 1.0) break;
+        const pos = lane.pos[slot] as number;
+        if (pos > queueLengthM) queueLengthM = pos;
+      }
+
       // Scan vehicles in lane
       for (let i = 0; i < lane.count; i++) {
         const slot = lane.order[i] as number;
@@ -479,10 +653,6 @@ export class SimEngine {
 
         if (wait > maxWaitS) maxWaitS = wait;
         sumWeightedWaitS += spec.priorityWeight * wait;
-
-        if (pos > 0 && vel < 1.0) {
-          queueLengthM = Math.max(queueLengthM, pos);
-        }
 
         if (isEms && pos > 0) {
           if (nearestEmsDist === null || pos < nearestEmsDist) {
@@ -507,6 +677,10 @@ export class SimEngine {
         maxWaitS,
         arrivalsLast10s: arrivals10s,
         dischargedLast10s: discharged10s,
+        // Convention (Module 20 §8): occupied length is the sum of
+        // (vehicle length + minimum gap) over every vehicle in the lane,
+        // including those already in the box, divided by `laneLengthM` and
+        // capped at 100 %. It is a storage-occupancy proxy, not a density.
         occupancyPct: Math.min(100, (occupiedLengthM / this.config.laneLengthM) * 100),
         nearestEmsDistanceM: nearestEmsDist,
         valid: true,

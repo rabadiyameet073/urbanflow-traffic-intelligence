@@ -44,7 +44,7 @@ export const LANE_TO_PHASE: Record<LaneId, PhaseId> = {
   'WB-TR': 'P4_EW_THRU',
 };
 
-/** Coarse conflict relation: any two different phases conflict. */
+/** Coarse conflict relation. Any two different phases conflict. */
 export function conflictsWith(a: PhaseId, b: PhaseId): boolean {
   return a !== b;
 }
@@ -136,6 +136,34 @@ export const VEHICLE_SPECS: Record<VehicleType, VehicleSpec> = {
   },
 };
 
+/**
+ * Module 02 §1.2: `FIRE_ENGINE` is a UI/reporting alias of `AMBULANCE` kinematics.
+ * It is never a distinct simulation class, so it must never appear in RNG draws.
+ */
+export const VEHICLE_TYPE_ALIASES: Readonly<Record<string, VehicleType>> = {
+  FIRE_ENGINE: 'AMBULANCE',
+};
+
+/** Resolve a user-facing or imported type label to a canonical `VehicleType`. */
+export function resolveVehicleType(label: string): VehicleType | null {
+  const upper = label.trim().toUpperCase();
+  if ((VEHICLE_TYPES as readonly string[]).includes(upper)) {
+    return upper as VehicleType;
+  }
+  return VEHICLE_TYPE_ALIASES[upper] ?? null;
+}
+
+/**
+ * Module 02 §1.2: CO2 factors are assumptions, never measurements.
+ * Fuel (L) x factor (kg/L) gives emitted mass; the UI must surface the factors
+ * in an "assumptions" popover (Module 41 §6) and in RESULTS.md.
+ */
+export const CO2_KG_PER_L: Readonly<Record<VehicleSpec['fuelType'], number>> = {
+  gasoline: 2.31,
+  diesel: 2.68,
+  none: 0,
+};
+
 // --- 3. Timing Constants (seconds) ---
 
 export const TIMING = {
@@ -153,18 +181,47 @@ export const TIMING = {
   BOX_CROSSING_THRU_M: 18.0, // Box crossing distance for through lanes
   BOX_CROSSING_LEFT_M: 22.0, // Box crossing distance for left lanes
   MAX_ENTRY_BUFFER_WAIT_S: 30.0, // Max wait in entry buffer before DENIED
+  // Module 20 §6: an EMS enters at its detection distance doing 54 km/h, and
+  // may pass the queue on the shoulder at no more than 8 m/s while filtering.
+  EMS_CRUISE_MPS: 15.0,
+  EMS_YIELD_MPS: 8.0,
 } as const;
+
+// --- 3a. Level of Service (HCM control-delay scale) ---
+
+export const LOS_GRADES = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
+export type LosGrade = typeof LOS_GRADES[number];
+
+/** Upper bound of mean control delay (s/veh) per grade. Grade F is unbounded. */
+export const LOS_UPPER_BOUND_S: Readonly<Record<Exclude<LosGrade, 'F'>, number>> = {
+  A: 10,
+  B: 20,
+  C: 35,
+  D: 55,
+  E: 80,
+};
+
+/** Module 02 §4: map mean control delay to an HCM level of service. */
+export function computeLos(avgDelayS: number | null): LosGrade | null {
+  if (avgDelayS === null || !Number.isFinite(avgDelayS)) return null;
+  if (avgDelayS <= LOS_UPPER_BOUND_S.A) return 'A';
+  if (avgDelayS <= LOS_UPPER_BOUND_S.B) return 'B';
+  if (avgDelayS <= LOS_UPPER_BOUND_S.C) return 'C';
+  if (avgDelayS <= LOS_UPPER_BOUND_S.D) return 'D';
+  if (avgDelayS <= LOS_UPPER_BOUND_S.E) return 'E';
+  return 'F';
+}
 
 // --- 4. Adaptive Parameters (Tunable, Bounded) ---
 
 export const AdaptiveParamsSchema = z.object({
-  G_MIN_EFFICIENT_S: z.number().min(12).max(40).default(25),
-  RATIO: z.number().min(1.5).max(6).default(3.0),
-  FLOOR: z.number().min(0).max(20).default(8.0),
-  GAP_S: z.number().min(1).max(6).default(3.0),
-  alpha: z.number().min(0).max(3).default(1.0),
-  beta: z.number().min(0).max(3).default(1.0),
-  gamma: z.number().min(0).max(3).default(1.0),
+  G_MIN_EFFICIENT_S: z.number().finite().min(12).max(40).default(25),
+  RATIO: z.number().finite().min(1.5).max(6).default(3.0),
+  FLOOR: z.number().finite().min(0).max(20).default(8.0),
+  GAP_S: z.number().finite().min(1).max(6).default(3.0),
+  alpha: z.number().finite().min(0).max(3).default(1.0),
+  beta: z.number().finite().min(0).max(3).default(1.0),
+  gamma: z.number().finite().min(0).max(3).default(1.0),
 });
 
 export type AdaptiveParams = z.infer<typeof AdaptiveParamsSchema>;
@@ -191,6 +248,30 @@ export interface SignalState {
   timeInStateS: number;
   lanes: Record<LaneId, LaneSignal>;
 }
+
+/**
+ * The canonical boot state: no phase active, every lane red.
+ *
+ * Module 13 §2 E1 says no code outside the Safety Kernel writes a `SignalState`.
+ * The simulator still needs *something* to render before the first kernel tick, so
+ * the one state that exists before any decision is defined here — with the type —
+ * rather than rebuilt by each consumer. After the first tick only
+ * `SafetyKernel.buildSignalState()` produces one.
+ *
+ * Callers must copy it (`{ ...INITIAL_SIGNAL_STATE, lanes: { ...INITIAL_SIGNAL_STATE.lanes } }`)
+ * rather than share the reference, or two engines end up aliasing one object.
+ */
+export const INITIAL_SIGNAL_STATE: Readonly<SignalState> = Object.freeze({
+  phase: null,
+  indication: 'ALL_RED' as const,
+  timeInStateS: 0,
+  lanes: Object.freeze({
+    'NB-TR': 'R', 'NB-L': 'R',
+    'SB-TR': 'R', 'SB-L': 'R',
+    'EB-TR': 'R', 'EB-L': 'R',
+    'WB-TR': 'R', 'WB-L': 'R',
+  }) as Record<LaneId, LaneSignal>,
+});
 
 export interface ControlAction {
   requestedPhase: PhaseId | null;
@@ -231,12 +312,15 @@ export interface Observation {
 export const INCIDENT_KINDS = ['BLOCKED', 'CAPACITY_DROP', 'DOUBLE_PARKED'] as const;
 export type IncidentKind = typeof INCIDENT_KINDS[number];
 
+// Module 55 §2 rule 3: every numeric carries `.finite()` plus bounds. The
+// bounds already reject ±Infinity in practice; `.finite()` makes the intent
+// explicit and closes the one unbounded field below from accepting Infinity.
 export const EvpRequestSchema = z.object({
   id: z.string(),
   lane: z.enum(LANES),
-  distanceM: z.number().min(20).max(800),
-  speedMps: z.number().min(3).max(35),
-  tRequestS: z.number(),
+  distanceM: z.number().finite().min(20).max(800),
+  speedMps: z.number().finite().min(3).max(35),
+  tRequestS: z.number().finite(),
   nonce: z.string(),
   source: z.string(),
 });
@@ -244,7 +328,7 @@ export const EvpRequestSchema = z.object({
 export type EvpRequest = z.infer<typeof EvpRequestSchema>;
 
 export const SignedEvpSchema = EvpRequestSchema.extend({
-  ts: z.number(), // epoch ms
+  ts: z.number().finite(), // epoch ms
   signature: z.string(),
 });
 
@@ -259,6 +343,8 @@ export type EvpDecisionReason =
   | 'IMPLAUSIBLE_SPEED'
   | 'IMPLAUSIBLE_DISTANCE'
   | 'UNKNOWN_LANE'
+  /** Another preemption is already in progress on a different phase (§5.3). */
+  | 'PREEMPTION_ACTIVE'
   | 'INVALID_REQUEST';
 
 export interface EvpDecisionResponse {
@@ -281,17 +367,40 @@ export interface EvpDirective {
 // --- 8. Simulation Config ---
 
 export const SimConfigSchema = z.object({
-  seed: z.number().int().default(42),
-  laneDemandVph: z.record(z.enum(LANES), z.number().min(0).max(1800)),
-  modalSplit: z.record(z.enum(VEHICLE_TYPES), z.number().min(0).max(1)),
-  durationS: z.number().positive().default(3600),
-  laneLengthM: z.number().positive().default(300),
-  speedLimitMps: z.number().positive().default(13.9),
-  emsDetectDistanceM: z.number().min(100).max(800).default(300),
+  seed: z.number().finite().int().default(42),
+  laneDemandVph: z.record(z.enum(LANES), z.number().finite().min(0).max(1800)).default({
+    'NB-TR': 450, 'NB-L': 150,
+    'SB-TR': 450, 'SB-L': 150,
+    'EB-TR': 450, 'EB-L': 150,
+    'WB-TR': 450, 'WB-L': 150,
+  }),
+  modalSplit: z.record(z.enum(VEHICLE_TYPES), z.number().finite().min(0).max(1)).default({
+    CAR: 0.82,
+    BIKE: 0.08,
+    BUS: 0.04,
+    TRUCK: 0.06,
+    AMBULANCE: 0.0,
+  }),
+  durationS: z.number().finite().positive().default(3600),
+  laneLengthM: z.number().finite().positive().default(300),
+  speedLimitMps: z.number().finite().positive().default(13.9),
+  emsDetectDistanceM: z.number().finite().min(100).max(800).default(300),
   emsFiltering: z.boolean().default(true),
 });
 
 export type SimConfig = z.infer<typeof SimConfigSchema>;
+
+/**
+ * A bounded, partial edit to a *running* configuration (Module 31 §2.1 `setParams`).
+ *
+ * `laneDemandVph` and `modalSplit` are partial because an operator edits one
+ * lane or one vehicle class at a time. Re-arming untouched lanes would consume
+ * their RNG streams and shuffle arrivals nobody asked about.
+ */
+export type SimConfigPatch = Partial<Omit<SimConfig, 'laneDemandVph' | 'modalSplit'>> & {
+  laneDemandVph?: Partial<Record<LaneId, number>>;
+  modalSplit?: Partial<Record<VehicleType, number>>;
+};
 
 export const DEFAULT_SIM_CONFIG: SimConfig = {
   seed: 42,
@@ -359,6 +468,52 @@ export type DomainEvent =
 
 // --- 10. Kafka & Wire Event Envelopes ---
 
+/**
+ * Module 02 §3: the six frozen Kafka topics with their key, partition count
+ * and retention. Rule 12 §1 makes this list the single definition — the
+ * Makefile, the Spark job and the edge gateway must use these exact names and
+ * never re-type them. `vehicle-events` is retired (Module 06 conflict 12).
+ */
+export const KAFKA_TOPICS = {
+  /** Per-vehicle/per-lane observations. */
+  laneTelemetry: { name: 'lane-telemetry', key: 'intersectionId:lane', partitions: 3, retentionMs: 3_600_000 },
+  /** Signal transitions (ordered). */
+  signalState: { name: 'signal-state', key: 'intersectionId', partitions: 1, retentionMs: 3_600_000 },
+  /** EVP lifecycle. */
+  emergencyEvents: { name: 'emergency-events', key: 'intersectionId', partitions: 1, retentionMs: 3_600_000 },
+  /** 10 s window aggregates (Spark output). */
+  laneMetrics: { name: 'lane-metrics', key: 'intersectionId:lane', partitions: 3, retentionMs: 3_600_000 },
+  /** BLOCKAGE / DEMAND_SURGE / SIGNAL_STUCK / EMS_DELAYED. */
+  anomalyEvents: { name: 'anomaly-events', key: 'intersectionId', partitions: 1, retentionMs: 3_600_000 },
+  /** Unknown `schemaVersion` and schema failures (24 h retention). */
+  dlq: { name: 'dlq', key: 'topic', partitions: 1, retentionMs: 86_400_000 },
+} as const;
+
+export type KafkaTopicName = (typeof KAFKA_TOPICS)[keyof typeof KAFKA_TOPICS]['name'];
+
+/**
+ * Module 02 §3: deterministic event id `<runId>:<tick>:<lane|na>:<kind>`.
+ * Replays and duplicates are detectable *because* the id is a pure function of
+ * the run inputs — never mix wall time into an eventId.
+ */
+export function makeEventId(
+  runId: string,
+  tick: number,
+  lane: LaneId | 'na',
+  kind: string,
+): string {
+  return `${runId}:${tick}:${lane}:${kind}`;
+}
+
+/**
+ * Module 16 §2: run identifier format `run<seed>-<scenario>-<yyyymmddHHMM>`.
+ * Pure by construction: the IO shell (producer, bench, recorder) reads the wall
+ * clock and passes the compact stamp in — `core` never does (Rule 07).
+ */
+export function makeRunId(seed: number, scenarioId: string, stampYyyyymmddHHmm: string): string {
+  return `run${seed}-${scenarioId}-${stampYyyyymmddHHmm}`;
+}
+
 export const KafkaEnvelopeSchema = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   eventId: z.string(),
@@ -372,14 +527,14 @@ export const LaneTelemetryPayloadSchema = KafkaEnvelopeSchema.extend({
   vehicle: z.object({
     vehicleId: z.string(),
     type: z.enum(VEHICLE_TYPES),
-    priorityLevel: z.number(),
-    speedKmh: z.number(),
-    distanceToStopLineMeters: z.number(),
-    waitingTimeSeconds: z.number(),
+    priorityLevel: z.number().finite(),
+    speedKmh: z.number().finite(),
+    distanceToStopLineMeters: z.number().finite(),
+    waitingTimeSeconds: z.number().finite(),
   }),
   laneMetrics: z.object({
-    currentQueueLengthMeters: z.number(),
-    occupancyPercent: z.number(),
+    currentQueueLengthMeters: z.number().finite(),
+    occupancyPercent: z.number().finite(),
   }),
 });
 
@@ -388,7 +543,7 @@ export type LaneTelemetryPayload = z.infer<typeof LaneTelemetryPayloadSchema>;
 export const SignalStatePayloadSchema = KafkaEnvelopeSchema.extend({
   phase: z.enum(PHASES).nullable(),
   indication: z.enum(SIGNAL_INDICATIONS),
-  timeInStateS: z.number(),
+  timeInStateS: z.number().finite(),
   lanes: z.record(z.enum(LANES), z.enum(['G', 'Y', 'R'])),
 });
 
@@ -398,12 +553,12 @@ export const LaneMetricsPayloadSchema = KafkaEnvelopeSchema.extend({
   windowStart: z.string(),
   windowEnd: z.string(),
   approachLane: z.enum(LANES),
-  vehicleCount: z.number().int(),
-  weightedDelay: z.number(),
-  maxQueueM: z.number(),
-  avgSpeedKmh: z.number().nullable(),
-  dischargeCount: z.number().int(),
-  pressureIndex: z.number(),
+  vehicleCount: z.number().finite().int(),
+  weightedDelay: z.number().finite(),
+  maxQueueM: z.number().finite(),
+  avgSpeedKmh: z.number().finite().nullable(),
+  dischargeCount: z.number().finite().int(),
+  pressureIndex: z.number().finite(),
   runId: z.string(),
 });
 
@@ -430,3 +585,4 @@ export const AnomalyEventPayloadSchema = KafkaEnvelopeSchema.extend({
 });
 
 export type AnomalyEventPayload = z.infer<typeof AnomalyEventPayloadSchema>;
+
