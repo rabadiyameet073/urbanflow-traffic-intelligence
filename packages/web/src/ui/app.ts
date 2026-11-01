@@ -373,8 +373,12 @@ function buildTestControlsPanel(): HTMLElement {
         click: () => {
           const count = getCount();
           if (selectedVehicle === 'AMBULANCE') {
-            void store.requestPreemption(selectedLane, 45);
-            feedbackText.textContent = `🚑 Ambulance preemption requested on ${selectedLane}`;
+            // Spawn the ambulance directly (visible, immediate). A preemption
+            // request can be rejected by cooldown/active-plan and would drop the
+            // click; the EMS auto-trigger clears the green for a vehicle that is
+            // actually on the lane, so spawning it is both instant and effective.
+            store.spawnVehicle(selectedLane, 'AMBULANCE', count, 45);
+            feedbackText.textContent = `🚑 Ambulance injected into ${selectedLane} at 45m (Immediate! Signal will clear.)`;
           } else {
             store.spawnVehicle(selectedLane, selectedVehicle, count, 300);
             feedbackText.textContent = `📍 Queued ${count} × ${selectedVehicle} at ${selectedLane} 300m entry gate`;
@@ -782,6 +786,47 @@ function buildTestControlsPanel(): HTMLElement {
     updateLaneChips(lane);
   });
 
+  // Section 6: MongoDB Persistence & Database Storage
+  const mongoStatusBadge = h('span', { class: 'badge badge-safety', text: '🍃 MongoDB: Ready' });
+  const mongoSaveBtn = h(
+    'button',
+    {
+      class: 'btn btn-primary btn-sm',
+      attrs: { type: 'button' },
+      on: {
+        click: async () => {
+          feedbackText.textContent = '⏳ Saving simulation run to MongoDB...';
+          const res = await store.saveCurrentRunToMongo();
+          feedbackText.textContent = res.message;
+        },
+      },
+    },
+    ['💾 Save Run to MongoDB'],
+  );
+  const mongoRefreshBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { type: 'button' },
+      on: {
+        click: async () => {
+          feedbackText.textContent = '⏳ Fetching MongoDB runs...';
+          await store.checkDbStatus();
+          const runs = await store.fetchMongoRuns();
+          feedbackText.textContent = `🍃 MongoDB: ${runs.length} simulation run(s) currently stored in database.`;
+        },
+      },
+    },
+    ['🔄 Refresh DB Status'],
+  );
+
+  store.dbStatus.subscribe((st) => {
+    mongoStatusBadge.textContent = st.connected
+      ? `🍃 MongoDB: Connected (${st.database} · ${st.runsCount} runs · ${st.pingLatencyMs ?? 0}ms)`
+      : `🍃 MongoDB: Ready (${st.status} · ${st.runsCount} runs)`;
+    mongoStatusBadge.className = st.connected ? 'badge badge-safety' : 'badge badge-ai';
+  });
+
   return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
     // Panel Header
     h('div', { class: 'panel-title test-panel-header' }, [
@@ -871,6 +916,24 @@ function buildTestControlsPanel(): HTMLElement {
         h('div', { class: 'test-field' }, [
           h('label', { class: 'test-field-label', text: 'EMS Detection Range:' }),
           h('div', { class: 'btn-group' }, [...detectButtons, detectBadge]),
+        ]),
+      ]),
+    ]),
+
+    // Section 6: MongoDB Persistence & Database Storage
+    h('div', { class: 'test-section test-mongo-section' }, [
+      h('div', { class: 'test-section-title' }, [
+        h('span', { class: 'test-section-num', text: '6' }),
+        h('span', { text: 'MongoDB Persistence & Data Storage' }),
+      ]),
+      h('div', { class: 'test-spawner-form' }, [
+        h('div', { class: 'test-field' }, [
+          h('label', { class: 'test-field-label', text: 'Database Status:' }),
+          h('div', { class: 'btn-group' }, [mongoStatusBadge]),
+        ]),
+        h('div', { class: 'test-field test-field-actions' }, [
+          h('label', { class: 'test-field-label', text: 'Storage Actions:' }),
+          h('div', { class: 'btn-group' }, [mongoSaveBtn, mongoRefreshBtn]),
         ]),
       ]),
     ]),
@@ -1671,6 +1734,7 @@ export function renderApp(root: HTMLElement): {
   // payload keeps a KPI frame from rebuilding the lane table twice.
   store.observation.subscribe(() => updateKpis());
   store.evpStatus.subscribe(() => updateEvpPanel());
+  void store.checkDbStatus();
 
   return { canvasFixed, canvasAdaptive };
 }

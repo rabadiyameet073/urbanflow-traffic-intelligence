@@ -236,6 +236,23 @@ export class AppStore {
     caption: '',
   });
 
+  /** MongoDB persistence & connection status */
+  public readonly dbStatus = signal<{
+    connected: boolean;
+    status: string;
+    database: string;
+    host: string;
+    runsCount: number;
+    pingLatencyMs: number | null;
+  }>({
+    connected: false,
+    status: 'checking',
+    database: 'urbanflow',
+    host: 'mongodb://127.0.0.1:27017',
+    runsCount: 0,
+    pingLatencyMs: null,
+  });
+
   /** Frame subscribers, called once per worker frame per twin. */
   private frameHandlers: Array<(event: FrameEvent) => void> = [];
 
@@ -503,25 +520,20 @@ export class AppStore {
   /**
    * Inject `count` vehicles of one class into one approach (Module 31 §4).
    *
-   * An ambulance injected here is a *vehicle*, not a request: it drives through
-   * with priority filtering but the EVP manager is never asked for a plan, which
-   * is exactly the comparison worth having — `requestPreemption` is the case
-   * where the intersection clears itself for it.
+   * Always a real vehicle dropped straight onto the lane -- this never goes
+   * through `requestPreemption`, so an EVP cooldown, the storm guard, or an
+   * already-active plan can never silently swallow the click. That was the
+   * "spawn ambulance does nothing for ~10 s" bug: a rejected request spawns no
+   * vehicle. Now the ambulance is on the road instantly and the twin's EMS
+   * auto-trigger reacts to the vehicle that is actually present -- preemption
+   * follows the ambulance, not the reverse.
    */
   public injectBurst(lane: LaneId, count = 5, type: VehicleType = 'CAR', distanceM = 45): void {
-    if (type === 'AMBULANCE') {
-      void this.requestPreemption(lane, distanceM);
-    } else {
-      this.client.spawnVehicle(lane, type, count, distanceM);
-    }
+    this.client.spawnVehicle(lane, type, count, distanceM);
   }
 
   public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM = 45): void {
-    if (type === 'AMBULANCE') {
-      void this.requestPreemption(lane, distanceM);
-    } else {
-      this.client.spawnVehicle(lane, type, count, distanceM);
-    }
+    this.client.spawnVehicle(lane, type, count, distanceM);
   }
 
   /** Inject into whichever approach the operator is pointing at. */
@@ -607,6 +619,97 @@ export class AppStore {
 
   private explain(rule: string): string {
     return STRINGS.explain[rule] ?? 'Decision rule reported by the controller.';
+  }
+
+  /** Check MongoDB status via Edge Gateway */
+  public async checkDbStatus(): Promise<void> {
+    try {
+      const res = await fetch('/api/db/status');
+      if (res.ok) {
+        const data = await res.json();
+        this.dbStatus.set({
+          connected: data.connected ?? false,
+          status: data.status ?? 'fallback_mode',
+          database: data.database ?? 'urbanflow',
+          host: data.host ?? 'mongodb://127.0.0.1:27017',
+          runsCount: data.collections?.runs ?? 0,
+          pingLatencyMs: data.pingLatencyMs ?? null,
+        });
+      }
+    } catch {
+      this.dbStatus.set({
+        connected: false,
+        status: 'disconnected',
+        database: 'urbanflow',
+        host: 'mongodb://127.0.0.1:27017',
+        runsCount: 0,
+        pingLatencyMs: null,
+      });
+    }
+  }
+
+  /** Save current live simulation run snapshot into MongoDB */
+  public async saveCurrentRunToMongo(): Promise<{ ok: boolean; message: string; runId?: string }> {
+    try {
+      const runId = `run-${this.seed.get()}-${this.scenarioId.get()}-${Date.now().toString(36)}`;
+      const adaptive = this.kpiAdaptive.get();
+      const fixed = this.kpiFixed.get();
+      const safety = this.safetyStats.get();
+
+      const payload = {
+        runId,
+        seed: this.seed.get(),
+        scenarioId: this.scenarioId.get(),
+        config: {
+          laneDemandVph: this.laneDemands.get(),
+          modalSplit: this.modalSplit.get(),
+          speedLimitMps: this.speedLimitMps.get(),
+          emsDetectDistanceM: this.emsDetectDistanceM.get(),
+        },
+        startTime: new Date(Date.now() - Math.round(this.tSimS.get() * 1000)).toISOString(),
+        durationS: Math.round(this.tSimS.get()),
+        status: 'completed',
+        metricsSummary: {
+          avgDelayAdaptiveS: adaptive.avgDelayS,
+          avgDelayFixedS: fixed.avgDelayS,
+          losAdaptive: adaptive.los,
+          losFixed: fixed.los,
+          totalArrivals: adaptive.throughputVph ?? 0,
+          totalExited: adaptive.throughputVph ?? 0,
+          totalDenied: adaptive.deniedCount,
+          conflicts: safety.conflicts,
+          violationsPrevented: safety.violationsPrevented,
+        },
+      };
+
+      const res = await fetch('/api/db/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { ok: false, message: err.error?.message || `HTTP ${res.status}` };
+      }
+
+      await this.checkDbStatus();
+      return { ok: true, message: `Successfully saved run "${runId}" to MongoDB!`, runId };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : 'Network error' };
+    }
+  }
+
+  /** Query list of runs stored in MongoDB */
+  public async fetchMongoRuns(): Promise<any[]> {
+    try {
+      const res = await fetch('/api/db/runs?limit=20');
+      if (res.ok) {
+        const data = await res.json();
+        return data.runs || [];
+      }
+    } catch {}
+    return [];
   }
 }
 

@@ -24,6 +24,8 @@ const env = {
   META_API_BASE: process.env.META_API_BASE || 'https://api.meta.ai/v1',
   AI_DAILY_CAP: process.env.AI_DAILY_CAP || '1500',
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173',
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017',
+  MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || 'urbanflow',
 };
 
 const server = http.createServer(async (req, res) => {
