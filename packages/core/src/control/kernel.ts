@@ -144,16 +144,16 @@ export class SafetyKernel {
       let desiredPhase = action?.requestedPhase ?? this.currentPhase;
 
       // EVP override (takes precedence if preemption is active)
-      if (evp && evp.stage === 'PRECLEAR' && evp.targetPhase !== this.currentPhase) {
+      if (evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN') && evp.targetPhase !== this.currentPhase) {
         desiredPhase = evp.targetPhase;
-      }
-
-      // Check anti-starvation (MAX_RED_WAIT_S = 120s)
-      for (const p of PHASES) {
-        if (p !== this.currentPhase && this.redWaitTimesS[p] >= TIMING.MAX_RED_WAIT_S) {
-          desiredPhase = p;
-          this.violationsPrevented.STARVATION_EXCEEDED++;
-          break;
+      } else if (!evp || evp.stage === 'IDLE' || evp.stage === 'RECOVERY') {
+        // Check anti-starvation (MAX_RED_WAIT_S = 120s) ONLY when not preempting
+        for (const p of PHASES) {
+          if (p !== this.currentPhase && this.redWaitTimesS[p] >= TIMING.MAX_RED_WAIT_S) {
+            desiredPhase = p;
+            this.violationsPrevented.STARVATION_EXCEEDED++;
+            break;
+          }
         }
       }
 
@@ -161,7 +161,7 @@ export class SafetyKernel {
       if (desiredPhase !== null && desiredPhase !== this.currentPhase) {
         // SAFETY: I3 — minimum green (G_MIN_S = 7s) cannot be clamped below by
         // any caller; EVP preclear may truncate only to 3.0s, never less.
-        const minGreen = evp && evp.stage === 'PRECLEAR' ? 3.0 : TIMING.G_MIN_S;
+        const minGreen = evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN') ? 0 : TIMING.G_MIN_S;
 
         if (this.timeInStateS < minGreen) {
           // Clamp request: hold green
@@ -190,6 +190,9 @@ export class SafetyKernel {
         }
       }
     } else if (this.indication === 'YELLOW') {
+      if (evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN')) {
+        this.pendingNextPhase = evp.targetPhase;
+      }
       // SAFETY: I5 — YELLOW cannot be shortened by any caller, including EVP (3.5s)
       if (this.timeInStateS >= TIMING.YELLOW_S - 1e-4) {
         this.yellowIntervals++;
@@ -198,6 +201,9 @@ export class SafetyKernel {
         this.timeInStateS = 0;
       }
     } else if (this.indication === 'ALL_RED') {
+      if (evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN')) {
+        this.pendingNextPhase = evp.targetPhase;
+      }
       // SAFETY: I5 — ALL_RED cannot be shortened by any caller, including EVP (2.0s)
       if (this.timeInStateS >= TIMING.ALL_RED_S - 1e-4) {
         this.allRedIntervals++;

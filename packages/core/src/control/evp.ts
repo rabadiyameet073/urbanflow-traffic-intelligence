@@ -290,9 +290,12 @@ export class EvpManager {
         this.stageTimeS = 0;
       }
     } else if (this.stage === 'EMS_GREEN') {
-      // Vehicle passes stop line or exits box
-      const isPastStopLine = laneObs?.nearestEmsDistanceM === null;
-      if (isPastStopLine || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
+      if (laneObs?.nearestEmsDistanceM !== null && laneObs?.nearestEmsDistanceM !== undefined) {
+        ems.hasReachedStopLine = true;
+      }
+      // Vehicle passes stop line or exits box (minimum 4s green dwell to clear)
+      const isPastStopLine = ems.hasReachedStopLine && (laneObs?.nearestEmsDistanceM === null || laneObs?.nearestEmsDistanceM === undefined);
+      if ((isPastStopLine && this.stageTimeS >= 4.0) || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
         this.stage = 'RECOVERY';
         this.stageTimeS = 0;
       }

@@ -151,6 +151,19 @@ export class TwinWorld {
     this.metricsFixed.ingest(this.simFixed.drainEvents());
 
     const obsAdaptive = this.simAdaptive.observe();
+
+    // Emergency vehicle preemption logic: automatically trigger immediate preemption
+    // whenever an ambulance enters any approach lane (bypassing normal cycle).
+    if (this.evpAdaptive.getStatus() === null) {
+      for (const lane of LANES) {
+        const laneObs = obsAdaptive.lanes[lane];
+        if (laneObs && laneObs.nearestEmsDistanceM !== null && laneObs.nearestEmsDistanceM !== undefined) {
+          this.submitPreemption(lane, laneObs.nearestEmsDistanceM);
+          break;
+        }
+      }
+    }
+
     this.lastAction = this.ctrlAdaptive.decide(obsAdaptive);
     const directive = this.evpAdaptive.step(obsAdaptive, TIMING.SIM_DT_S);
     // The kernel gets the controller's own request plus the directive, unchanged:
@@ -265,11 +278,14 @@ export class TwinWorld {
   }
 
   /** Spawn + request, without logging. Shared by the live path and replay. */
-  private submitPreemption(lane: LaneId, targetDistanceM?: number): EvpDecisionResponse {
+  private submitPreemption(
+    lane: LaneId,
+    targetDistanceM?: number,
+    existingEmsId?: string,
+  ): EvpDecisionResponse {
     const simTimeS = this.simAdaptive.simTimeS;
-    // Spawned in both twins: the arrival must be identical on both sides or the
-    // comparison stops being a comparison (Module 25 §1, Module 31 §5).
-    const emsId = this.spawnEmsInternal(lane, targetDistanceM);
+    // If vehicle is already spawned in the twins, reuse its emsId rather than duplicating
+    const emsId = existingEmsId ?? this.spawnEmsInternal(lane, targetDistanceM);
     const laneObs = this.simAdaptive.observe().lanes[lane];
     const distanceM = Math.min(
       800,
