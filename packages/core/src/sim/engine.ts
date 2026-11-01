@@ -327,13 +327,18 @@ export class SimEngine {
     const stamp = Math.floor(this.simTimeS * 10);
     const emsIds: string[] = [];
 
+    const lastPos = simLane.count > 0 ? (simLane.pos[simLane.order[simLane.count - 1] as number] ?? 0) : 0;
+    const baseDist = distanceM !== undefined
+      ? distanceM
+      : Math.min(this.config.laneLengthM - 10, Math.max(45, lastPos + spacingM));
+
     for (let i = 0; i < count; i++) {
       // `pos` grows upstream, so member `i` sits *behind* member `i - 1`.
-      const pos = (distanceM ?? 0) + i * spacingM;
+      const pos = baseDist + i * spacingM;
       const emsId = isEms ? `ems-${lane}-${stamp}-${i}` : undefined;
       if (emsId) emsIds.push(emsId);
 
-      const insideLane = distanceM !== undefined && pos <= this.config.laneLengthM;
+      const insideLane = pos <= this.config.laneLengthM;
 
       if (insideLane) {
         const slot = simLane.insertOrdered(

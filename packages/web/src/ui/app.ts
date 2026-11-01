@@ -246,11 +246,28 @@ function buildTwinCard(opts: {
   ]);
 }
 
-function buildTrafficLabPanel(): HTMLElement {
-  // The selected approach lives in the store, not here: the canvas click and the
-  // arrow keys select the same target the panel shows (Module 31 §4).
+function buildTestControlsPanel(): HTMLElement {
   let selectedLane: LaneId = store.selectedLane.get();
   let selectedVehicle: VehicleType = 'AMBULANCE';
+
+  const feedbackText = h('span', {
+    class: 'test-feedback-msg',
+    attrs: { id: 'test-feedback-msg' },
+    text: 'Ready for live vehicle injection and traffic volume experiments.',
+  });
+
+  // --- 1. Lane Selection Chips ---
+  const laneChips: HTMLButtonElement[] = [];
+  const updateLaneChips = (activeLane: LaneId): void => {
+    selectedLane = activeLane;
+    store.selectLane(activeLane);
+    laneChips.forEach((btn) => {
+      const isSelected = btn.getAttribute('data-lane') === activeLane;
+      btn.classList.toggle('active', isSelected);
+      btn.setAttribute('aria-pressed', String(isSelected));
+    });
+    if (laneSelect.value !== activeLane) laneSelect.value = activeLane;
+  };
 
   const laneOptions = LANES.map((lane) =>
     h('option', { attrs: { value: lane }, text: `${lane} · ${LANE_DISPLAY_NAME[lane]}` }),
@@ -258,32 +275,48 @@ function buildTrafficLabPanel(): HTMLElement {
   const laneSelect = h(
     'select',
     {
-      class: 'form-select traffic-lab-select',
-      attrs: { id: 'traffic-lab-lane', 'aria-label': 'Select Approach Lane' },
+      class: 'form-select test-lane-select',
+      attrs: { id: 'test-controls-lane', 'aria-label': 'Select Approach Lane' },
       on: {
         change: (e) => {
-          selectedLane = (e.target as HTMLSelectElement).value as LaneId;
-          updateLabDemandUI();
+          updateLaneChips((e.target as HTMLSelectElement).value as LaneId);
         },
       },
     },
     laneOptions,
-  );
+  ) as HTMLSelectElement;
 
+  LANES.forEach((lane) => {
+    const chip = h(
+      'button',
+      {
+        class: `test-lane-chip ${lane === selectedLane ? 'active' : ''}`,
+        attrs: { type: 'button', 'data-lane': lane, 'aria-pressed': String(lane === selectedLane) },
+        on: {
+          click: () => updateLaneChips(lane),
+        },
+      },
+      [h('span', { class: 'chip-id', text: lane })],
+    ) as HTMLButtonElement;
+    laneChips.push(chip);
+  });
+
+  // --- 2. Vehicle Type Selection ---
   const vehicleOptions = [
-    { type: 'AMBULANCE' as const, label: '🚑 Ambulance (EVP Priority)' },
-    { type: 'CAR' as const, label: '🚗 Passenger Car' },
+    { type: 'AMBULANCE' as const, label: '🚑 Ambulance (EVP Preemption)' },
+    { type: 'CAR' as const, label: '🚗 Passenger Car (IDM Kinematics)' },
     { type: 'BUS' as const, label: '🚌 Transit Bus (High Occupancy)' },
     { type: 'TRUCK' as const, label: '🚚 Freight Truck (Heavy Load)' },
-    { type: 'BIKE' as const, label: '🏍️ Motorcycle / Bike' },
+    { type: 'BIKE' as const, label: '🏍️ Motorcycle / Bike (Filtering)' },
   ].map((v) =>
     h('option', { attrs: { value: v.type }, text: v.label }),
   );
+
   const vehicleSelect = h(
     'select',
     {
-      class: 'form-select traffic-lab-select',
-      attrs: { id: 'traffic-lab-vehicle', 'aria-label': 'Select Vehicle Type' },
+      class: 'form-select test-vehicle-select',
+      attrs: { id: 'test-controls-vehicle', 'aria-label': 'Select Vehicle Type' },
       on: {
         change: (e) => {
           selectedVehicle = (e.target as HTMLSelectElement).value as VehicleType;
@@ -293,139 +326,431 @@ function buildTrafficLabPanel(): HTMLElement {
     vehicleOptions,
   );
 
-  const feedbackText = h('span', {
-    class: 'traffic-lab-feedback',
-    attrs: { id: 'traffic-lab-feedback-msg' },
-    text: 'Select approach and vehicle to inject live.',
-  });
+  // --- 3. Quantity Selector ---
+  const countSelect = h(
+    'select',
+    {
+      class: 'form-select test-count-select',
+      attrs: { id: 'test-controls-count', 'aria-label': 'Number of vehicles' },
+    },
+    [
+      { n: 1, label: '1 Vehicle (Single)' },
+      { n: 3, label: '3 Vehicles (Pack)' },
+      { n: 5, label: '5 Vehicles (Traffic Surge)' },
+      { n: 10, label: '10 Vehicles (Congestion)' },
+    ].map((item) =>
+      h('option', { attrs: { value: String(item.n) }, text: item.label }),
+    ),
+  ) as HTMLSelectElement;
 
-  const spawnBtn = h(
+  const getCount = (): number => Number(countSelect.value) || 1;
+
+  // --- 4. Spawn Buttons ---
+  const spawnVisibleBtn = h(
     'button',
     {
       class: 'btn btn-primary',
-      attrs: { id: 'btn-traffic-lab-spawn', type: 'button' },
+      attrs: { id: 'btn-test-spawn-visible', type: 'button' },
       on: {
         click: () => {
-          store.spawnVehicle(selectedLane, selectedVehicle);
-          feedbackText.textContent =
-            selectedVehicle === 'AMBULANCE'
-              ? `🚑 Dispatched Ambulance on ${selectedLane} (EVP Preemption Triggered)`
-              : `✨ Injected ${selectedVehicle} into ${selectedLane}`;
+          const count = getCount();
+          if (selectedVehicle === 'AMBULANCE') {
+            void store.requestPreemption(selectedLane);
+            feedbackText.textContent = `🚑 Emergency Ambulance dispatched on ${selectedLane} (EVP Preemption Active)`;
+          } else {
+            store.spawnVehicle(selectedLane, selectedVehicle, count, 45);
+            feedbackText.textContent = `✨ Injected ${count} × ${selectedVehicle} into ${selectedLane} at 45m upstream`;
+          }
         },
       },
     },
-    ['+ Spawn Vehicle'],
+    ['⚡ Spawn in Approach (Visible 45m)'],
   );
 
-  const surgeBtn = h(
+  const spawnEntryBtn = h(
     'button',
     {
       class: 'btn btn-secondary',
-      attrs: { id: 'btn-traffic-lab-surge', type: 'button' },
+      attrs: { id: 'btn-test-spawn-entry', type: 'button' },
       on: {
         click: () => {
-          store.injectBurst(selectedLane, 5, selectedVehicle);
-          feedbackText.textContent = `⚡ Injected 5 × ${selectedVehicle} surge into ${selectedLane}`;
+          const count = getCount();
+          if (selectedVehicle === 'AMBULANCE') {
+            void store.requestPreemption(selectedLane);
+            feedbackText.textContent = `🚑 Ambulance preemption requested on ${selectedLane}`;
+          } else {
+            store.spawnVehicle(selectedLane, selectedVehicle, count, 300);
+            feedbackText.textContent = `📍 Queued ${count} × ${selectedVehicle} at ${selectedLane} 300m entry gate`;
+          }
         },
       },
     },
-    ['⚡ +5 Traffic Surge'],
+    ['📍 Spawn at Entry Gate (300m)'],
   );
 
-  const demandValue = h('span', {
-    class: 'badge badge-mono',
-    attrs: { id: 'traffic-lab-demand-val' },
-    text: '450 veh/h',
-  });
-
-  const slider = h('input', {
-    class: 'traffic-lab-slider',
-    attrs: {
-      type: 'range',
-      min: '0',
-      max: '1800',
-      step: '50',
-      value: '450',
-      id: 'traffic-lab-slider',
-      'aria-label': 'Lane demand flow rate in vehicles per hour',
-    },
-    on: {
-      input: (e) => {
-        const val = Number((e.target as HTMLInputElement).value);
-        store.setLaneDemand(selectedLane, val);
-        demandValue.textContent = `${val} veh/h`;
-        feedbackText.textContent = `Updated ${selectedLane} rate to ${val} veh/h`;
+  const emergencyPreemptBtn = h(
+    'button',
+    {
+      class: 'btn btn-danger',
+      attrs: { id: 'btn-test-ems-preempt', type: 'button' },
+      on: {
+        click: () => {
+          void store.requestPreemption(selectedLane);
+          feedbackText.textContent = `🚨 Emergency Preemption triggered on ${selectedLane}! Clearing signals to Green.`;
+        },
       },
     },
-  }) as HTMLInputElement;
+    ['🚨 Emergency Preemption Test'],
+  );
 
-  function updateLabDemandUI(): void {
-    const d = store.laneDemands.get()[selectedLane] ?? 450;
-    slider.value = String(d);
-    demandValue.textContent = `${d} veh/h`;
-  }
+  // --- 5. 8-Lane Traffic Density Matrix (Sliders for each lane!) ---
+  const sliderMap = new Map<LaneId, HTMLInputElement>();
+  const demandBadgeMap = new Map<LaneId, HTMLElement>();
+  const queueLabelMap = new Map<LaneId, HTMLElement>();
+  const signalPillMap = new Map<LaneId, HTMLElement>();
 
-  const presets = [
-    { label: '🚫 0 (Stop)', vph: 0 },
-    { label: '🟢 300 (Light)', vph: 300 },
-    { label: '🟡 600 (Normal)', vph: 600 },
-    { label: '🟠 1,000 (Heavy)', vph: 1000 },
-    { label: '🔴 1,500 (Gridlock)', vph: 1500 },
-  ].map((p) =>
-    h(
+  const buildLaneRow = (lane: LaneId): HTMLElement => {
+    const currentDemand = store.laneDemands.get()[lane] ?? 450;
+    const badge = h('span', { class: 'badge badge-mono lane-density-badge', text: `${currentDemand} veh/h` });
+    demandBadgeMap.set(lane, badge);
+
+    const slider = h('input', {
+      class: 'test-density-slider',
+      attrs: {
+        type: 'range',
+        min: '0',
+        max: '1800',
+        step: '25',
+        value: String(currentDemand),
+        'aria-label': `Traffic demand for ${lane} in vehicles per hour`,
+      },
+      on: {
+        input: (e) => {
+          const val = Number((e.target as HTMLInputElement).value);
+          store.setLaneDemand(lane, val);
+          badge.textContent = `${val} veh/h`;
+          feedbackText.textContent = `Updated ${lane} flow demand to ${val} veh/h`;
+        },
+      },
+    }) as HTMLInputElement;
+    sliderMap.set(lane, slider);
+
+    const decBtn = h(
       'button',
       {
-        class: 'btn btn-secondary btn-sm',
-        attrs: { type: 'button' },
+        class: 'btn btn-secondary btn-xs',
+        attrs: { type: 'button', 'aria-label': `Decrease demand for ${lane}` },
         on: {
           click: () => {
-            store.setLaneDemand(selectedLane, p.vph);
-            slider.value = String(p.vph);
-            demandValue.textContent = `${p.vph} veh/h`;
-            feedbackText.textContent = `Updated ${selectedLane} rate to ${p.vph} veh/h (${p.label})`;
+            const cur = store.laneDemands.get()[lane] ?? 450;
+            const next = Math.max(0, cur - 100);
+            store.setLaneDemand(lane, next);
+            slider.value = String(next);
+            badge.textContent = `${next} veh/h`;
           },
         },
       },
-      [p.label],
+      ['−100'],
+    );
+
+    const incBtn = h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-xs',
+        attrs: { type: 'button', 'aria-label': `Increase demand for ${lane}` },
+        on: {
+          click: () => {
+            const cur = store.laneDemands.get()[lane] ?? 450;
+            const next = Math.min(1800, cur + 100);
+            store.setLaneDemand(lane, next);
+            slider.value = String(next);
+            badge.textContent = `${next} veh/h`;
+          },
+        },
+      },
+      ['+100'],
+    );
+
+    const signalPill = h('span', {
+      class: 'test-signal-pill stop',
+      text: 'RED',
+    });
+    signalPillMap.set(lane, signalPill);
+
+    const queueLabel = h('span', {
+      class: 'test-queue-label mono',
+      text: '0m (0 stopped)',
+    });
+    queueLabelMap.set(lane, queueLabel);
+
+    return h('div', { class: 'density-lane-item' }, [
+      h('div', { class: 'density-lane-top' }, [
+        h('div', { class: 'density-lane-info' }, [
+          h('span', { class: 'density-lane-name', text: `${lane}` }),
+          h('span', { class: 'density-lane-desc', text: LANE_DISPLAY_NAME[lane] }),
+          signalPill,
+        ]),
+        h('div', { class: 'density-lane-meta' }, [
+          queueLabel,
+          badge,
+        ]),
+      ]),
+      h('div', { class: 'density-lane-controls' }, [
+        decBtn,
+        slider,
+        incBtn,
+      ]),
+    ]);
+  };
+
+  const nsLanes: LaneId[] = ['NB-TR', 'NB-L', 'SB-TR', 'SB-L'];
+  const ewLanes: LaneId[] = ['EB-TR', 'EB-L', 'WB-TR', 'WB-L'];
+
+  const nsGroup = h('div', { class: 'density-group' }, [
+    h('div', { class: 'density-group-header' }, [
+      h('span', { class: 'density-group-title', text: '↕ North-South Arterial' }),
+      h('span', { class: 'density-group-sub', text: 'Primary 2-phase through & protected lefts' }),
+    ]),
+    h('div', { class: 'density-group-lanes' }, nsLanes.map(buildLaneRow)),
+  ]);
+
+  const ewGroup = h('div', { class: 'density-group' }, [
+    h('div', { class: 'density-group-header' }, [
+      h('span', { class: 'density-group-title', text: '↔ East-West Cross Street' }),
+      h('span', { class: 'density-group-sub', text: 'Cross-arterial through & protected lefts' }),
+    ]),
+    h('div', { class: 'density-group-lanes' }, ewLanes.map(buildLaneRow)),
+  ]);
+
+  // Update telemetry for 8 lanes when store publishes observation/demands
+  const updateMatrixTelemetry = (): void => {
+    const demands = store.laneDemands.get();
+    const observed = store.observation.get();
+    const stopped = store.waiting.get();
+    const signal = store.signalAdaptive.get();
+
+    LANES.forEach((lane, index) => {
+      // Demand slider & badge
+      const vph = demands[lane] ?? 450;
+      const s = sliderMap.get(lane);
+      if (s && s.value !== String(vph)) s.value = String(vph);
+      const b = demandBadgeMap.get(lane);
+      if (b) b.textContent = `${vph} veh/h`;
+
+      // Live Queue meters & stopped vehicles
+      if (observed) {
+        const laneObs = observed.lanes[lane];
+        const qM = laneObs ? Math.round(laneObs.queueLengthM) : 0;
+        const count = stopped[index] ?? 0;
+        const qLabel = queueLabelMap.get(lane);
+        if (qLabel) {
+          qLabel.textContent = `${qM}m (${count} veh)`;
+          qLabel.className = `test-queue-label mono ${qM > 35 ? 'heavy' : qM > 15 ? 'moderate' : 'light'}`;
+        }
+      }
+
+      // Signal indication pill
+      if (signal) {
+        const ind = signal.lanes[lane];
+        const sPill = signalPillMap.get(lane);
+        if (sPill) {
+          sPill.textContent = ind === 'G' ? 'GREEN' : ind === 'Y' ? 'YELLOW' : 'RED';
+          sPill.className = `test-signal-pill ${ind === 'G' ? 'go' : ind === 'Y' ? 'clear' : 'stop'}`;
+        }
+      }
+    });
+  };
+
+  store.observation.subscribe(() => updateMatrixTelemetry());
+  store.laneDemands.subscribe(() => updateMatrixTelemetry());
+
+  // --- 6. Scenario Stress Experiments ---
+  const experimentPresets = [
+    {
+      id: 'stress-rush-hour',
+      title: '🌊 Peak Rush Hour (1,400 veh/h)',
+      desc: 'Heavy demand on all approaches tests throughput & queue handling',
+      action: () => {
+        store.applyExperimentPreset('RUSH_HOUR');
+        feedbackText.textContent = '🚀 Applied Peak Rush Hour: All approach demands scaled to 1,200–1,400 veh/h.';
+      },
+    },
+    {
+      id: 'stress-asymmetric',
+      title: '⚖️ Commute Tide (NS 1,500 / EW 200)',
+      desc: 'Severe directional imbalance demonstrates Adaptive green wave allocation',
+      action: () => {
+        store.applyExperimentPreset('ASYMMETRIC_TIDE');
+        feedbackText.textContent = '⚖️ Applied Asymmetric Commute Tide: North-South arterial heavily prioritized.';
+      },
+    },
+    {
+      id: 'stress-stadium',
+      title: '🏟️ Stadium Dump (EB 1,600 veh/h)',
+      desc: 'Extreme outflow surge on Eastbound corridor',
+      action: () => {
+        store.applyExperimentPreset('STADIUM_SURGE');
+        feedbackText.textContent = '🏟️ Applied Stadium Outflow Surge: Eastbound approach surged to 1,600 veh/h.';
+      },
+    },
+    {
+      id: 'stress-ems-gridlock',
+      title: '🚨 High Demand + Ambulance Preemption',
+      desc: 'Simultaneous 1,200 veh/h congestion with immediate Ambulance dispatch on NB-TR',
+      action: () => {
+        store.applyExperimentPreset('RUSH_HOUR');
+        setTimeout(() => {
+          void store.requestPreemption('NB-TR');
+        }, 150);
+        feedbackText.textContent = '🚨 Triggered High Demand + Ambulance Preemption stress test on NB-TR!';
+      },
+    },
+    {
+      id: 'stress-night',
+      title: '🌙 Night Off-Peak (150 veh/h)',
+      desc: 'Sparse demand showing zero wasted green time on empty approaches',
+      action: () => {
+        store.applyExperimentPreset('LIGHT_NIGHT');
+        feedbackText.textContent = '🌙 Applied Night Off-Peak Flow: Demands reduced to 100–150 veh/h.';
+      },
+    },
+  ];
+
+  const experimentCards = experimentPresets.map((exp) =>
+    h(
+      'button',
+      {
+        class: 'test-experiment-card',
+        attrs: { type: 'button', id: exp.id },
+        on: { click: exp.action },
+      },
+      [
+        h('span', { class: 'experiment-title', text: exp.title }),
+        h('span', { class: 'experiment-desc', text: exp.desc }),
+      ],
     ),
   );
 
-  store.laneDemands.subscribe(() => {
-    updateLabDemandUI();
+  // --- 7. Reset & Revert Actions ---
+  const resetDemandsBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-test-reset-demands', type: 'button' },
+      on: {
+        click: () => {
+          store.resetDemandsToScenario();
+          feedbackText.textContent = '🔄 Reset all approach demands back to current scenario defaults.';
+        },
+      },
+    },
+    ['🔄 Reset Demands to Scenario Defaults'],
+  );
+
+  const clearPreemptBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-test-clear-preempt', type: 'button' },
+      on: {
+        click: () => {
+          store.cancelPreemption();
+          feedbackText.textContent = '🧹 Active preemption cancelled; normal adaptive control resumed.';
+        },
+      },
+    },
+    ['🧹 Cancel Active Preemption'],
+  );
+
+  const restartSimBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-test-restart-sim', type: 'button' },
+      on: {
+        click: () => {
+          store.resetScenario(store.scenarioId.get(), store.seed.get());
+          feedbackText.textContent = '🔁 Simulation reinitialized from seed start (t = 0s).';
+        },
+      },
+    },
+    ['🔁 Restart Simulation (Seed Start)'],
+  );
+
+  // Listen for external lane selections (e.g. keyboard navigation or canvas click)
+  store.selectedLane.subscribe((lane) => {
+    updateLaneChips(lane);
   });
 
-  return h('section', { class: 'panel-card traffic-lab-panel', label: 'Interactive Traffic Injection Lab' }, [
-    h('div', { class: 'panel-title' }, [
-      h('div', { class: 'traffic-lab-title-group' }, [
-        h('span', { class: 'traffic-lab-heading', text: '🎮 Interactive Traffic & Vehicle Control Lab' }),
-        h('span', { class: 'traffic-lab-sub', text: 'Select any approach to inject vehicles, trigger emergency preemption, or adjust live lane flow rates (0–1800 veh/h)' }),
+  return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
+    // Panel Header
+    h('div', { class: 'panel-title test-panel-header' }, [
+      h('div', { class: 'test-title-group' }, [
+        h('div', { class: 'test-badge-row' }, [
+          h('span', { class: 'badge badge-safety', text: 'LIVE TEST CONTROLS' }),
+          h('span', { class: 'badge badge-ai', text: 'REAL-TIME KINEMATICS' }),
+        ]),
+        h('h2', { class: 'test-heading', text: '🧪 Interactive Simulation Testing & Traffic Control Lab' }),
+        h('p', { class: 'test-sub', text: 'Select any approach lane, manually spawn vehicles (Ambulance, Car, Bus, Truck, Bike), dynamically adjust all 8 approach densities (0–1800 veh/h) without restart, and run emergency preemption stress tests.' }),
       ]),
       feedbackText,
     ]),
-    h('div', { class: 'traffic-lab-controls' }, [
-      h('div', { class: 'traffic-lab-field' }, [
-        h('label', { class: 'traffic-lab-label', text: 'Target Approach / Lane:' }),
-        laneSelect,
+
+    // Section 1: Vehicle Spawner Controls
+    h('div', { class: 'test-section test-spawner-section' }, [
+      h('div', { class: 'test-section-title' }, [
+        h('span', { class: 'test-section-num', text: '1' }),
+        h('span', { text: 'Vehicle Spawning Controls (Select Lane & Class)' }),
       ]),
-      h('div', { class: 'traffic-lab-field' }, [
-        h('label', { class: 'traffic-lab-label', text: 'Vehicle Class to Spawn:' }),
-        vehicleSelect,
+      h('div', { class: 'test-lane-chips-wrapper' }, [
+        h('span', { class: 'test-field-label', text: 'Target Approach Lane (Click chip or select):' }),
+        h('div', { class: 'test-lane-chips' }, laneChips),
       ]),
-      h('div', { class: 'traffic-lab-field traffic-lab-actions' }, [
-        h('label', { class: 'traffic-lab-label', text: 'Live Injections:' }),
-        h('div', { class: 'btn-group' }, [spawnBtn, surgeBtn]),
+      h('div', { class: 'test-spawner-form' }, [
+        h('div', { class: 'test-field' }, [
+          h('label', { class: 'test-field-label', text: 'Approach Dropdown:' }),
+          laneSelect,
+        ]),
+        h('div', { class: 'test-field' }, [
+          h('label', { class: 'test-field-label', text: 'Vehicle Class:' }),
+          vehicleSelect,
+        ]),
+        h('div', { class: 'test-field' }, [
+          h('label', { class: 'test-field-label', text: 'Injection Quantity:' }),
+          countSelect,
+        ]),
+        h('div', { class: 'test-field test-field-actions' }, [
+          h('label', { class: 'test-field-label', text: 'Dispatch Action:' }),
+          h('div', { class: 'btn-group' }, [spawnVisibleBtn, spawnEntryBtn, emergencyPreemptBtn]),
+        ]),
       ]),
     ]),
-    h('div', { class: 'traffic-lab-slider-row' }, [
-      h('div', { class: 'traffic-lab-slider-header' }, [
-        h('span', { class: 'traffic-lab-label', text: 'Approach Demand Flow Rate (VPH):' }),
-        demandValue,
+
+    // Section 2: 8-Lane Real-Time Traffic Density Matrix (Sliders for Each Lane!)
+    h('div', { class: 'test-section test-density-section' }, [
+      h('div', { class: 'test-section-title' }, [
+        h('span', { class: 'test-section-num', text: '2' }),
+        h('span', { text: 'Traffic Density & Demand Adjustments (Per-Lane Volume Sliders 0–1,800 veh/h)' }),
       ]),
-      slider,
-      h('div', { class: 'traffic-lab-presets' }, [
-        h('span', { class: 'traffic-lab-preset-label', text: 'Flow Presets:' }),
-        ...presets,
+      h('div', { class: 'density-matrix-grid' }, [nsGroup, ewGroup]),
+    ]),
+
+    // Section 3: Scenario Stress Experiments
+    h('div', { class: 'test-section test-experiments-section' }, [
+      h('div', { class: 'test-section-title' }, [
+        h('span', { class: 'test-section-num', text: '3' }),
+        h('span', { text: 'Scenario Stress Experiments (Instant Load Presets)' }),
       ]),
+      h('div', { class: 'test-experiments-grid' }, experimentCards),
+    ]),
+
+    // Section 4: Reset & Revert Actions
+    h('div', { class: 'test-section test-reset-section' }, [
+      h('div', { class: 'test-section-title' }, [
+        h('span', { class: 'test-section-num', text: '4' }),
+        h('span', { text: 'Reset & Revert Controls' }),
+      ]),
+      h('div', { class: 'test-reset-actions' }, [resetDemandsBtn, clearPreemptBtn, restartSimBtn]),
     ]),
   ]);
 }
@@ -1096,7 +1421,7 @@ export function renderApp(root: HTMLElement): {
     liveStatus,
     buildHeader(),
     twins,
-    buildTrafficLabPanel(),
+    buildTestControlsPanel(),
     buildLaneTable(),
     buildKeyboardDialog(),
     buildKpiGrid(refs),

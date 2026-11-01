@@ -453,6 +453,53 @@ export class AppStore {
     this.client.setLaneDemand(lane, clamped);
   }
 
+  /** Reset all 8 lane demands back to active scenario defaults */
+  public resetDemandsToScenario(): void {
+    const scenario = this.scenarios().find((s) => s.id === this.scenarioId.get()) ?? this.scenarios()[0]!;
+    const cfg = scenario.buildConfig(this.seed.get());
+    const defaults = { ...DEFAULT_SIM_CONFIG.laneDemandVph, ...(cfg.laneDemandVph ?? {}) };
+    for (const lane of LANES) {
+      const vph = defaults[lane] ?? 450;
+      this.setLaneDemand(lane, vph);
+    }
+  }
+
+  /** Apply a stress test preset across approaches */
+  public applyExperimentPreset(preset: 'RUSH_HOUR' | 'ASYMMETRIC_TIDE' | 'STADIUM_SURGE' | 'LIGHT_NIGHT'): void {
+    const plans: Record<string, Record<LaneId, number>> = {
+      RUSH_HOUR: {
+        'NB-TR': 1400, 'NB-L': 350,
+        'SB-TR': 1400, 'SB-L': 350,
+        'EB-TR': 1200, 'EB-L': 300,
+        'WB-TR': 1200, 'WB-L': 300,
+      },
+      ASYMMETRIC_TIDE: {
+        'NB-TR': 1500, 'NB-L': 400,
+        'SB-TR': 250,  'SB-L': 80,
+        'EB-TR': 300,  'EB-L': 100,
+        'WB-TR': 200,  'WB-L': 60,
+      },
+      STADIUM_SURGE: {
+        'NB-TR': 300,  'NB-L': 100,
+        'SB-TR': 300,  'SB-L': 100,
+        'EB-TR': 1600, 'EB-L': 450,
+        'WB-TR': 350,  'WB-L': 120,
+      },
+      LIGHT_NIGHT: {
+        'NB-TR': 150,  'NB-L': 40,
+        'SB-TR': 150,  'SB-L': 40,
+        'EB-TR': 100,  'EB-L': 30,
+        'WB-TR': 100,  'WB-L': 30,
+      },
+    };
+    const target = plans[preset];
+    if (target) {
+      for (const lane of LANES) {
+        this.setLaneDemand(lane, target[lane] ?? 450);
+      }
+    }
+  }
+
   /**
    * Inject `count` vehicles of one class into one approach (Module 31 §4).
    *
