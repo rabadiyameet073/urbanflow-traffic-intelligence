@@ -15,6 +15,13 @@
 
 /* Header */
 .app-header {
+  /*
+   * Module 40 §4: a calm, elevated control bar. No `backdrop-filter` — §2.5
+   * restricts blur to the active dialog, so the header uses a solid surface
+   * token plus a soft elevation shadow instead. Kept in normal flow (not
+   * `position: sticky`): `overflow-x: hidden` on `html, body` makes a sticky
+   * element's containing block a scroll container, so it would not pin reliably.
+   */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -24,6 +31,7 @@
   background-color: var(--color-surface);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .brand-section {
@@ -33,9 +41,9 @@
 }
 
 .brand-title {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--color-text);
 }
 
@@ -63,21 +71,21 @@
 }
 
 .badge-mode {
-  background: rgba(255, 138, 76, 0.15);
+  background: color-mix(in srgb, var(--color-stop) 15%, transparent);
   color: var(--color-stop);
-  border-color: rgba(255, 138, 76, 0.3);
+  border-color: color-mix(in srgb, var(--color-stop) 30%, transparent);
 }
 
 .badge-safety {
-  background: rgba(47, 212, 160, 0.15);
+  background: color-mix(in srgb, var(--color-go) 15%, transparent);
   color: var(--color-go);
-  border-color: rgba(47, 212, 160, 0.3);
+  border-color: color-mix(in srgb, var(--color-go) 30%, transparent);
 }
 
 .badge-ai {
-  background: rgba(86, 180, 233, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-accent);
-  border-color: rgba(86, 180, 233, 0.3);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .chip-delta {
@@ -91,17 +99,17 @@
 }
 
 .chip-delta.good {
-  background: rgba(47, 212, 160, 0.2);
+  background: color-mix(in srgb, var(--color-go) 20%, transparent);
   color: var(--color-go);
 }
 
 .chip-delta.neutral {
-  background: rgba(169, 182, 198, 0.2);
+  background: color-mix(in srgb, var(--color-text-2) 20%, transparent);
   color: var(--color-text-2);
 }
 
 .chip-delta.bad {
-  background: rgba(255, 138, 76, 0.2);
+  background: color-mix(in srgb, var(--color-stop) 20%, transparent);
   color: var(--color-stop);
 }
 
@@ -111,47 +119,75 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
-  font-weight: 500;
+  padding: 8px 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   border-radius: var(--radius-md);
   transition: background-color var(--dur-fast) var(--ease-out-quint),
               border-color var(--dur-fast) var(--ease-out-quint),
+              box-shadow var(--dur-fast) var(--ease-out-quint),
               transform 80ms linear;
+}
+
+/* Icon-only control (pause/play): a square hit area, no text label. */
+.btn-icon {
+  padding: 8px 10px;
 }
 
 .btn:active {
   transform: scale(0.98);
 }
 
+/*
+ * Module 40 §5.1: disabled is a required state. Contrast is kept via tokens
+ * (`--color-text-3` on `--color-surface-elevated` passes AA per `contrast.py`),
+ * not by `opacity`, so the label stays legible (≥ 3:1) as §5.1 demands. The
+ * press/hover affordances are removed and `aria-disabled` is set in JS with a
+ * tooltip explaining why.
+ */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--color-text-3);
+  background-color: var(--color-surface-elevated);
+  border-color: var(--color-hairline);
+  filter: none;
+  transform: none;
+}
+
 .btn-primary {
   background-color: var(--color-accent);
-  color: #0B0F14;
+  color: var(--color-canvas);
   font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.06);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-secondary {
   background-color: var(--color-surface-elevated);
   border: 1px solid var(--color-border-strong);
   color: var(--color-text);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:hover {
   background-color: var(--color-surface);
   border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-danger {
-  background-color: rgba(255, 138, 76, 0.2);
+  background-color: color-mix(in srgb, var(--color-stop) 20%, transparent);
   border: 1px solid var(--color-stop);
   color: var(--color-stop);
 }
 
 .btn-danger:hover {
-  background-color: rgba(255, 138, 76, 0.3);
+  background-color: color-mix(in srgb, var(--color-stop) 30%, transparent);
 }
 
 /* Twin Grid */
@@ -175,6 +211,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  box-shadow: var(--shadow-sm);
 }
 
 .twin-header {
@@ -192,10 +229,16 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  background-color: #070A0E;
+  background-color: var(--color-canvas);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-sm);
   overflow: hidden;
+}
+
+/* Module 20 §5: denied-entry overflow warning; paired with a ⚠ glyph in JS. */
+.kpi-warn {
+  color: var(--color-stop);
+  font-weight: 600;
 }
 
 .canvas-viewport canvas {
@@ -211,6 +254,16 @@
   gap: var(--space-3);
 }
 
+/* Module 41 §1.2: single-run honesty caption spans the full grid, above tiles. */
+.kpi-disclaimer {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-3);
+  border-left: 2px solid var(--color-border-strong);
+  padding-left: var(--space-2);
+}
+
 .stat-tile {
   background-color: var(--color-surface);
   border: 1px solid var(--color-hairline);
@@ -219,6 +272,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-label {
@@ -268,6 +322,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-title {
@@ -301,8 +356,16 @@
 
 .pressure-fill {
   height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  /*
+   * Module 42 §1 rule 1 / §4: the bar animates with `transform: scaleX`, never
+   * `width` (width is a layout property; animating it fights the compositor and
+   * the 60 FPS canvas budget). The JS sets `--bar-scale` as a 0–1 fraction.
+   */
+  transform: scaleX(var(--bar-scale, 0));
   background: var(--color-accent);
-  transition: width 150ms var(--ease-out-quint);
+  transition: transform 150ms var(--ease-out-quint);
 }
 
 .pressure-fill.active {
@@ -346,9 +409,9 @@
 }
 
 .banner-warning {
-  background: rgba(240, 228, 66, 0.15);
+  background: color-mix(in srgb, var(--color-caution) 15%, transparent);
   color: var(--color-caution);
-  border: 1px solid rgba(240, 228, 66, 0.3);
+  border: 1px solid color-mix(in srgb, var(--color-caution) 30%, transparent);
 }
 
 /* Gantt Ribbon */
@@ -363,7 +426,34 @@
 
 .timeline-segment {
   height: 100%;
-  transition: width 150ms linear;
+  /*
+   * Module 42 §1 rule 1: `width` is never animated (it is a layout property).
+   * Gantt segments update instantly, which also satisfies Module 41 §3's rule
+   * against animated transitions on data changes. No `transition` here on
+   * purpose.
+   */
+}
+
+/*
+ * Module 41 §2: the LOS grade is never carried by colour alone. The letter is
+ * rendered as text by `losLabel`, colour by `badge-safety` (A/B), and this
+ * outline pattern runs from a solid edge at A to a hatched fill at F so the
+ * grade survives greyscale, colour-blindness and forced-colours.
+ */
+.badge[data-los="A"] { border-style: solid; }
+.badge[data-los="B"] { border-style: solid; border-width: 2px; }
+.badge[data-los="C"] { border-style: dashed; }
+.badge[data-los="D"] { border-style: dotted; }
+.badge[data-los="E"] { border-style: dotted; border-width: 2px; }
+.badge[data-los="F"] {
+  border-style: solid;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    color-mix(in srgb, var(--color-stop) 25%, transparent) 2px,
+    color-mix(in srgb, var(--color-stop) 25%, transparent) 4px
+  );
 }
 
 /* Accessibility Utilities (Module 32) */
@@ -404,7 +494,7 @@
 }
 
 .lane-data-table th {
-  color: var(--color-text-secondary);
+  color: var(--color-text-2);
   font-weight: 600;
 }
 
@@ -421,6 +511,354 @@ dialog {
 }
 
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--color-scrim);
   backdrop-filter: blur(4px);
+}
+
+/* ---- Panels, controls and audit surfaces (Modules 40-43) ---- */
+
+.btn-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.twin-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modal-title {
+  margin-block-start: 0;
+  font-size: 1rem;
+}
+
+.kbd-list {
+  line-height: 1.8;
+  padding-inline-start: var(--space-5);
+}
+
+.kbd-key {
+  font-family: var(--font-mono);
+  background: var(--color-surface-elevated);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.explain-text {
+  color: var(--color-text-2);
+  font-size: 13px;
+}
+
+.panel-body {
+  background: var(--color-surface-elevated);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-hairline);
+}
+
+.panel-kicker {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-accent);
+  margin-block-end: var(--space-1);
+}
+
+.panel-copy {
+  font-size: 12px;
+  color: var(--color-text-2);
+  margin-block-end: var(--space-2);
+}
+
+.panel-note {
+  font-size: 11px;
+  color: var(--color-text-3);
+}
+
+.panel-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.evidence-list {
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  font-size: 12px;
+  color: var(--color-text-2);
+}
+
+.evp-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 13px;
+  margin: 0;
+  padding: 0;
+}
+
+.evp-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-3);
+}
+
+.evp-step-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.evp-step.done {
+  color: var(--color-go);
+}
+
+.audit-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  font-size: 12px;
+  margin: 0;
+}
+
+.audit-grid dt {
+  color: var(--color-text-2);
+}
+
+.audit-grid dd {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.assumptions {
+  font-size: 12px;
+  color: var(--color-text-2);
+}
+
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  border-block-start: 1px solid var(--color-hairline);
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+/* Visibility utility: keeps `display` rules out of markup. */
+.is-hidden {
+  display: none;
+}
+
+.noscript-fallback {
+  padding: var(--space-6);
+  color: var(--color-text);
+  background: var(--color-canvas);
+  font-family: var(--font-ui);
+}
+
+.judge-caption-overlay.is-hidden {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressure-fill,
+  .btn,
+  .timeline-segment,
+  .judge-caption-overlay,
+  .twin-card,
+  .panel-card,
+  .stat-tile {
+    transition: none !important;
+  }
+}
+
+/* ---- Premium polish pass: refined type, elevation & motion (Modules 40 / 42) ----
+ * Everything here is transform + opacity + shadow only (Module 42 §1: never
+ * animate width/height/top/left), token-driven (no raw hex, no gradient), and
+ * neutralised by the reduced-motion blocks in `base.css`.
+ */
+
+/* Kicker label reads small-caps so the measured value stays the hero. */
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stat-main {
+  font-size: 1.6rem;
+  letter-spacing: -0.01em;
+}
+
+.twin-title,
+.panel-title {
+  letter-spacing: -0.01em;
+}
+
+/* A calm lift on interactive surfaces: deepen elevation + edge on hover. */
+.twin-card,
+.panel-card,
+.stat-tile {
+  transition:
+    box-shadow var(--dur-base) var(--ease-out-quint),
+    border-color var(--dur-base) var(--ease-out-quint);
+}
+
+.twin-card:hover,
+.panel-card:hover,
+.stat-tile:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-strong);
+}
+
+/* Entrance choreography is progressive enhancement: absent entirely under
+   reduced-motion (content simply renders in place). */
+@media (prefers-reduced-motion: no-preference) {
+  .kpi-grid .stat-tile,
+  .dashboard-panels > .panel-card {
+    animation: uf-rise var(--dur-slow) var(--ease-out-quint) both;
+  }
+
+  /* `.kpi-grid`'s first child is the disclaimer <p>; the 7 tiles follow, so the
+     stagger keys off their real child index (2..8), not the tile count. */
+  .kpi-grid .stat-tile:nth-child(2) { animation-delay: 40ms; }
+  .kpi-grid .stat-tile:nth-child(3) { animation-delay: 80ms; }
+  .kpi-grid .stat-tile:nth-child(4) { animation-delay: 120ms; }
+  .kpi-grid .stat-tile:nth-child(5) { animation-delay: 160ms; }
+  .kpi-grid .stat-tile:nth-child(6) { animation-delay: 200ms; }
+  .kpi-grid .stat-tile:nth-child(7) { animation-delay: 240ms; }
+  .kpi-grid .stat-tile:nth-child(8) { animation-delay: 280ms; }
+  .dashboard-panels > .panel-card:nth-child(2) { animation-delay: 60ms; }
+  .dashboard-panels > .panel-card:nth-child(3) { animation-delay: 120ms; }
+  .dashboard-panels > .panel-card:nth-child(4) { animation-delay: 180ms; }
+}
+
+@keyframes uf-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* Traffic Lab Panel */
+.traffic-lab-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.traffic-lab-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.traffic-lab-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.traffic-lab-sub {
+  font-size: 0.8rem;
+  color: var(--color-text-3);
+  font-weight: 400;
+}
+
+.traffic-lab-feedback {
+  font-size: 0.82rem;
+  color: var(--color-go);
+  background: rgba(47, 212, 160, 0.1);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(47, 212, 160, 0.25);
+  font-weight: 500;
+  max-width: 420px;
+  text-align: right;
+}
+
+.traffic-lab-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.traffic-lab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.traffic-lab-select {
+  height: 38px;
+  background-color: var(--color-canvas);
+  color: var(--color-text);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-3);
+  font-size: 0.9rem;
+}
+
+.traffic-lab-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-3);
+}
+
+.traffic-lab-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-hairline);
+}
+
+.traffic-lab-slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.traffic-lab-slider {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--color-car);
+  cursor: pointer;
+}
+
+.traffic-lab-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.traffic-lab-preset-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-3);
+  margin-right: 4px;
+}
+
+.lane-demand-num {
+  display: inline-block;
+  min-width: 44px;
+  text-align: center;
+  font-weight: 600;
+  padding: 2px 6px;
+  color: var(--color-text);
 }

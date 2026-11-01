@@ -1,423 +1,1226 @@
 /**
- * Module 40, 41, 42, 43: Complete Control-Room Application UI
+ * Module 40, 41, 42, 43: Control-room application shell.
+ *
+ * Two rules hold throughout this file:
+ *   1. Nothing is written with `innerHTML` (A9) and no inline `style` attribute
+ *      is emitted (Module 51 §2.7). Geometry that cannot be classed uses
+ *      `element.style.setProperty` on a custom property only.
+ *   2. Every displayed number comes from `KpiSnapshot`, i.e. from the measured
+ *      Module 02 §4 metrics. Missing evidence renders an em dash, never a zero
+ *      and never a hard-coded delta (Rule 00).
  */
+import { LANES, relativeChangePct, PHASES } from '@urbanflow/core';
+import type { PhaseId, LaneId, VehicleType } from '@urbanflow/core';
 import { store } from '../state/store.js';
-import { SCENARIO_LIBRARY, LANES } from '@urbanflow/core';
-import { judgeTour } from './judge/tour.js';
+import type { KpiSnapshot } from '../state/store.js';
 import { STRINGS } from '../i18n/strings.js';
+import { formatNumber } from '../i18n/format.js';
+import { judgeTour } from './judge/tour.js';
+import { h, byId, maybeById, appendChildren } from './dom.js';
+import type { Child } from './dom.js';
+import { ICONS } from './icons.js';
+import { buildDiagnosisWindow, requestDiagnosis } from '../copilot/client.js';
+import type { DiagnosisResult } from '../copilot/client.js';
+
+interface KpiTile {
+  key: string;
+  label: string;
+  unit: string;
+  digits: number;
+  lowerBetter: boolean;
+  pick: (k: KpiSnapshot) => number | null;
+}
+
+const KPI_TILES: readonly KpiTile[] = [
+  { key: 'pdelay', label: STRINGS.kpis.personDelay, unit: 's', digits: 1, lowerBetter: true, pick: (k) => k.personDelayS },
+  { key: 'delay', label: STRINGS.kpis.avgDelay, unit: 's', digits: 1, lowerBetter: true, pick: (k) => k.avgDelayS },
+  { key: 'thru', label: STRINGS.kpis.throughput, unit: 'veh/h', digits: 0, lowerBetter: false, pick: (k) => k.throughputVph },
+  { key: 'queue', label: STRINGS.kpis.maxQueue, unit: 'm', digits: 0, lowerBetter: true, pick: (k) => k.maxQueueM },
+  { key: 'ems', label: STRINGS.kpis.emsDelay, unit: 's', digits: 1, lowerBetter: true, pick: (k) => k.emsDelayS },
+  // Module 41 §2: bus and bike delay are the equity metrics, shown per twin with
+  // a delta like every other tile. Both are already measured (`KpiSnapshot`).
+  { key: 'bus', label: STRINGS.kpis.busDelay, unit: 's', digits: 1, lowerBetter: true, pick: (k) => k.busDelayS },
+  { key: 'bike', label: STRINGS.kpis.bikeDelay, unit: 's', digits: 1, lowerBetter: true, pick: (k) => k.bikeDelayS },
+  { key: 'stops', label: STRINGS.kpis.stopsPerVeh, unit: '', digits: 2, lowerBetter: true, pick: (k) => k.stopsPerVeh },
+  { key: 'fuel', label: STRINGS.kpis.fuel, unit: 'L', digits: 2, lowerBetter: true, pick: (k) => k.fuelL },
+  { key: 'denied', label: STRINGS.kpis.denied, unit: '%', digits: 2, lowerBetter: true, pick: (k) => k.deniedPct },
+];
+
+
+const LANE_DISPLAY_NAME: Record<LaneId, string> = {
+  'NB-TR': 'Northbound Thru/Right',
+  'NB-L': 'Northbound Left Turn',
+  'SB-TR': 'Southbound Thru/Right',
+  'SB-L': 'Southbound Left Turn',
+  'EB-TR': 'Eastbound Thru/Right',
+  'EB-L': 'Eastbound Left Turn',
+  'WB-TR': 'Westbound Thru/Right',
+  'WB-L': 'Westbound Left Turn',
+};
+
+const PHASE_LABEL: Readonly<Record<PhaseId, string>> = {
+  P1_NS_LEFT: STRINGS.phases.P1_NS_LEFT,
+  P2_NS_THRU: STRINGS.phases.P2_NS_THRU,
+  P3_EW_LEFT: STRINGS.phases.P3_EW_LEFT,
+  P4_EW_THRU: STRINGS.phases.P4_EW_THRU,
+};
+
+interface KpiRefs {
+  main: Map<string, HTMLElement>;
+  fixed: Map<string, HTMLElement>;
+  delta: Map<string, HTMLElement>;
+}
+
+function fmt(value: number | null, digits: number): string {
+  // Module 32 §7: numbers go through `Intl.NumberFormat`, never manual
+  // `toFixed`. `formatNumber` returns null for missing evidence, which renders
+  // as the em-dash token — a fabricated zero is never shown (Rule 00).
+  return formatNumber(value, digits) ?? STRINGS.kpis.missing;
+}
+
+function buildHeader(): HTMLElement {
+  const seedBadge = h('span', {
+    class: 'badge',
+    text: STRINGS.brand.identicalArrivals(store.seed.get()),
+  });
+
+  const scenarioSelect = h('select', {
+    class: 'btn btn-secondary',
+    label: STRINGS.header.scenarioSelectLabel,
+    attrs: { id: 'scenario-select' },
+  });
+  for (const scenario of store.scenarios()) {
+    scenarioSelect.append(
+      h('option', { text: scenario.name, attrs: { value: scenario.id } }),
+    );
+  }
+  scenarioSelect.value = store.scenarioId.get();
+  scenarioSelect.addEventListener('change', () => {
+    store.resetScenario(scenarioSelect.value, store.seed.get());
+  });
+  store.scenarioId.subscribe((id) => {
+    if (scenarioSelect.value !== id) scenarioSelect.value = id;
+  });
+
+  const speedButtons = [0.5, 1, 5, 20].map((speed) => {
+    const id = `speed-${String(speed).replace('.', '-')}`;
+    return h('button', {
+      class: 'btn btn-secondary',
+      attrs: { id, type: 'button' },
+      label: `${speed}× speed`,
+      text: `${speed}×`,
+      on: { click: () => store.setSpeed(speed) },
+    });
+  });
+
+  // Module 40 §5 / Module 51 §2: the play/pause control carries an inline SVG
+  // glyph, never a `⏸`/`▶` emoji. The accessible name is only the `aria-label`;
+  // the state is announced by that label, so the icon alone never carries meaning.
+  const pauseButton = h('button', {
+    class: 'btn btn-secondary btn-icon',
+    attrs: { id: 'btn-pause', type: 'button' },
+    label: STRINGS.header.pauseLabel,
+    on: { click: () => store.togglePause() },
+  });
+  const renderPauseIcon = (paused: boolean): void => {
+    pauseButton.replaceChildren(paused ? ICONS.play() : ICONS.pause());
+    pauseButton.setAttribute(
+      'aria-label',
+      paused ? STRINGS.header.resumeLabel : STRINGS.header.pauseLabel,
+    );
+  };
+  renderPauseIcon(store.isPaused.get());
+  store.isPaused.subscribe(renderPauseIcon);
+
+  // Module 42 §2: an in-app control that forces reduced motion regardless of the
+  // OS media query. `aria-pressed` carries the toggle state; the label changes
+  // so the state is never conveyed by colour or the icon alone.
+  const motionLabel = h('span', { text: STRINGS.header.reduceMotion });
+  const motionButton = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { id: 'btn-motion-toggle', type: 'button', 'aria-pressed': 'false' },
+      label: STRINGS.header.reduceMotionHelp,
+      on: { click: () => store.toggleMotion() },
+    },
+    [ICONS.motion(), motionLabel],
+  );
+  store.motionPref.subscribe((pref) => {
+    const on = pref === 'reduce';
+    motionLabel.textContent = on ? STRINGS.header.reduceMotionOn : STRINGS.header.reduceMotion;
+    motionButton.setAttribute('aria-pressed', String(on));
+  });
+
+  return h('header', { class: 'app-header' }, [
+    h('div', { class: 'brand-section' }, [
+      h('span', { class: 'badge badge-mode', text: STRINGS.brand.simulationOnly }),
+      h('h1', { class: 'brand-title', text: STRINGS.brand.title }),
+      seedBadge,
+      h('span', {
+        class: 'badge badge-safety',
+        attrs: { id: 'hdr-safety-badge' },
+        text: STRINGS.safety.zeroConflicts(0),
+      }),
+    ]),
+    h('div', { class: 'header-controls' }, [
+      scenarioSelect,
+      h(
+        'div',
+        { class: 'btn-group', role: 'group', label: STRINGS.header.speedControlsLabel },
+        [pauseButton, ...speedButtons],
+      ),
+      h(
+        'button',
+        {
+          class: 'btn btn-danger',
+          attrs: { id: 'btn-spawn-ems', type: 'button' },
+          on: { click: () => void spawnAmbulance() },
+        },
+        [ICONS.ambulance(), STRINGS.header.spawnAmbulance],
+      ),
+      h(
+        'button',
+        {
+          class: 'btn btn-primary',
+          attrs: { id: 'btn-judge-tour', type: 'button' },
+          on: { click: () => judgeTour.start() },
+        },
+        [ICONS.play(), STRINGS.header.watchJudgeDemo],
+      ),
+      h(
+        'button',
+        {
+          class: 'btn btn-secondary',
+          attrs: { id: 'btn-shortcuts', type: 'button' },
+          label: STRINGS.header.helpShortcuts,
+          on: { click: () => openShortcuts() },
+        },
+        [ICONS.keyboard(), STRINGS.header.helpButton],
+      ),
+      h(
+        'button',
+        {
+          class: 'btn btn-secondary',
+          attrs: { id: 'btn-theme-toggle', type: 'button' },
+          label: STRINGS.header.themeToggle,
+          on: { click: () => store.toggleTheme() },
+        },
+        [ICONS.theme(), STRINGS.header.themeToggleVisible],
+      ),
+      motionButton,
+    ]),
+  ]);
+}
+
+function buildTwinCard(opts: {
+  title: string;
+  canvasId: string;
+  losId: string;
+  ribbonId: string;
+  ribbonTitle: string;
+  badges?: Child[];
+}): HTMLElement {
+  const header = h('div', { class: 'twin-header' }, [
+    h('div', { class: 'twin-title', text: opts.title }),
+    h('div', { class: 'twin-badges' }, [
+      ...(opts.badges ?? []),
+      h('span', { class: 'badge', attrs: { id: opts.losId }, text: STRINGS.kpis.losLabel(null) }),
+    ]),
+  ]);
+
+  const canvas = h('canvas', {
+    attrs: {
+      id: opts.canvasId,
+      role: 'img',
+      'aria-label': `${STRINGS.twins.canvasAriaLabel} ${opts.title}`,
+      width: 700,
+      height: 440,
+    },
+  });
+
+  return h('section', { class: 'twin-card', label: opts.title }, [
+    header,
+    h('div', { class: 'canvas-viewport' }, [canvas]),
+    h('div', { class: 'timeline-ribbon', attrs: { id: opts.ribbonId }, label: opts.ribbonTitle }),
+  ]);
+}
+
+function buildTrafficLabPanel(): HTMLElement {
+  let selectedLane: LaneId = 'NB-TR';
+  let selectedVehicle: VehicleType = 'AMBULANCE';
+
+  const laneOptions = LANES.map((lane) =>
+    h('option', { attrs: { value: lane }, text: `${lane} · ${LANE_DISPLAY_NAME[lane]}` }),
+  );
+  const laneSelect = h(
+    'select',
+    {
+      class: 'form-select traffic-lab-select',
+      attrs: { id: 'traffic-lab-lane', 'aria-label': 'Select Approach Lane' },
+      on: {
+        change: (e) => {
+          selectedLane = (e.target as HTMLSelectElement).value as LaneId;
+          updateLabDemandUI();
+        },
+      },
+    },
+    laneOptions,
+  );
+
+  const vehicleOptions = [
+    { type: 'AMBULANCE' as const, label: '🚑 Ambulance (EVP Priority)' },
+    { type: 'CAR' as const, label: '🚗 Passenger Car' },
+    { type: 'BUS' as const, label: '🚌 Transit Bus (High Occupancy)' },
+    { type: 'TRUCK' as const, label: '🚚 Freight Truck (Heavy Load)' },
+    { type: 'BIKE' as const, label: '🏍️ Motorcycle / Bike' },
+  ].map((v) =>
+    h('option', { attrs: { value: v.type }, text: v.label }),
+  );
+  const vehicleSelect = h(
+    'select',
+    {
+      class: 'form-select traffic-lab-select',
+      attrs: { id: 'traffic-lab-vehicle', 'aria-label': 'Select Vehicle Type' },
+      on: {
+        change: (e) => {
+          selectedVehicle = (e.target as HTMLSelectElement).value as VehicleType;
+        },
+      },
+    },
+    vehicleOptions,
+  );
+
+  const feedbackText = h('span', {
+    class: 'traffic-lab-feedback',
+    attrs: { id: 'traffic-lab-feedback-msg' },
+    text: 'Select approach and vehicle to inject live.',
+  });
+
+  const spawnBtn = h(
+    'button',
+    {
+      class: 'btn btn-primary',
+      attrs: { id: 'btn-traffic-lab-spawn', type: 'button' },
+      on: {
+        click: () => {
+          store.spawnVehicle(selectedLane, selectedVehicle);
+          feedbackText.textContent =
+            selectedVehicle === 'AMBULANCE'
+              ? `🚑 Dispatched Ambulance on ${selectedLane} (EVP Preemption Triggered)`
+              : `✨ Injected ${selectedVehicle} into ${selectedLane}`;
+        },
+      },
+    },
+    ['+ Spawn Vehicle'],
+  );
+
+  const surgeBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { id: 'btn-traffic-lab-surge', type: 'button' },
+      on: {
+        click: () => {
+          store.injectBurst(selectedLane, 5, selectedVehicle);
+          feedbackText.textContent = `⚡ Injected 5 × ${selectedVehicle} surge into ${selectedLane}`;
+        },
+      },
+    },
+    ['⚡ +5 Traffic Surge'],
+  );
+
+  const demandValue = h('span', {
+    class: 'badge badge-mono',
+    attrs: { id: 'traffic-lab-demand-val' },
+    text: '450 veh/h',
+  });
+
+  const slider = h('input', {
+    class: 'traffic-lab-slider',
+    attrs: {
+      type: 'range',
+      min: '0',
+      max: '1800',
+      step: '50',
+      value: '450',
+      id: 'traffic-lab-slider',
+      'aria-label': 'Lane demand flow rate in vehicles per hour',
+    },
+    on: {
+      input: (e) => {
+        const val = Number((e.target as HTMLInputElement).value);
+        store.setLaneDemand(selectedLane, val);
+        demandValue.textContent = `${val} veh/h`;
+        feedbackText.textContent = `Updated ${selectedLane} rate to ${val} veh/h`;
+      },
+    },
+  }) as HTMLInputElement;
+
+  function updateLabDemandUI(): void {
+    const d = store.laneDemands.get()[selectedLane] ?? 450;
+    slider.value = String(d);
+    demandValue.textContent = `${d} veh/h`;
+  }
+
+  const presets = [
+    { label: '🚫 0 (Stop)', vph: 0 },
+    { label: '🟢 300 (Light)', vph: 300 },
+    { label: '🟡 600 (Normal)', vph: 600 },
+    { label: '🟠 1,000 (Heavy)', vph: 1000 },
+    { label: '🔴 1,500 (Gridlock)', vph: 1500 },
+  ].map((p) =>
+    h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { type: 'button' },
+        on: {
+          click: () => {
+            store.setLaneDemand(selectedLane, p.vph);
+            slider.value = String(p.vph);
+            demandValue.textContent = `${p.vph} veh/h`;
+            feedbackText.textContent = `Updated ${selectedLane} rate to ${p.vph} veh/h (${p.label})`;
+          },
+        },
+      },
+      [p.label],
+    ),
+  );
+
+  store.laneDemands.subscribe(() => {
+    updateLabDemandUI();
+  });
+
+  return h('section', { class: 'panel-card traffic-lab-panel', label: 'Interactive Traffic Injection Lab' }, [
+    h('div', { class: 'panel-title' }, [
+      h('div', { class: 'traffic-lab-title-group' }, [
+        h('span', { class: 'traffic-lab-heading', text: '🎮 Interactive Traffic & Vehicle Control Lab' }),
+        h('span', { class: 'traffic-lab-sub', text: 'Select any approach to inject vehicles, trigger emergency preemption, or adjust live lane flow rates (0–1800 veh/h)' }),
+      ]),
+      feedbackText,
+    ]),
+    h('div', { class: 'traffic-lab-controls' }, [
+      h('div', { class: 'traffic-lab-field' }, [
+        h('label', { class: 'traffic-lab-label', text: 'Target Approach / Lane:' }),
+        laneSelect,
+      ]),
+      h('div', { class: 'traffic-lab-field' }, [
+        h('label', { class: 'traffic-lab-label', text: 'Vehicle Class to Spawn:' }),
+        vehicleSelect,
+      ]),
+      h('div', { class: 'traffic-lab-field traffic-lab-actions' }, [
+        h('label', { class: 'traffic-lab-label', text: 'Live Injections:' }),
+        h('div', { class: 'btn-group' }, [spawnBtn, surgeBtn]),
+      ]),
+    ]),
+    h('div', { class: 'traffic-lab-slider-row' }, [
+      h('div', { class: 'traffic-lab-slider-header' }, [
+        h('span', { class: 'traffic-lab-label', text: 'Approach Demand Flow Rate (VPH):' }),
+        demandValue,
+      ]),
+      slider,
+      h('div', { class: 'traffic-lab-presets' }, [
+        h('span', { class: 'traffic-lab-preset-label', text: 'Flow Presets:' }),
+        ...presets,
+      ]),
+    ]),
+  ]);
+}
+
+function buildLaneTable(): HTMLElement {
+  const head = h('thead', {}, [
+    h('tr', {}, [
+      h('th', { attrs: { scope: 'col' }, text: STRINGS.laneTable.approachLane }),
+      h('th', { attrs: { scope: 'col' }, text: STRINGS.laneTable.signalIndication }),
+      h('th', { attrs: { scope: 'col' }, text: STRINGS.laneTable.queueMeters }),
+      h('th', { attrs: { scope: 'col' }, text: STRINGS.laneTable.vehiclesWaiting }),
+      h('th', { attrs: { scope: 'col' }, text: 'Demand (veh/h)' }),
+      h('th', { attrs: { scope: 'col' }, text: 'Quick Injections' }),
+    ]),
+  ]);
+
+  const body = h('tbody', { attrs: { id: 'lane-table-body' } });
+  for (const lane of LANES) {
+    const demandLabel = h('span', { class: 'mono lane-demand-num', text: '450' });
+    const decBtn = h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { type: 'button', 'aria-label': `Decrease demand for ${lane}` },
+        on: {
+          click: () => {
+            const cur = store.laneDemands.get()[lane] ?? 450;
+            store.setLaneDemand(lane, Math.max(0, cur - 100));
+          },
+        },
+      },
+      ['−100'],
+    );
+    const incBtn = h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { type: 'button', 'aria-label': `Increase demand for ${lane}` },
+        on: {
+          click: () => {
+            const cur = store.laneDemands.get()[lane] ?? 450;
+            store.setLaneDemand(lane, Math.min(1800, cur + 100));
+          },
+        },
+      },
+      ['+100'],
+    );
+
+    const spawnCarBtn = h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { type: 'button', 'aria-label': `Spawn car on ${lane}` },
+        on: { click: () => store.spawnVehicle(lane, 'CAR') },
+      },
+      ['+ 🚗 Car'],
+    );
+
+    const spawnEmsBtn = h(
+      'button',
+      {
+        class: 'btn btn-danger btn-sm',
+        attrs: { type: 'button', 'aria-label': `Spawn ambulance on ${lane}` },
+        on: { click: () => store.spawnVehicle(lane, 'AMBULANCE') },
+      },
+      ['+ 🚑 EMS'],
+    );
+
+    body.append(
+      h('tr', {}, [
+        h('td', { text: `${lane} (${LANE_DISPLAY_NAME[lane]})` }),
+        h('td', { text: STRINGS.laneTable.initialIndication }),
+        h('td', { text: '0' }),
+        h('td', { text: '0' }),
+        h('td', {}, [
+          h('div', { class: 'btn-group' }, [decBtn, demandLabel, incBtn]),
+        ]),
+        h('td', {}, [
+          h('div', { class: 'btn-group' }, [spawnCarBtn, spawnEmsBtn]),
+        ]),
+      ]),
+    );
+  }
+
+  const table = h('table', { class: 'lane-data-table', label: STRINGS.laneTable.tableLabel }, [
+    h('caption', { class: 'sr-only', text: STRINGS.laneTable.tableLabel }),
+    head,
+    body,
+  ]);
+
+  return h('details', { class: 'a11y-lane-table-details' }, [
+    h('summary', { class: 'btn btn-secondary btn-sm', text: STRINGS.twins.tableToggle }),
+    h('div', {}, [table]),
+  ]);
+}
+
+function buildKeyboardDialog(): HTMLDialogElement {
+  return h(
+    'dialog',
+    { attrs: { id: 'keyboard-help-dialog', 'aria-labelledby': 'kbd-dialog-title' } },
+    [
+      h('h2', { class: 'modal-title', attrs: { id: 'kbd-dialog-title' }, text: STRINGS.keyboardModal.title }),
+      h(
+        'ul',
+        { class: 'kbd-list' },
+        STRINGS.keyboardModal.shortcuts.map((shortcut) =>
+          h('li', {}, [h('kbd', { class: 'kbd-key', text: shortcut.key }), ` — ${shortcut.desc}`]),
+        ),
+      ),
+      h('button', {
+        class: 'btn btn-primary',
+        attrs: { id: 'btn-close-kbd', type: 'button' },
+        text: STRINGS.keyboardModal.closeBtn,
+        on: { click: () => byId<HTMLDialogElement>('keyboard-help-dialog').close() },
+      }),
+    ],
+  );
+}
+
+function buildKpiGrid(refs: KpiRefs): HTMLElement {
+  const tiles = KPI_TILES.map((tile) => {
+    const mainValue = h('span', { class: 'stat-main-value', text: STRINGS.kpis.missing });
+    const main = h('span', { class: 'stat-main mono', attrs: { id: `kpi-adaptive-${tile.key}` } }, [
+      mainValue,
+      tile.unit === '' ? null : h('span', { class: 'stat-unit', text: tile.unit }),
+    ]);
+
+    const fixed = h('span', {
+      class: 'stat-comparison mono',
+      attrs: { id: `kpi-fixed-${tile.key}` },
+      text: `${STRINGS.kpis.fixedPrefix}${STRINGS.kpis.missing}`,
+    });
+
+    const delta = h('span', {
+      class: 'chip-delta neutral',
+      attrs: { id: `delta-${tile.key}` },
+      text: STRINGS.kpis.missing,
+    });
+
+    refs.main.set(tile.key, mainValue);
+    refs.fixed.set(tile.key, fixed);
+    refs.delta.set(tile.key, delta);
+
+    return h('div', { class: 'stat-tile' }, [
+      h('div', { class: 'stat-label' }, [
+        h('span', { text: tile.label }),
+        delta,
+      ]),
+      h('div', { class: 'stat-values' }, [main, fixed]),
+    ]);
+  });
+
+  return h(
+    'section',
+    { class: 'kpi-grid', label: STRINGS.kpis.comparisonNote },
+    [
+      // Module 41 §1.2: the disclaimer is visible copy, not only an aria-label.
+      h('p', { class: 'kpi-disclaimer', text: STRINGS.kpis.singleRunNote }),
+      ...tiles,
+    ],
+  );
+}
+
+function buildExplainPanel(): HTMLElement {
+  const rows = PHASES.map((phase) => {
+    const value = h('span', { class: 'mono', attrs: { id: `val-${phase.toLowerCase()}` }, text: '0' });
+    const fill = h('div', { class: 'pressure-fill', attrs: { id: `bar-${phase.toLowerCase()}` } });
+    return h('div', { class: 'pressure-row' }, [
+      h('div', { class: 'pressure-header' }, [
+        h('span', { text: PHASE_LABEL[phase] }),
+        value,
+      ]),
+      h('div', { class: 'pressure-track' }, [fill]),
+    ]);
+  });
+
+  return h('div', { class: 'panel-card', label: STRINGS.panel.explainTitle }, [
+    h('div', { class: 'panel-title' }, [
+      h('span', { text: STRINGS.panel.explainTitle }),
+      h('span', { class: 'badge', attrs: { id: 'rule-badge' }, text: '—' }),
+    ]),
+    h('p', {
+      class: 'explain-text',
+      attrs: { id: 'explain-text' },
+      text: STRINGS.panel.waitingForData,
+    }),
+    h('div', {}, rows),
+  ]);
+}
+
+function buildEvpPanel(): HTMLElement {
+  const steps = [
+    { id: 'step-request', text: STRINGS.panel.evpSteps.request },
+    { id: 'step-lead', text: STRINGS.panel.evpSteps.lead },
+    { id: 'step-green', text: STRINGS.panel.evpSteps.green },
+    { id: 'step-transit', text: STRINGS.panel.evpSteps.transit },
+    { id: 'step-recovery', text: STRINGS.panel.evpSteps.recovery },
+  ].map((step) =>
+    h('li', { class: 'evp-step', attrs: { id: step.id } }, [
+      // Leading status mark, repainted by `updateEvpPanel`. Decorative (the text
+      // names the step); the icon is a *redundant* channel, never the only one.
+      h('span', { class: 'evp-step-mark', attrs: { 'aria-hidden': 'true' } }, [ICONS.circle()]),
+      step.text,
+    ]),
+  );
+
+  return h('div', { class: 'panel-card', label: STRINGS.panel.evpTitle }, [
+    h('div', { class: 'panel-title' }, [
+      h('span', { text: STRINGS.panel.evpTitle }),
+      h('span', { class: 'badge', attrs: { id: 'evp-status-badge' }, text: STRINGS.panel.evpIdle }),
+    ]),
+    h('div', {
+      class: 'banner banner-warning is-hidden',
+      attrs: { id: 'evp-tight-banner' },
+      text: 'TIGHT plan: ETA shortfall leaves no margin. Yellow and all-red clearance are never shortened.',
+    }),
+    h('p', { class: 'panel-copy mono', attrs: { id: 'evp-plan-text' }, text: '—' }),
+    h('ol', { class: 'evp-steps' }, steps),
+    h('div', { class: 'panel-actions' }, [
+      h('button', {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-cancel-evp', type: 'button' },
+        text: STRINGS.panel.cancelEvp,
+        on: { click: () => store.cancelPreemption() },
+      }),
+    ]),
+  ]);
+}
+
+function buildCopilotPanel(): HTMLElement {
+  return h('div', { class: 'panel-card', label: STRINGS.copilot.title }, [
+    h('div', { class: 'panel-title' }, [
+      h('span', { text: STRINGS.copilot.title }),
+      h('span', { class: 'badge badge-ai', attrs: { id: 'copilot-source' }, text: '—' }),
+    ]),
+    h('div', { class: 'panel-body' }, [
+      h('div', { class: 'panel-kicker', attrs: { id: 'copilot-verdict' }, text: STRINGS.copilot.idleHint }),
+      h('div', { class: 'panel-copy', attrs: { id: 'copilot-advisory' } }),
+      h('ul', { class: 'evidence-list', attrs: { id: 'copilot-evidence' } }),
+    ]),
+    h('div', { class: 'panel-actions' }, [
+      h('button', {
+        class: 'btn btn-primary btn-sm',
+        attrs: { id: 'btn-diagnose', type: 'button' },
+        text: STRINGS.copilot.diagnoseBtn,
+        on: { click: () => void runDiagnosis() },
+      }),
+      h('button', {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-clear-copilot', type: 'button' },
+        text: STRINGS.copilot.clearBtn,
+        on: { click: () => clearDiagnosis() },
+      }),
+      h('button', {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-unsafe-proposal', type: 'button' },
+        text: STRINGS.copilot.tryUnsafeBtn,
+        on: { click: () => void tryUnsafeProposal() },
+      }),
+    ]),
+    h('div', { class: 'panel-copy', attrs: { id: 'proposal-feedback' } }),
+    h('div', { class: 'panel-copy mono', attrs: { id: 'proposal-verdict' } }),
+    h('p', { class: 'panel-note', text: STRINGS.copilot.advisoryNotice }),
+  ]);
+}
+
+function buildAuditPanel(): HTMLElement {
+  return h('div', { class: 'panel-card', label: STRINGS.panel.auditTitle }, [
+    h('div', { class: 'panel-title' }, [
+      h('span', { text: STRINGS.panel.auditTitle }),
+      h('span', { class: 'badge', attrs: { id: 'audit-conservation' }, text: '—' }),
+    ]),
+    h('dl', { class: 'audit-grid', attrs: { id: 'audit-rows' } }),
+    h('details', { class: 'assumptions' }, [
+      h('summary', { text: STRINGS.kpis.assumptionsTitle }),
+      h('p', { class: 'panel-copy', text: STRINGS.kpis.assumptionsFuel }),
+      h('p', { class: 'panel-copy', text: STRINGS.kpis.assumptionsCo2 }),
+    ]),
+    h('p', {
+      class: 'panel-note',
+      text: 'Fuel and CO₂ are derived from idle seconds with published factors; they are estimates, not measurements.',
+    }),
+  ]);
+}
+
+function buildFooter(): HTMLElement {
+  return h('footer', { class: 'app-footer' }, [
+    h('span', { class: 'badge badge-safety', text: STRINGS.panel.modeLiveSim }),
+    h('span', { class: 'mono', attrs: { id: 'state-hash' }, text: STRINGS.brand.stateHashLabel('—') }),
+    h('span', { class: 'mono', attrs: { id: 'footer-seed' }, text: '' }),
+  ]);
+}
+
+function buildJudgeOverlay(): HTMLElement {
+  return h('div', { class: 'judge-caption-overlay is-hidden', attrs: { id: 'judge-overlay' } }, [
+    h('span', { class: 'badge badge-ai', text: STRINGS.judge.badge }),
+    h('span', {
+      class: 'judge-caption-text',
+      attrs: { id: 'judge-caption-text' },
+      text: STRINGS.judge.openingCaption,
+    }),
+    h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-exit-judge', type: 'button' },
+        on: { click: () => judgeTour.stop() },
+      },
+      [ICONS.close(), STRINGS.judge.stop],
+    ),
+  ]);
+}
+
+function openShortcuts(): void {
+  const dialog = maybeById<HTMLDialogElement>('keyboard-help-dialog');
+  dialog?.showModal();
+}
+
+async function spawnAmbulance(): Promise<void> {
+  const decision = await store.requestPreemption('NB-TR');
+  const feedback = maybeById('proposal-feedback');
+  if (feedback) {
+    feedback.textContent =
+      decision.decision === 'accepted'
+        ? `EVP accepted for ${decision.id}.`
+        : `EVP rejected: ${decision.reason ?? 'UNKNOWN'}.`;
+  }
+}
+
+function clearDiagnosis(): void {
+  const verdict = maybeById('copilot-verdict');
+  const advisory = maybeById('copilot-advisory');
+  const evidence = maybeById('copilot-evidence');
+  const source = maybeById('copilot-source');
+  if (verdict) verdict.textContent = STRINGS.copilot.idleHint;
+  if (advisory) advisory.textContent = '';
+  if (evidence) evidence.replaceChildren();
+  if (source) source.textContent = '—';
+}
+
+/**
+ * Module 04 §3.4: exercise the rejection path on purpose.
+ *
+ * `YELLOW_S` is not a tunable parameter, so the kernel dry-run has to refuse
+ * this by name. A verdict of "approved" here would mean the safety boundary has
+ * regressed, and the text says so rather than rendering a quiet success.
+ */
+async function tryUnsafeProposal(): Promise<void> {
+  const verdictEl = maybeById('proposal-verdict');
+  if (!verdictEl) return;
+
+  verdictEl.textContent = STRINGS.copilot.verifying;
+  try {
+    const verdict = await store.verifyProposal({ YELLOW_S: 1.0 });
+    verdictEl.textContent = verdict.approved
+      ? STRINGS.copilot.unsafeApproved(verdict.improvementPct)
+      : `Refused — ${verdict.reason} No signal state was touched.`;
+  } catch (error) {
+    verdictEl.textContent = `Verification failed: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function runDiagnosis(): Promise<void> {
+  const verdict = maybeById('copilot-verdict');
+  const advisory = maybeById('copilot-advisory');
+  const evidence = maybeById('copilot-evidence');
+  const source = maybeById('copilot-source');
+  if (!verdict || !advisory || !evidence || !source) return;
+
+  verdict.textContent = 'Diagnosing from the measured 60 s window…';
+  const observation = store.observation.get();
+  if (!observation) {
+    // No fabricated window: say the window does not exist yet (Rule 00).
+    verdict.textContent = 'No measured window yet — the simulation has not published a KPI frame.';
+    return;
+  }
+
+  const result: DiagnosisResult = await requestDiagnosis(buildDiagnosisWindow(observation));
+
+  const hypothesis = result.diagnosis.rootCauseHypotheses[0];
+  source.textContent =
+    result.source === 'muse-spark'
+      ? STRINGS.copilot.sourceMeta
+      : result.source === 'llama-fallback'
+        ? STRINGS.copilot.sourceWorkersAi
+        : STRINGS.copilot.sourceTemplate;
+
+  verdict.textContent = hypothesis
+    ? `${hypothesis.cause} · ${STRINGS.copilot.severityLabel} ${result.diagnosis.severity} · ${Math.round(hypothesis.confidence * 100)}% ${STRINGS.copilot.confidenceLabel}`
+    : 'No hypothesis returned.';
+
+  advisory.textContent = result.offline
+    ? `${STRINGS.copilot.offlineHint} ${result.diagnosis.advisoryText}`
+    : result.diagnosis.advisoryText;
+
+  evidence.replaceChildren();
+  for (const item of hypothesis?.evidence ?? []) {
+    evidence.append(h('li', { text: item }));
+  }
+}
+
+function updateKpiTile(tile: KpiTile, refs: KpiRefs, adaptive: KpiSnapshot, fixed: KpiSnapshot): void {
+  const a = tile.pick(adaptive);
+  const f = tile.pick(fixed);
+
+  const mainEl = refs.main.get(tile.key);
+  if (mainEl) {
+    mainEl.textContent = fmt(a, tile.digits);
+    // Module 41 §1.6: a missing value is an em-dash *with a reason*, never a
+    // silent blank or a fabricated zero (Rule 00).
+    if (a === null || !Number.isFinite(a)) mainEl.setAttribute('title', STRINGS.kpis.missingReason);
+    else mainEl.removeAttribute('title');
+  }
+
+  // Module 20 §5: more than 0.5 % denied entries makes every delay metric
+  // optimistic, so the tile gets a glyph *and* a colour *and* a title — never
+  // colour alone (Rule 13).
+  if (tile.key === 'denied' && mainEl) {
+    const warn = (a ?? 0) > 0.5;
+    mainEl.classList.toggle('kpi-warn', warn);
+    if (warn) {
+      // Module 41 §1.5 / Module 40: the ⚠ pictograph becomes an inline SVG so it
+      // survives forced-colours; the measured value stays as a sibling text node
+      // (never dropped, never replaced by the icon alone).
+      const valueText = mainEl.textContent ?? '';
+      mainEl.replaceChildren(ICONS.warning(), document.createTextNode(` ${valueText}`));
+      mainEl.setAttribute('title', STRINGS.kpis.deniedWarning);
+    } else {
+      mainEl.removeAttribute('title');
+    }
+  }
+
+  const fixedEl = refs.fixed.get(tile.key);
+  if (fixedEl) fixedEl.textContent = `${STRINGS.kpis.fixedPrefix}${fmt(f, tile.digits)}`;
+
+  const deltaEl = refs.delta.get(tile.key);
+  if (!deltaEl) return;
+
+  const pct = relativeChangePct(a, f);
+  deltaEl.className = 'chip-delta';
+  // Module 41 §1.5: colour/arrow alone is not enough — the *direction meaning*
+  // is stated explicitly for screen readers and hover alike.
+  deltaEl.setAttribute('title', tile.lowerBetter ? STRINGS.kpis.lowerBetter : STRINGS.kpis.higherBetter);
+  deltaEl.setAttribute('aria-label',
+    `${STRINGS.kpis.fixedPrefix} vs adaptive: ${tile.lowerBetter ? STRINGS.kpis.lowerBetter : STRINGS.kpis.higherBetter}`);
+
+  if (pct === null) {
+    deltaEl.classList.add('neutral');
+    deltaEl.replaceChildren(document.createTextNode(STRINGS.kpis.noData));
+    return;
+  }
+  if (Math.abs(pct) < 0.5) {
+    deltaEl.classList.add('neutral');
+    // Module 41 §1.5: an equals mark, not an arrow, for "no difference".
+    deltaEl.replaceChildren(ICONS.parity(), document.createTextNode(STRINGS.kpis.parity));
+    return;
+  }
+
+  const improved = tile.lowerBetter ? pct < 0 : pct > 0;
+  deltaEl.classList.add(improved ? 'good' : 'bad');
+  // The arrow encodes the numeric sign (down = decreased); colour plus the
+  // `title`/`aria-label` set above encode good/bad, so no single channel carries
+  // the meaning alone (Module 41 §1.5). No emoji glyph is used.
+  const glyph = pct < 0 ? ICONS.arrowDown() : ICONS.arrowUp();
+  deltaEl.replaceChildren(glyph, document.createTextNode(`${Math.abs(pct).toFixed(1)}%`));
+}
+
+function updatePressurePanel(): void {
+  const explain = store.explainState.get();
+  const badge = maybeById('rule-badge');
+  const text = maybeById('explain-text');
+  if (badge) badge.textContent = explain.rule;
+  if (text) text.textContent = explain.explanation;
+
+  const values = PHASES.map((phase) => explain.pressures[phase] ?? 0);
+  const peak = Math.max(1, ...values);
+
+  PHASES.forEach((phase, index) => {
+    const valueEl = maybeById(`val-${phase.toLowerCase()}`);
+    const barEl = maybeById(`bar-${phase.toLowerCase()}`);
+    const value = values[index] ?? 0;
+    if (valueEl) valueEl.textContent = value.toFixed(1);
+    if (barEl) {
+      // Documented exception: bar geometry cannot be expressed as a class.
+      // Module 42 §1 rule 1 / §4: drive `transform: scaleX` (0–1), never `width`.
+      barEl.style.setProperty('--bar-scale', String(value / peak));
+      barEl.classList.toggle('active', phase === explain.currentPhase);
+    }
+  });
+}
+
+function updateEvpPanel(): void {
+  const status = store.evpStatus.get();
+  const badge = maybeById('evp-status-badge');
+  const plan = maybeById('evp-plan-text');
+  const tight = maybeById('evp-tight-banner');
+  const order = ['step-request', 'step-lead', 'step-green', 'step-transit', 'step-recovery'];
+
+  const reached = status
+    ? status.stage === 'PRECLEAR'
+      ? 2
+      : status.stage === 'EMS_GREEN'
+        ? 3
+        : status.stage === 'RECOVERY'
+          ? 4
+          : 0
+    : 0;
+
+  order.forEach((id, index) => {
+    const el = maybeById(id);
+    if (!el) return;
+    const done = index < reached;
+    el.classList.toggle('done', done);
+    // Module 41 §7: completion is carried by an icon (check vs circle) as well
+    // as colour, so status never depends on colour alone (Rule 13).
+    const mark = el.querySelector('.evp-step-mark');
+    if (mark) mark.replaceChildren(done ? ICONS.check() : ICONS.circle());
+  });
+
+  if (badge) badge.textContent = status ? status.stage : STRINGS.panel.evpIdle;
+  if (plan) {
+    plan.textContent = status
+      ? `plan ${status.planStatus}${
+          status.shortfallS > 0 ? ` · shortfall ${status.shortfallS.toFixed(1)}s` : ''
+        } · ${status.activeEmsId}`
+      : '—';
+  }
+  if (tight) tight.classList.toggle('is-hidden', !status || status.planStatus !== 'TIGHT');
+}
+
+function updateLaneTable(): void {
+  const body = maybeById('lane-table-body');
+  const signal = store.signalAdaptive.get();
+  const observed = store.observation.get();
+  const demands = store.laneDemands.get();
+  if (!body || !signal || !observed) return;
+
+  const stopped = store.waiting.get();
+  const rows = body.querySelectorAll('tr');
+  LANES.forEach((lane, index) => {
+    const row = rows[index];
+    if (!row) return;
+
+    const laneState = observed.lanes[lane];
+    if (!laneState) return;
+
+    const indication = signal.lanes[lane];
+    const indicationText =
+      indication === 'G' ? 'GO (Green)' : indication === 'Y' ? 'CLEAR (Yellow)' : 'STOP (Red)';
+
+    const cells = row.querySelectorAll('td');
+    if (cells[1]) cells[1].textContent = indicationText;
+    if (cells[2]) cells[2].textContent = laneState.queueLengthM.toFixed(0);
+    if (cells[3]) cells[3].textContent = String(stopped[index] ?? 0);
+    const demandSpan = cells[4]?.querySelector('.lane-demand-num');
+    if (demandSpan) demandSpan.textContent = String(demands[lane] ?? 450);
+  });
+}
+
+function updateAuditPanel(adaptive: KpiSnapshot): void {
+  const badge = maybeById('audit-conservation');
+  if (badge) {
+    badge.textContent = adaptive.conservationBalanced
+      ? STRINGS.panel.conservationOk
+      : STRINGS.panel.conservationBroken;
+    badge.className = adaptive.conservationBalanced ? 'badge badge-safety' : 'badge badge-mode';
+  }
+
+  const rows = maybeById('audit-rows');
+  if (!rows) return;
+
+  const fixed = store.kpiFixed.get();
+  const safety = store.safetyStats.get();
+  const byType = Object.entries(safety.violationsPreventedByType)
+    .filter(([, count]) => count > 0)
+    .map(([kind, count]) => `${kind} ${count}`)
+    .join(', ');
+
+  // Module 16 §4.1 `evp.requests{accepted,rejected,reason}` and `evp.shortfallS`.
+  // These outlive the plan: `evpStatus` is null once a preemption ends, so a
+  // refusal would otherwise vanish with the badge that showed it.
+  const evp = store.evpCounters.get();
+  const rejectedBy = Object.entries(evp.rejectedByReason)
+    .filter(([, count]) => count > 0)
+    .map(([reason, count]) => `${reason} ${count}`)
+    .join(', ');
+  const worstShortfallS = evp.shortfallsS.length === 0 ? 0 : Math.max(...evp.shortfallsS);
+
+  const entries: Array<[string, string]> = [
+    ['Simulated time', `${store.tSimS.get().toFixed(1)} s`],
+    ['Bus delay', `${fmt(adaptive.busDelayS, 1)} s`],
+    ['Bike delay', `${fmt(adaptive.bikeDelayS, 1)} s`],
+    ['Fixed-twin CO₂', `${fmt(fixed.co2Kg, 2)} kg`],
+    // Module 16 §4.1 kernel gauges. Forwarded from the kernel, never recomputed.
+    ['Green seen min / max', `${safety.minGreenSeenS.toFixed(1)} / ${safety.maxGreenSeenS.toFixed(1)} s`],
+    ['Yellow compliance', `${safety.yellowCompliancePct.toFixed(1)} %`],
+    ['All-red compliance', `${safety.allRedCompliancePct.toFixed(1)} %`],
+    ['Violations prevented', byType === '' ? 'none' : byType],
+    ['EVP decisions', `${evp.accepted} accepted / ${evp.rejected} rejected`],
+    ['EVP refusals', rejectedBy === '' ? 'none' : rejectedBy],
+    ['EVP worst shortfall', `${worstShortfallS.toFixed(1)} s`],
+    ['Conservation', STRINGS.panel.conservationLabel],
+  ];
+
+  rows.replaceChildren();
+  for (const [term, value] of entries) {
+    rows.append(h('dt', { text: term }), h('dd', { class: 'mono', text: value }));
+  }
+}
+
+function updateLosBadges(adaptive: KpiSnapshot, fixed: KpiSnapshot): void {
+  const adaptiveBadge = maybeById('los-adaptive');
+  const fixedBadge = maybeById('los-fixed');
+
+  if (adaptiveBadge) {
+    adaptiveBadge.textContent = STRINGS.kpis.losLabel(adaptive.los);
+    adaptiveBadge.className =
+      adaptive.los === 'A' || adaptive.los === 'B' ? 'badge badge-safety' : 'badge';
+    // Module 41 §2: the outline pattern is a third channel alongside the letter
+    // (text) and colour. `components.css` keys `data-los` A–F on solid→hatched.
+    if (adaptive.los) adaptiveBadge.setAttribute('data-los', adaptive.los);
+    else adaptiveBadge.removeAttribute('data-los');
+  }
+  if (fixedBadge) {
+    fixedBadge.textContent = STRINGS.kpis.losLabel(fixed.los);
+    fixedBadge.className = fixed.los === 'A' || fixed.los === 'B' ? 'badge badge-safety' : 'badge';
+    if (fixed.los) fixedBadge.setAttribute('data-los', fixed.los);
+    else fixedBadge.removeAttribute('data-los');
+  }
+}
 
 export function renderApp(root: HTMLElement): {
   canvasFixed: HTMLCanvasElement;
   canvasAdaptive: HTMLCanvasElement;
-  updateKpis: () => void;
 } {
-  root.innerHTML = `
-    <div class="app-container">
-      <!-- Accessible Live Announcement Region (Module 32 §2) -->
-      <div id="a11y-live-status" class="sr-only" aria-live="polite" aria-atomic="true">
-        Traffic simulation ready.
-      </div>
+  const refs: KpiRefs = { main: new Map(), fixed: new Map(), delta: new Map() };
 
-      <!-- 1. Header Bar -->
-      <header class="app-header">
-        <div class="brand-section">
-          <span class="badge badge-mode">${STRINGS.brand.simulationOnly}</span>
-          <h1 class="brand-title">${STRINGS.brand.title}</h1>
-          <span class="badge">${STRINGS.brand.identicalArrivals(42)}</span>
-          <span class="badge badge-safety" id="hdr-safety-badge">● 0 conflicts in 0 ticks</span>
-        </div>
-        <div class="header-controls">
-          <select id="scenario-select" class="btn btn-secondary" aria-label="${STRINGS.header.scenarioSelectLabel}">
-            ${SCENARIO_LIBRARY.map((s) => `<option value="${s.id}">${s.name}</option>`).join('')}
-          </select>
-          <div class="btn-group" role="group" aria-label="${STRINGS.header.speedControlsLabel}">
-            <button class="btn btn-secondary" id="btn-pause" aria-label="${STRINGS.header.pauseLabel}">⏸</button>
-            <button class="btn btn-secondary" id="speed-1" aria-label="1x speed">1×</button>
-            <button class="btn btn-secondary" id="speed-5" aria-label="5x speed">5×</button>
-            <button class="btn btn-secondary" id="speed-20" aria-label="20x speed">20×</button>
-          </div>
-          <button class="btn btn-danger" id="btn-spawn-ems">${STRINGS.header.spawnAmbulance}</button>
-          <button class="btn btn-primary" id="btn-judge-tour">${STRINGS.header.watchJudgeDemo}</button>
-          <button class="btn btn-secondary" id="btn-shortcuts" aria-label="${STRINGS.header.helpShortcuts}">⌨ Help</button>
-          <button class="btn btn-secondary" id="btn-theme-toggle" aria-label="${STRINGS.header.themeToggle}">◑ Theme</button>
-        </div>
-      </header>
+  root.classList.add('app-container');
 
-      <!-- 2. Twin Intersections Canvas View -->
-      <main class="twins-container">
-        <!-- Twin A: Fixed-Time Baseline -->
-        <section class="twin-card" aria-label="${STRINGS.twins.fixedTitle}">
-          <div class="twin-header">
-            <div class="twin-title">${STRINGS.twins.fixedTitle}</div>
-            <span class="badge" id="los-fixed">LOS C</span>
-          </div>
-          <div class="canvas-viewport">
-            <canvas id="canvas-fixed" role="img" aria-label="${STRINGS.twins.canvasAriaLabel} Fixed-Time Controller" width="700" height="440"></canvas>
-          </div>
-          <div class="timeline-ribbon" id="ribbon-fixed" title="Fixed Phase Timeline (last 60s)"></div>
-        </section>
-
-        <!-- Twin B: UrbanFlow Adaptive -->
-        <section class="twin-card" aria-label="${STRINGS.twins.adaptiveTitle}">
-          <div class="twin-header">
-            <div class="twin-title">${STRINGS.twins.adaptiveTitle}</div>
-            <div style="display: flex; gap: 6px;">
-              <span class="badge badge-ai">${STRINGS.twins.badgeAi}</span>
-              <span class="badge badge-safety" id="los-adaptive">LOS A</span>
-            </div>
-          </div>
-          <div class="canvas-viewport">
-            <canvas id="canvas-adaptive" role="img" aria-label="${STRINGS.twins.canvasAriaLabel} Adaptive Controller" width="700" height="440"></canvas>
-          </div>
-          <div class="timeline-ribbon" id="ribbon-adaptive" title="Adaptive Phase Timeline (last 60s)"></div>
-        </section>
-      </main>
-
-      <!-- Accessible Data Table Alternative (Module 32 §2) -->
-      <details class="a11y-lane-table-details">
-        <summary class="btn btn-secondary btn-sm">${STRINGS.twins.tableToggle}</summary>
-        <div id="a11y-lane-table-container">
-          <table class="lane-data-table" aria-label="Current lane queue and signal states">
-            <thead>
-              <tr>
-                <th>Approach Lane</th>
-                <th>Signal Indication</th>
-                <th>Queue (m)</th>
-                <th>Vehicles Waiting</th>
-              </tr>
-            </thead>
-            <tbody id="lane-table-body">
-              ${LANES.map((lane) => `<tr><td>${lane}</td><td>RED</td><td>0m</td><td>0</td></tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </details>
-
-      <!-- Keyboard Shortcuts Help Dialog (Module 32 §4) -->
-      <dialog id="keyboard-help-dialog" aria-labelledby="kbd-dialog-title">
-        <h2 id="kbd-dialog-title" style="margin-top: 0;">${STRINGS.keyboardModal.title}</h2>
-        <ul style="line-height: 1.8; padding-left: 20px;">
-          ${STRINGS.keyboardModal.shortcuts.map((s) => `<li><kbd style="font-family: var(--font-mono); background: var(--color-surface-elevated); padding: 2px 6px; border-radius: 4px;">${s.key}</kbd> — ${s.desc}</li>`).join('')}
-        </ul>
-        <button class="btn btn-primary" id="btn-close-kbd" style="margin-top: 12px;">${STRINGS.keyboardModal.closeBtn}</button>
-      </dialog>
-
-      <!-- 3. KPI Comparison Grid -->
-      <section class="kpi-grid" aria-label="Key Performance Indicators Comparison">
-        <!-- Person Delay -->
-        <div class="stat-tile">
-          <div class="stat-label">
-            <span>Person-Delay</span>
-            <span class="chip-delta good" id="delta-person-delay">▼ 34% (lower is better)</span>
-          </div>
-          <div class="stat-values">
-            <span class="stat-main mono" id="kpi-adaptive-pdelay">0.0<span class="stat-unit">s</span></span>
-            <span class="stat-comparison mono" id="kpi-fixed-pdelay">Fixed: 0.0s</span>
-          </div>
-        </div>
-
-        <!-- Average Delay -->
-        <div class="stat-tile">
-          <div class="stat-label">
-            <span>Average Delay</span>
-            <span class="chip-delta good" id="delta-avg-delay">▼ 28%</span>
-          </div>
-          <div class="stat-values">
-            <span class="stat-main mono" id="kpi-adaptive-delay">0.0<span class="stat-unit">s</span></span>
-            <span class="stat-comparison mono" id="kpi-fixed-delay">Fixed: 0.0s</span>
-          </div>
-        </div>
-
-        <!-- Throughput -->
-        <div class="stat-tile">
-          <div class="stat-label">
-            <span>Throughput</span>
-            <span class="chip-delta good" id="delta-throughput">▲ 12% (higher is better)</span>
-          </div>
-          <div class="stat-values">
-            <span class="stat-main mono" id="kpi-adaptive-thru">0<span class="stat-unit">veh/h</span></span>
-            <span class="stat-comparison mono" id="kpi-fixed-thru">Fixed: 0</span>
-          </div>
-        </div>
-
-        <!-- Max Queue -->
-        <div class="stat-tile">
-          <div class="stat-label">
-            <span>Max Queue Length</span>
-            <span class="chip-delta good" id="delta-queue">▼ 42m</span>
-          </div>
-          <div class="stat-values">
-            <span class="stat-main mono" id="kpi-adaptive-queue">0.0<span class="stat-unit">m</span></span>
-            <span class="stat-comparison mono" id="kpi-fixed-queue">Fixed: 0.0m</span>
-          </div>
-        </div>
-
-        <!-- EMS Delay -->
-        <div class="stat-tile">
-          <div class="stat-label">
-            <span>Ambulance Delay</span>
-            <span class="chip-delta good" id="delta-ems">▼ 85%</span>
-          </div>
-          <div class="stat-values">
-            <span class="stat-main mono" id="kpi-adaptive-ems">0.0<span class="stat-unit">s</span></span>
-            <span class="stat-comparison mono" id="kpi-fixed-ems">Fixed: 0.0s</span>
-          </div>
-        </div>
-
-        <!-- Fuel / Emissions -->
-        <div class="stat-tile">
-          <div class="stat-label">
-            <span>Idle Fuel / CO₂</span>
-            <span class="chip-delta good" id="delta-fuel">▼ 22%</span>
-          </div>
-          <div class="stat-values">
-            <span class="stat-main mono" id="kpi-adaptive-fuel">0.0<span class="stat-unit">L</span></span>
-            <span class="stat-comparison mono" id="kpi-fixed-fuel">Fixed: 0.0L</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- 4. Operational Panels -->
-      <section class="dashboard-panels">
-        <!-- Explainability Panel -->
-        <div class="panel-card" aria-label="Explainability Panel">
-          <div class="panel-title">
-            <span>Why this phase?</span>
-            <span class="badge" id="rule-badge">RATIO rule</span>
-          </div>
-          <p id="explain-text" style="color: var(--color-text-2); font-size: 13px;">
-            Adaptive controller shifted green to North-South arterial to dissipate morning tidal surge.
-          </p>
-          <div id="pressure-bars-container">
-            <div class="pressure-row">
-              <div class="pressure-header"><span>P1: NS Left</span><span class="mono" id="val-p1">0</span></div>
-              <div class="pressure-track"><div class="pressure-fill" id="bar-p1" style="width: 10%;"></div></div>
-            </div>
-            <div class="pressure-row">
-              <div class="pressure-header"><span>P2: NS Thru (Active ✓)</span><span class="mono" id="val-p2">0</span></div>
-              <div class="pressure-track"><div class="pressure-fill active" id="bar-p2" style="width: 75%;"></div></div>
-            </div>
-            <div class="pressure-row">
-              <div class="pressure-header"><span>P3: EW Left</span><span class="mono" id="val-p3">0</span></div>
-              <div class="pressure-track"><div class="pressure-fill" id="bar-p3" style="width: 15%;"></div></div>
-            </div>
-            <div class="pressure-row">
-              <div class="pressure-header"><span>P4: EW Thru</span><span class="mono" id="val-p4">0</span></div>
-              <div class="pressure-track"><div class="pressure-fill" id="bar-p4" style="width: 25%;"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Emergency Preemption (EVP) Stepper -->
-        <div class="panel-card" aria-label="EVP Stepper Panel">
-          <div class="panel-title">
-            <span>Emergency Vehicle Preemption (EVP)</span>
-            <span class="badge badge-safety" id="evp-status-badge">READY</span>
-          </div>
-          <div id="evp-tight-banner" class="banner banner-warning" style="display: none;">
-            ⚠️ TIGHT plan: ETA shortfall 3.5s. Yellow and all-red clearance intervals are never shortened.
-          </div>
-          <ol style="list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px;">
-            <li id="step-req" style="color: var(--color-text-2);">① Inbound EVP Request Authenticated (HMAC-SHA256)</li>
-            <li id="step-lead" style="color: var(--color-text-2);">② Pre-Clearance & Queue Flush Window Calculated (~13.5s)</li>
-            <li id="step-green" style="color: var(--color-text-2);">③ Preempted Green Granted on Priority Phase</li>
-            <li id="step-exit" style="color: var(--color-text-2);">④ Vehicle Transit Confirmed Through Intersection Box</li>
-            <li id="step-rec" style="color: var(--color-text-2);">⑤ Anti-Starvation Phase Recovery Guaranteed (60s)</li>
-          </ol>
-        </div>
-
-        <!-- AI Copilot Advisory & What-If Dry Run -->
-        <div class="panel-card" aria-label="Meta AI Copilot Advisory">
-          <div class="panel-title">
-            <span>Meta Copilot Advisory</span>
-            <span class="badge badge-ai">Muse Spark 1.3</span>
-          </div>
-          <div style="background: var(--color-surface-elevated); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-hairline);">
-            <div style="font-weight: 600; font-size: 13px; color: var(--color-accent); margin-bottom: 4px;">
-              Root Cause: DEMAND_SURGE (Confidence 92%)
-            </div>
-            <div style="font-size: 12px; color: var(--color-text-2); margin-bottom: 8px;">
-              Inflow on NB-TR exceeds baseline by 2.8σ. Proposed action: extend G_MIN_EFFICIENT_S to 32s.
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-primary" id="btn-approve-proposal" style="font-size: 12px; padding: 4px 10px;">Approve & Apply</button>
-              <button class="btn btn-secondary" id="btn-unsafe-proposal" style="font-size: 12px; padding: 4px 10px;">Try an unsafe proposal</button>
-            </div>
-          </div>
-          <div id="proposal-feedback" style="font-size: 12px; color: var(--color-go); display: none;"></div>
-        </div>
-      </section>
-
-      <!-- 5. Floating Judge Mode Caption Overlay -->
-      <div id="judge-overlay" class="judge-caption-overlay" style="display: none;">
-        <span class="badge badge-ai">90s Demo</span>
-        <span class="judge-caption-text" id="judge-caption-text">Same cars, same seed. Two controllers.</span>
-        <button class="btn btn-secondary" id="btn-exit-judge" style="padding: 2px 8px; font-size: 11px;">Stop (Esc)</button>
-      </div>
-    </div>
-  `;
-
-  // Attach event handlers
-  document.getElementById('btn-theme-toggle')!.addEventListener('click', () => {
-    store.toggleTheme();
+  const liveStatus = h('div', {
+    class: 'sr-only',
+    attrs: { id: 'a11y-live-status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+    text: STRINGS.live.ready,
   });
 
-  document.getElementById('scenario-select')!.addEventListener('change', (e) => {
-    store.resetScenario((e.target as HTMLSelectElement).value, 42);
+  // Module 32 §4 / Module 33: the skip link in `index.html` targets `#main`.
+  // `tabindex="-1"` makes the programmatically-focused region announce to a
+  // screen reader without adding it to the sequential tab order.
+  const twins = h('main', { class: 'twins-container', attrs: { id: 'main', tabindex: '-1' } }, [
+    buildTwinCard({
+      title: STRINGS.twins.fixedTitle,
+      canvasId: 'canvas-fixed',
+      losId: 'los-fixed',
+      ribbonId: 'ribbon-fixed',
+      ribbonTitle: STRINGS.twins.ribbonFixed,
+    }),
+    buildTwinCard({
+      title: STRINGS.twins.adaptiveTitle,
+      canvasId: 'canvas-adaptive',
+      losId: 'los-adaptive',
+      ribbonId: 'ribbon-adaptive',
+      ribbonTitle: STRINGS.twins.ribbonAdaptive,
+      badges: [h('span', { class: 'badge badge-ai', text: STRINGS.twins.badgeAi })],
+    }),
+  ]);
+
+  appendChildren(root, [
+    liveStatus,
+    buildHeader(),
+    twins,
+    buildTrafficLabPanel(),
+    buildLaneTable(),
+    buildKeyboardDialog(),
+    buildKpiGrid(refs),
+    h('section', { class: 'dashboard-panels' }, [
+      buildExplainPanel(),
+      buildEvpPanel(),
+      buildCopilotPanel(),
+      buildAuditPanel(),
+    ]),
+    buildJudgeOverlay(),
+    buildFooter(),
+  ]);
+
+  const canvasFixed = byId<HTMLCanvasElement>('canvas-fixed');
+  const canvasAdaptive = byId<HTMLCanvasElement>('canvas-adaptive');
+
+  // Judge Mode overlay visibility.
+  store.judgeTour.subscribe((tour) => {
+    const overlay = maybeById('judge-overlay');
+    const caption = maybeById('judge-caption-text');
+    if (!overlay) return;
+    overlay.classList.toggle('is-hidden', !tour.active);
+    if (caption) caption.textContent = tour.caption;
   });
 
-  document.getElementById('btn-spawn-ems')!.addEventListener('click', () => {
-    store.simFixed.spawnEms('NB-TR');
-    store.simAdaptive.spawnEms('NB-TR');
-    const badge = document.getElementById('evp-status-badge')!;
-    badge.textContent = 'ACTIVE';
-    badge.className = 'badge badge-mode';
-    document.getElementById('step-req')!.style.color = 'var(--color-go)';
-    document.getElementById('step-lead')!.style.color = 'var(--color-go)';
+  // State hash + seed footer.
+  store.stateHash.subscribe((hash) => {
+    const el = maybeById('state-hash');
+    if (el) el.textContent = STRINGS.brand.stateHashLabel(hash || '—');
   });
+  const footerSeed = maybeById('footer-seed');
+  if (footerSeed) footerSeed.textContent = STRINGS.brand.identicalArrivals(store.seed.get());
 
-  document.getElementById('btn-judge-tour')!.addEventListener('click', () => {
-    judgeTour.start();
-  });
+  // Global keyboard map (Module 32 §4).
+  window.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+    if (target instanceof HTMLSelectElement) return;
 
-  document.getElementById('btn-exit-judge')!.addEventListener('click', () => {
-    judgeTour.stop();
-  });
+    const dialog = maybeById<HTMLDialogElement>('keyboard-help-dialog');
 
-  const kbdDialog = document.getElementById('keyboard-help-dialog') as HTMLDialogElement;
-  document.getElementById('btn-shortcuts')!.addEventListener('click', () => {
-    kbdDialog.showModal();
-  });
-  document.getElementById('btn-close-kbd')!.addEventListener('click', () => {
-    kbdDialog.close();
-  });
-
-  // Global Keyboard Map (Module 32 §4)
-  window.addEventListener('keydown', (e) => {
-    // Avoid triggering shortcuts while typing inside text inputs
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-      return;
-    }
-
-    if (e.key === 'Escape') {
-      judgeTour.stop();
-      if (kbdDialog.open) kbdDialog.close();
-    } else if (e.key === ' ' || e.code === 'Space') {
-      e.preventDefault();
-      const next = !store.isPaused.get();
-      store.isPaused.set(next);
-      document.getElementById('btn-pause')!.textContent = next ? '▶' : '⏸';
-    } else if (e.key === 'a' || e.key === 'A') {
-      store.simFixed.spawnEms('NB-TR');
-      store.simAdaptive.spawnEms('NB-TR');
-      document.getElementById('evp-status-badge')!.textContent = 'ACTIVE';
-    } else if (e.key === 'r' || e.key === 'R') {
-      const currentScen = (document.getElementById('scenario-select') as HTMLSelectElement).value;
-      store.resetScenario(currentScen, 42);
-    } else if (e.key === '1') {
-      store.speed.set(1.0);
-    } else if (e.key === '2') {
-      store.speed.set(5.0);
-    } else if (e.key === '3') {
-      store.speed.set(20.0);
-    } else if (e.key === '?') {
-      kbdDialog.showModal();
+    switch (event.key) {
+      case 'Escape':
+        judgeTour.stop();
+        if (dialog?.open) dialog.close();
+        break;
+      case ' ':
+        event.preventDefault();
+        store.togglePause();
+        break;
+      case 'a':
+      case 'A':
+        void spawnAmbulance();
+        break;
+      case 'r':
+      case 'R':
+        store.resetScenario(store.scenarioId.get(), store.seed.get());
+        break;
+      case '1':
+        store.setSpeed(0.5);
+        break;
+      case '2':
+        store.setSpeed(1);
+        break;
+      case '3':
+        store.setSpeed(5);
+        break;
+      case '4':
+        store.setSpeed(20);
+        break;
+      case '?':
+        dialog?.showModal();
+        break;
+      default:
+        break;
     }
   });
 
-  document.getElementById('btn-pause')!.addEventListener('click', () => {
-    const next = !store.isPaused.get();
-    store.isPaused.set(next);
-    document.getElementById('btn-pause')!.textContent = next ? '▶' : '⏸';
-  });
+  // Module 32 §1: live-region announcements are throttled to 1 per 5 s — the
+  // KPI store publishes at up to 4 Hz, and reading a sentence that often is
+  // noise, not accessibility. Wall clock is used only for this UI pacing, never
+  // for a displayed or simulated value (Rule 07 determinism is untouched).
+  let lastAnnouncedAtMs = 0;
+  const updateKpis = (): void => {
+    const adaptive = store.kpiAdaptive.get();
+    const fixed = store.kpiFixed.get();
 
-  document.getElementById('speed-1')!.addEventListener('click', () => store.speed.set(1.0));
-  document.getElementById('speed-5')!.addEventListener('click', () => store.speed.set(5.0));
-  document.getElementById('speed-20')!.addEventListener('click', () => store.speed.set(20.0));
-
-  // Proposal interaction buttons
-  document.getElementById('btn-approve-proposal')!.addEventListener('click', () => {
-    const fb = document.getElementById('proposal-feedback')!;
-    fb.style.display = 'block';
-    fb.style.color = 'var(--color-go)';
-    fb.textContent = '✓ Digital twin verified (+6.2% delay reduction). Safety Kernel verified. Applied!';
-  });
-
-  document.getElementById('btn-unsafe-proposal')!.addEventListener('click', () => {
-    const fb = document.getElementById('proposal-feedback')!;
-    fb.style.display = 'block';
-    fb.style.color = 'var(--color-stop)';
-    fb.textContent = '■ Rejected by Safety Kernel: yellow interval (3.5s) is non-configurable.';
-    store.safetyStats.set({
-      ...store.safetyStats.get(),
-      violationsPrevented: store.safetyStats.get().violationsPrevented + 1,
-    });
-  });
-
-  // Reactive subscription for Judge Tour
-  store.judgeTour.subscribe((t) => {
-    const overlay = document.getElementById('judge-overlay')!;
-    if (t.active) {
-      overlay.style.display = 'flex';
-      document.getElementById('judge-caption-text')!.textContent = t.caption;
-    } else {
-      overlay.style.display = 'none';
-    }
-  });
-
-  const canvasFixed = document.getElementById('canvas-fixed') as HTMLCanvasElement;
-  const canvasAdaptive = document.getElementById('canvas-adaptive') as HTMLCanvasElement;
-
-  const updateKpis = () => {
-    const f = store.kpiFixed.get();
-    const a = store.kpiAdaptive.get();
-
-    document.getElementById('kpi-adaptive-pdelay')!.innerHTML = `${a.personDelayS.toFixed(1)}<span class="stat-unit">s</span>`;
-    document.getElementById('kpi-fixed-pdelay')!.textContent = `Fixed: ${f.personDelayS.toFixed(1)}s`;
-
-    document.getElementById('kpi-adaptive-delay')!.innerHTML = `${a.avgDelayS.toFixed(1)}<span class="stat-unit">s</span>`;
-    document.getElementById('kpi-fixed-delay')!.textContent = `Fixed: ${f.avgDelayS.toFixed(1)}s`;
-
-    document.getElementById('kpi-adaptive-thru')!.innerHTML = `${a.throughputVph.toFixed(0)}<span class="stat-unit">veh/h</span>`;
-    document.getElementById('kpi-fixed-thru')!.textContent = `Fixed: ${f.throughputVph.toFixed(0)}`;
-
-    document.getElementById('kpi-adaptive-queue')!.innerHTML = `${a.maxQueueM.toFixed(0)}<span class="stat-unit">m</span>`;
-    document.getElementById('kpi-fixed-queue')!.textContent = `Fixed: ${f.maxQueueM.toFixed(0)}m`;
-
-    document.getElementById('kpi-adaptive-ems')!.innerHTML = `${a.emsDelayS.toFixed(1)}<span class="stat-unit">s</span>`;
-    document.getElementById('kpi-fixed-ems')!.textContent = `Fixed: ${f.emsDelayS.toFixed(1)}s`;
-
-    document.getElementById('kpi-adaptive-fuel')!.innerHTML = `${a.fuelL.toFixed(1)}<span class="stat-unit">L</span>`;
-    document.getElementById('kpi-fixed-fuel')!.textContent = `Fixed: ${f.fuelL.toFixed(1)}L`;
-
-    // Safety badge update
-    const s = store.safetyStats.get();
-    document.getElementById('hdr-safety-badge')!.textContent = `● ${s.conflicts} conflicts in ${s.ticks} ticks (${s.violationsPrevented} violations prevented)`;
-
-    // Accessible Live Status Announcement & Data Table (Module 32 §2)
-    const liveStatus = document.getElementById('a11y-live-status');
-    if (liveStatus) {
-      const activePhase = store.simAdaptive.observe().signal.phase ?? 'P2_NS_THRU';
-      liveStatus.textContent = `Phase ${activePhase} active. Adaptive Person-Delay ${a.personDelayS.toFixed(1)}s vs Fixed ${f.personDelayS.toFixed(1)}s. 0 conflicts in ${s.ticks} ticks.`;
+    for (const tile of KPI_TILES) {
+      updateKpiTile(tile, refs, adaptive, fixed);
     }
 
-    const tableBody = document.getElementById('lane-table-body');
-    if (tableBody) {
-      const sig = store.simAdaptive.observe().signal;
-      tableBody.innerHTML = LANES.map((lane) => {
-        const ind = sig.lanes[lane];
-        const indText = ind === 'G' ? 'GO (Green)' : ind === 'Y' ? 'CLEAR (Yellow)' : 'STOP (Red)';
-        const lObj = store.simAdaptive.lanes[lane];
-        const queueM = lObj ? Math.round(lObj.pos[0] ?? 0) : 0;
-        const count = lObj ? lObj.count : 0;
-        return `<tr><td>${lane}</td><td>${indText}</td><td>${queueM}m</td><td>${count}</td></tr>`;
-      }).join('');
+    updateLosBadges(adaptive, fixed);
+    updatePressurePanel();
+    updateEvpPanel();
+    updateLaneTable();
+    updateAuditPanel(adaptive);
+
+    const safety = store.safetyStats.get();
+    const safetyBadge = maybeById('hdr-safety-badge');
+    if (safetyBadge) {
+      safetyBadge.textContent = STRINGS.safety.statusCounters(
+        safety.conflicts,
+        safety.ticks,
+        safety.violationsPrevented,
+      );
+    }
+
+    const nowMs = performance.now();
+    const live = maybeById('a11y-live-status');
+    if (live && nowMs - lastAnnouncedAtMs >= 5000) {
+      lastAnnouncedAtMs = nowMs;
+      live.textContent = STRINGS.a11y.liveStatus(
+        store.signalAdaptive.get()?.phase ?? STRINGS.a11y.unknownPhase,
+        fmt(adaptive.personDelayS, 1),
+        fmt(fixed.personDelayS, 1),
+        safety.conflicts,
+        safety.ticks,
+      );
     }
   };
 
-  return {
-    canvasFixed,
-    canvasAdaptive,
-    updateKpis,
-  };
+  // The store is the only writer of measured state, so the panels repaint when
+  // the worker publishes rather than on a local timer. One subscription per
+  // payload keeps a KPI frame from rebuilding the lane table twice.
+  store.observation.subscribe(() => updateKpis());
+  store.evpStatus.subscribe(() => updateEvpPanel());
+
+  return { canvasFixed, canvasAdaptive };
 }

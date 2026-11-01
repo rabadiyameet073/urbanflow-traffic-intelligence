@@ -11,7 +11,7 @@
  * benchmark. Now every displayed number arrives in a `kpis` message from
  * `MetricsAccumulator` and nowhere else (Rule 00).
  */
-import { DEFAULT_SIM_CONFIG, SCENARIO_LIBRARY, SimConfigSchema } from '@urbanflow/core';
+import { DEFAULT_SIM_CONFIG, LANES, SCENARIO_LIBRARY, SimConfigSchema } from '@urbanflow/core';
 import type {
   EvpDecisionResponse,
   EvpStage,
@@ -23,6 +23,7 @@ import type {
   Observation,
   PhaseId,
   SignalState,
+  VehicleType,
 } from '@urbanflow/core';
 import { SimulationClient } from '../worker/client.js';
 import type { ProposalVerdict } from '../worker/client.js';
@@ -166,6 +167,31 @@ export class AppStore {
 
   /** Non-fatal worker diagnostics (unknown scenario, protocol mismatch, restart). */
   public readonly workerNotice = signal<string>('');
+  /**
+   * Demand per approach, *as the worker reports it*.
+   *
+   * The sandbox edits this through `setLaneDemand`, but the number shown comes
+   * back on every `kpis` message in `event.control`, never from the value that
+   * was sent: the engine clamps and renormalises, and an operator reading their
+   * own request back unpunished would be reading a guess (Rule 00).
+   */
+  public readonly laneDemands = signal<Record<LaneId, number>>({ ...DEFAULT_SIM_CONFIG.laneDemandVph } as Record<LaneId, number>);
+  public readonly modalSplit = signal<Record<'CAR' | 'BIKE' | 'BUS' | 'TRUCK', number>>({
+    CAR: DEFAULT_SIM_CONFIG.modalSplit.CAR ?? 0.82,
+    BIKE: DEFAULT_SIM_CONFIG.modalSplit.BIKE ?? 0.08,
+    BUS: DEFAULT_SIM_CONFIG.modalSplit.BUS ?? 0.04,
+    TRUCK: DEFAULT_SIM_CONFIG.modalSplit.TRUCK ?? 0.06,
+  });
+  public readonly emsDetectDistanceM = signal<number>(DEFAULT_SIM_CONFIG.emsDetectDistanceM);
+  public readonly speedLimitMps = signal<number>(DEFAULT_SIM_CONFIG.speedLimitMps);
+
+  /**
+   * The approach the sandbox and the keyboard act on (Module 31 §4: "arrows
+   * select lane"). Choosing a lane is also how a click on the canvas sets the
+   * target, so this is interface state rather than simulation state — nothing
+   * in the worker knows or cares which row the operator is looking at.
+   */
+  public readonly selectedLane = signal<LaneId>('NB-TR');
 
   /** Module 16 §4.1: kernel counters and gauges, shown in the Audit panel. */
   public readonly safetyStats = signal<{
@@ -225,6 +251,10 @@ export class AppStore {
         this.signalAdaptive.set(event.observation.signal);
         this.waiting.set(event.waiting);
         this.tSimS.set(event.tSimS);
+        this.laneDemands.set(event.control.laneDemandVph);
+        this.modalSplit.set(event.control.modalSplit);
+        this.emsDetectDistanceM.set(event.control.emsDetectDistanceM);
+        this.speedLimitMps.set(event.control.speedLimitMps);
       },
       onDecision: (event) => {
         this.explainState.set({
@@ -277,6 +307,7 @@ export class AppStore {
       ...scenarioConfig,
       seed: this.seed.get(),
     });
+    this.laneDemands.set({ ...DEFAULT_SIM_CONFIG.laneDemandVph, ...(config.laneDemandVph ?? {}) } as Record<LaneId, number>);
     this.client.init(this.scenarioId.get(), this.seed.get(), config);
     this.client.run(this.speed.get());
   }
@@ -357,6 +388,7 @@ export class AppStore {
     this.tSimS.set(0);
     this.waiting.set([]);
     this.workerNotice.set('');
+    this.laneDemands.set({ ...DEFAULT_SIM_CONFIG.laneDemandVph, ...(config.laneDemandVph ?? {}) } as Record<LaneId, number>);
     this.safetyStats.set({
       conflicts: 0,
       violationsPrevented: 0,
@@ -415,7 +447,61 @@ export class AppStore {
   }
 
   public setLaneDemand(lane: LaneId, vph: number): void {
-    this.client.setLaneDemand(lane, Math.max(0, Math.min(1800, vph)));
+    const clamped = Math.max(0, Math.min(1800, Math.round(vph)));
+    const current = this.laneDemands.get();
+    this.laneDemands.set({ ...current, [lane]: clamped });
+    this.client.setLaneDemand(lane, clamped);
+  }
+
+  /**
+   * Inject `count` vehicles of one class into one approach (Module 31 §4).
+   *
+   * An ambulance injected here is a *vehicle*, not a request: it drives through
+   * with priority filtering but the EVP manager is never asked for a plan, which
+   * is exactly the comparison worth having — `requestPreemption` is the case
+   * where the intersection clears itself for it.
+   */
+  public injectBurst(lane: LaneId, count = 5, type: VehicleType = 'CAR'): void {
+    this.spawnVehicle(lane, type, count);
+  }
+
+  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM?: number): void {
+    this.client.spawnVehicle(lane, type, count, distanceM);
+  }
+
+  /** Inject into whichever approach the operator is pointing at. */
+  public spawnInSelectedLane(type: VehicleType, count = 1, distanceM?: number): void {
+    this.spawnVehicle(this.selectedLane.get(), type, count, distanceM);
+  }
+
+  public selectLane(lane: LaneId): void {
+    this.selectedLane.set(lane);
+  }
+
+  /**
+   * Arrow-key lane walking: step the selection through `LANES`, wrapping at both
+   * ends so the keyboard never runs into a dead stop.
+   */
+  public moveLaneSelection(delta: number): void {
+    const index = LANES.indexOf(this.selectedLane.get());
+    const next = (((index + delta) % LANES.length) + LANES.length) % LANES.length;
+    this.selectedLane.set(LANES[next] ?? 'NB-TR');
+  }
+
+  /**
+   * `±` on the keyboard: one step of demand on the selected approach.
+   *
+   * The base is the worker's echo, not a local copy, so a second press after a
+   * clamp adds to the number that is actually in force.
+   */
+  public nudgeDemand(lane: LaneId, delta: number): void {
+    const current = this.laneDemands.get()[lane] ?? 0;
+    this.setLaneDemand(lane, current + delta);
+  }
+
+  /** EMS detection range, one of the three the spec offers (Module 31 §4). */
+  public setEmsDetectDistance(distanceM: number): void {
+    this.client.setParams({ emsDetectDistanceM: distanceM });
   }
 
   public setModalSplit(split: Record<'CAR' | 'BIKE' | 'BUS' | 'TRUCK', number>): void {

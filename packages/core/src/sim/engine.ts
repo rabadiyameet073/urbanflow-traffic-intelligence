@@ -265,6 +265,7 @@ export class SimEngine {
     return this.spawnEmsAt(lane, this.config.emsDetectDistanceM);
   }
 
+
   /** Boundary fallback for a full lane: queue the EMS at the entry point. */
   private enqueueEms(lane: LaneId, emsId: string): string {
     const simLane = this.lanes[lane];
@@ -289,6 +290,105 @@ export class SimEngine {
     });
 
     return emsId;
+  }
+
+  /**
+   * Operator injection of *any* vehicle class, for the lane sandbox
+   * (Module 31 §4 lane controls). `spawnEms` above is the ambulance-only case;
+   * this is the general one behind it.
+   *
+   * Two placement modes, and the difference matters for what the test shows:
+   *
+   * - **No `distanceM`** — the vehicles join the lane's entry buffer and are
+   *   admitted through the same 8 m gate scheduled arrivals use, so a burst of
+   *   twenty queues realistically instead of materialising as one pile-up.
+   * - **With `distanceM`** — the lead vehicle is written into the lane that far
+   *   upstream of the stop line and the rest are spaced behind it by
+   *   `lengthM + minGapS0 + 2`. This is how a mid-approach obstruction or a
+   *   late-appearing ambulance is tested. A placement beyond `laneLengthM`, or
+   *   into a full lane, falls back to the entry gate rather than stacking
+   *   vehicles on top of each other.
+   *
+   * Injection draws from no RNG stream — the same property that lets the
+   * detection-distance sweep replay bit-exactly — so an injected burst logged
+   * in the input log reproduces identically after a `restoreTo`.
+   *
+   * Returns the EMS request ids created, one per ambulance. A non-ambulance
+   * injection returns an empty array; the id is what binds a vehicle to an EVP
+   * plan, and nothing outside the preemption path needs one.
+   */
+  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM?: number): string[] {
+    const simLane = this.lanes[lane];
+    if (!simLane) return [];
+
+    const spec = VEHICLE_SPECS[type];
+    const isEms = type === 'AMBULANCE';
+    const spacingM = spec.lengthM + spec.minGapS0 + 2;
+    const stamp = Math.floor(this.simTimeS * 10);
+    const emsIds: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      // `pos` grows upstream, so member `i` sits *behind* member `i - 1`.
+      const pos = (distanceM ?? 0) + i * spacingM;
+      const emsId = isEms ? `ems-${lane}-${stamp}-${i}` : undefined;
+      if (emsId) emsIds.push(emsId);
+
+      const insideLane = distanceM !== undefined && pos <= this.config.laneLengthM;
+
+      if (insideLane) {
+        const slot = simLane.insertOrdered(
+          type,
+          pos,
+          // An ambulance arrives doing its cruise speed; anything written into
+          // the middle of a live lane is a stationary obstruction, which is the
+          // only honest reading of "a vehicle that was not there a tick ago".
+          isEms ? TIMING.EMS_CRUISE_MPS : 0,
+          this.simTimeS,
+          isEms,
+          emsId,
+        );
+        if (slot === -1) {
+          this.enqueueAtBoundary(lane, type, isEms, emsId);
+        } else {
+          // Operator-injected vehicles are arrivals too, so the conservation law closes.
+          this.totalArrivals++;
+        }
+      } else {
+        this.enqueueAtBoundary(lane, type, isEms, emsId);
+      }
+
+      if (emsId) {
+        this.eventQueue.push({
+          kind: 'emsMilestone',
+          simTimeS: this.simTimeS,
+          emsId,
+          lane,
+          milestone: 'spawned',
+        });
+      }
+    }
+
+    return emsIds;
+  }
+
+  /** Queue one injected vehicle at the lane entry gate and count it once. */
+  private enqueueAtBoundary(
+    lane: LaneId,
+    type: VehicleType,
+    isEms: boolean,
+    emsId?: string,
+  ): void {
+    const simLane = this.lanes[lane];
+    if (!simLane) return;
+
+    simLane.entryBuffer.push({
+      type,
+      tArrivalS: this.simTimeS,
+      tQueuedS: 0,
+      isEms,
+      emsId,
+    });
+    this.totalArrivals++;
   }
 
   public setIncident(kind: IncidentKind, lane: LaneId, positionM: number, durationS?: number): string {
