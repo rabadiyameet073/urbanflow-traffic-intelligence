@@ -9,6 +9,7 @@ import {
   DEFAULT_SIM_CONFIG,
   TIMING,
 } from '../src/index.js';
+import type { EvpRequest } from '../src/index.js';
 
 describe('Simulation Engine Determinism & Physics (Module 20)', () => {
   it('achieves bit-identical state hashes across independent runs with the same seed', () => {
@@ -193,5 +194,151 @@ describe('Safety Kernel Invariants (Module 03)', () => {
     kernel.recover();
     const recoverState = kernel.step(null, null, 0.1);
     expect(recoverState.indication).toBe('ALL_RED');
+  });
+
+  it('immediately overrides conflicting signal phase to GREEN upon emergency vehicle preemption directive', () => {
+    const kernel = new SafetyKernel();
+    // Initially on P2_NS_THRU GREEN
+    const initial = kernel.step(null, null, 0.1);
+    expect(initial.phase).toBe('P2_NS_THRU');
+    expect(initial.indication).toBe('GREEN');
+    expect(initial.lanes['NB-TR']).toBe('G');
+    expect(initial.lanes['EB-TR']).toBe('R');
+
+    // Ambulance arrives on EB-TR (P4_EW_THRU). Issue PRECLEAR directive.
+    const evpDirective = {
+      stage: 'PRECLEAR' as const,
+      targetPhase: 'P4_EW_THRU' as const,
+      planStatus: 'OK' as const,
+      shortfallS: 0,
+      activeEmsId: 'ems-eb-1',
+    };
+
+    // Next step must immediately override to GREEN for P4_EW_THRU without delay
+    const preempted = kernel.step(null, evpDirective, 0.1);
+    expect(preempted.phase).toBe('P4_EW_THRU');
+    expect(preempted.indication).toBe('GREEN');
+    expect(preempted.lanes['EB-TR']).toBe('G');
+    expect(preempted.lanes['WB-TR']).toBe('G');
+    expect(preempted.lanes['NB-TR']).toBe('R');
+    expect(preempted.lanes['SB-TR']).toBe('R');
+  });
+});
+
+describe('EVP validation, planning and lifecycle (Module 03 §5)', () => {
+  /** A request that passes every check; each test overrides what it is about. */
+  const request = (over: Partial<EvpRequest> = {}): EvpRequest => ({
+    id: 'ems-1',
+    lane: 'NB-TR',
+    distanceM: 300,
+    speedMps: 15,
+    tRequestS: 0,
+    nonce: 'nonce-1',
+    source: 'operator-console',
+    ...over,
+  });
+
+  it('classifies a 150 m approach as TIGHT with the measured 9.5 s shortfall (§5.2)', () => {
+    const evp = new EvpManager();
+    // 150 m at 15 m/s is a 10 s ETA against the 19.5 s required lead that
+    // RESULTS §5 quotes: clearance 5.5 + preclear 8.0 + flush 6.0.
+    expect(evp.submitRequest(request({ distanceM: 150 }), 0).decision).toBe('accepted');
+
+    const status = evp.getStatus();
+    expect(status?.planStatus).toBe('TIGHT');
+    expect(status?.shortfallS).toBeCloseTo(9.5, 6);
+    expect(status?.stage).toBe('PRECLEAR');
+  });
+
+  it('classifies a 300 m approach as OK and reports no shortfall (§5.2)', () => {
+    const evp = new EvpManager();
+    // 300 m at 15 m/s is a 20 s ETA, half a second clear of the required lead.
+    evp.submitRequest(request(), 0);
+
+    const status = evp.getStatus();
+    expect(status?.planStatus).toBe('OK');
+    expect(status?.shortfallS).toBe(0);
+  });
+
+  it('serves a same-phase request from the running plan instead of replacing it (§5.3)', () => {
+    const evp = new EvpManager();
+    evp.submitRequest(request({ id: 'ems-a', nonce: 'n-a', source: 'unit-a' }), 0);
+
+    // SB-TR is also P2_NS_THRU, so this vehicle is served by the green already
+    // being cleared — but it must not overwrite the first vehicle's plan.
+    const shared = evp.submitRequest(
+      request({ id: 'ems-b', lane: 'SB-TR', nonce: 'n-b', source: 'unit-b' }),
+      0,
+    );
+    expect(shared.decision).toBe('accepted');
+    expect(evp.getStatus()?.activeEmsId).toBe('ems-a');
+  });
+
+  it('refuses a conflicting request while a preemption is in progress (§5.3)', () => {
+    const evp = new EvpManager();
+    evp.submitRequest(request({ id: 'ems-a', nonce: 'n-a', source: 'unit-a' }), 0);
+
+    // EB-TR is P4_EW_THRU: a conflicting phase, so it has to wait its turn.
+    const second = evp.submitRequest(
+      request({ id: 'ems-b', lane: 'EB-TR', nonce: 'n-b', source: 'unit-b' }),
+      0,
+    );
+    expect(second.decision).toBe('rejected');
+    expect(second.reason).toBe('PREEMPTION_ACTIVE');
+    expect(evp.getStatus()?.activeEmsId).toBe('ems-a');
+  });
+
+  it('cancels a preemption that has not yet forced a switch (§5.3)', () => {
+    const evp = new EvpManager();
+    evp.submitRequest(request(), 0);
+
+    expect(evp.cancelRequest('ems-1')).toBe(true);
+    expect(evp.getStatus()).toBeNull();
+    // Cancelling something that is no longer running is a no-op, not a crash.
+    expect(evp.cancelRequest('ems-1')).toBe(false);
+  });
+
+  it('stamps decisions from the simulated clock, not the real one (Rule 07)', () => {
+    const at = (t: number): string => {
+      const evp = new EvpManager();
+      // Out-of-range distance: rejected, so the timestamp cannot come from a
+      // per-run wall clock read.
+      return evp.submitRequest(request({ distanceM: 900 }), t).serverTime;
+    };
+
+    expect(at(0)).toBe(at(0));
+    expect(at(60)).not.toBe(at(0));
+    expect(Date.parse(at(60)) - Date.parse(at(0))).toBe(60_000);
+  });
+
+  it('counts each decision once, with its reason and shortfall (Module 16 §4.1)', () => {
+    const evp = new EvpManager();
+    // One accepted plan, 9.5 s short of the required lead.
+    evp.submitRequest(request({ distanceM: 150 }), 0);
+    // A conflicting phase is refused while the plan runs.
+    evp.submitRequest(request({ id: 'ems-b', lane: 'EB-TR', nonce: 'n-b', source: 'unit-b' }), 0);
+    // A second refusal, for a different and independently auditable reason.
+    evp.submitRequest(request({ id: 'ems-c', nonce: 'n-c', source: 'unit-c', distanceM: 5 }), 20);
+    // An idempotent replay returns the cached response and must not be counted.
+    evp.submitRequest(request({ distanceM: 150 }), 0);
+
+    const counters = evp.getCounters();
+    expect(counters.accepted).toBe(1);
+    expect(counters.rejected).toBe(2);
+    expect(counters.rejectedByReason).toEqual({
+      PREEMPTION_ACTIVE: 1,
+      IMPLAUSIBLE_DISTANCE: 1,
+    });
+    expect(counters.shortfallsS).toHaveLength(1);
+    expect(counters.shortfallsS[0]).toBeCloseTo(9.5, 6);
+
+    // A reset starts a new run, so the audit trail starts empty too.
+    evp.reset();
+    expect(evp.getCounters()).toEqual({
+      accepted: 0,
+      rejected: 0,
+      rejectedByReason: {},
+      shortfallsS: [],
+    });
   });
 });

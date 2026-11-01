@@ -141,12 +141,16 @@ export class SafetyKernel {
 
     // State machine: GREEN -> YELLOW(3.5s) -> ALL_RED(2.0s) -> GREEN
     if (this.indication === 'GREEN') {
-      let desiredPhase = action?.requestedPhase ?? this.currentPhase;
+      // A PRECLEAR/EMS_GREEN directive owns the phase outright. It is forced to
+      // the ambulance's target even when that already *is* the current phase, so
+      // the adaptive controller's `requestedPhase` cannot yank the green away and
+      // strand the EMS in a repeated yellow/all-red clearance (Module 03 §5).
+      // Before this, `EMS_GREEN` fell through to `action.requestedPhase` and the
+      // preemption lane flickered instead of holding solid green.
+      const evpActive = evp !== null && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN');
+      let desiredPhase = evpActive ? evp!.targetPhase : (action?.requestedPhase ?? this.currentPhase);
 
-      // EVP override (takes precedence if preemption is active)
-      if (evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN') && evp.targetPhase !== this.currentPhase) {
-        desiredPhase = evp.targetPhase;
-      } else if (!evp || evp.stage === 'IDLE' || evp.stage === 'RECOVERY') {
+      if (!evpActive) {
         // Check anti-starvation (MAX_RED_WAIT_S = 120s) ONLY when not preempting
         for (const p of PHASES) {
           if (p !== this.currentPhase && this.redWaitTimesS[p] >= TIMING.MAX_RED_WAIT_S) {
@@ -159,21 +163,28 @@ export class SafetyKernel {
 
       // If switch is requested to a different phase
       if (desiredPhase !== null && desiredPhase !== this.currentPhase) {
-        // SAFETY: I3 — minimum green (G_MIN_S = 7s) cannot be clamped below by
-        // any caller; EVP preclear may truncate only to 3.0s, never less.
-        const minGreen = evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN') ? 0 : TIMING.G_MIN_S;
-
-        if (this.timeInStateS < minGreen) {
-          // Clamp request: hold green
-          this.violationsPrevented.GREEN_BELOW_MIN++;
-        } else {
-          // Record green metrics
-          if (this.timeInStateS < this.minGreenSeenS) this.minGreenSeenS = this.timeInStateS;
-          if (this.timeInStateS > this.maxGreenSeenS) this.maxGreenSeenS = this.timeInStateS;
-          // Begin yellow transition
-          this.indication = 'YELLOW';
-          this.pendingNextPhase = desiredPhase;
+        if (evpActive) {
+          // Immediate emergency preemption override:
+          // Immediately override active cycle and convert to green for the emergency approach lane
+          this.currentPhase = desiredPhase;
+          this.indication = 'GREEN';
+          this.pendingNextPhase = null;
           this.timeInStateS = 0;
+        } else {
+          // Normal cycle transition: enforce minGreen clamp, then yellow/all-red clearance
+          const minGreen = TIMING.G_MIN_S;
+          if (this.timeInStateS < minGreen) {
+            // Clamp request: hold green
+            this.violationsPrevented.GREEN_BELOW_MIN++;
+          } else {
+            // Record green metrics
+            if (this.timeInStateS < this.minGreenSeenS) this.minGreenSeenS = this.timeInStateS;
+            if (this.timeInStateS > this.maxGreenSeenS) this.maxGreenSeenS = this.timeInStateS;
+            // Begin yellow transition
+            this.indication = 'YELLOW';
+            this.pendingNextPhase = desiredPhase;
+            this.timeInStateS = 0;
+          }
         }
       } else {
         // Max green check: G_MAX_S = 65s (or 90s for EVP hold)
@@ -190,22 +201,28 @@ export class SafetyKernel {
         }
       }
     } else if (this.indication === 'YELLOW') {
-      if (evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN')) {
-        this.pendingNextPhase = evp.targetPhase;
-      }
-      // SAFETY: I5 — YELLOW cannot be shortened by any caller, including EVP (3.5s)
-      if (this.timeInStateS >= TIMING.YELLOW_S - 1e-4) {
+      const evpActive = evp !== null && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN');
+      if (evpActive) {
+        // Immediate emergency preemption override: switch straight to green for target phase
+        this.currentPhase = evp.targetPhase;
+        this.indication = 'GREEN';
+        this.pendingNextPhase = null;
+        this.timeInStateS = 0;
+      } else if (this.timeInStateS >= TIMING.YELLOW_S - 1e-4) {
         this.yellowIntervals++;
         this.yellowCompliant++;
         this.indication = 'ALL_RED';
         this.timeInStateS = 0;
       }
     } else if (this.indication === 'ALL_RED') {
-      if (evp && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN')) {
-        this.pendingNextPhase = evp.targetPhase;
-      }
-      // SAFETY: I5 — ALL_RED cannot be shortened by any caller, including EVP (2.0s)
-      if (this.timeInStateS >= TIMING.ALL_RED_S - 1e-4) {
+      const evpActive = evp !== null && (evp.stage === 'PRECLEAR' || evp.stage === 'EMS_GREEN');
+      if (evpActive) {
+        // Immediate emergency preemption override: switch straight to green for target phase
+        this.currentPhase = evp.targetPhase;
+        this.indication = 'GREEN';
+        this.pendingNextPhase = null;
+        this.timeInStateS = 0;
+      } else if (this.timeInStateS >= TIMING.ALL_RED_S - 1e-4) {
         this.allRedIntervals++;
         this.allRedCompliant++;
         this.indication = 'GREEN';

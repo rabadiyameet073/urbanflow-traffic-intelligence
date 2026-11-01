@@ -153,7 +153,7 @@ export class EvpManager {
     // 7. One active preemption (§5.3). A same-phase request is served by the
     // plan already running; a conflicting one waits instead of silently
     // replacing the vehicle the operator is watching for.
-    if (this.activeEms !== null && this.stage !== 'IDLE') {
+    if (this.activeEms !== null && this.stage !== 'IDLE' && this.stage !== 'RECOVERY') {
       if (this.activeEms.phase !== phase) {
         return this.reject(req.id, 'PREEMPTION_ACTIVE', simTimeS);
       }
@@ -293,15 +293,15 @@ export class EvpManager {
       if (laneObs?.nearestEmsDistanceM !== null && laneObs?.nearestEmsDistanceM !== undefined) {
         ems.hasReachedStopLine = true;
       }
-      // Vehicle passes stop line or exits box (minimum 4s green dwell to clear)
+      // Vehicle passes stop line or exits box (minimum 2.5s green dwell to clear)
       const isPastStopLine = ems.hasReachedStopLine && (laneObs?.nearestEmsDistanceM === null || laneObs?.nearestEmsDistanceM === undefined);
-      if ((isPastStopLine && this.stageTimeS >= 4.0) || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
+      if ((isPastStopLine && this.stageTimeS >= 2.5) || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
         this.stage = 'RECOVERY';
         this.stageTimeS = 0;
       }
     } else if (this.stage === 'RECOVERY') {
-      // Recovery duration: guarantees interrupted phases are cleared (60s)
-      if (this.stageTimeS >= 60.0) {
+      // Responsive recovery window: returns quickly to IDLE so subsequent preemption can run immediately
+      if (this.stageTimeS >= 2.0) {
         this.stage = 'IDLE';
         this.activeEms = null;
         this.stageTimeS = 0;

@@ -111,6 +111,8 @@ export const SpawnEmsCommand = z.object({
   v: V,
   type: z.literal('spawnEms'),
   lane: z.enum(LANES),
+  distanceM: z.number().finite().min(0).max(800).optional(),
+  priority: z.enum(['immediate', 'normal']).default('immediate').optional(),
 });
 
 /**
@@ -127,6 +129,7 @@ export const SpawnVehicleCommand = z.object({
   vehicleType: z.enum(VEHICLE_TYPES),
   count: z.number().finite().int().min(1).max(25).default(1),
   distanceM: z.number().finite().min(0).max(800).optional(),
+  priority: z.enum(['immediate', 'normal']).default('immediate').optional(),
 });
 
 export const InjectIncidentCommand = z.object({
@@ -168,6 +171,7 @@ export const RequestPreemptionCommand = z.object({
   type: z.literal('requestPreemption'),
   lane: z.enum(LANES),
   distanceM: z.number().finite().min(0).max(800).optional(),
+  priority: z.enum(['immediate', 'normal']).default('immediate').optional(),
 });
 
 /**

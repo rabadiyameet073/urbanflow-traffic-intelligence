@@ -518,7 +518,7 @@ export class AppStore {
 
   public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM = 45): void {
     if (type === 'AMBULANCE') {
-      void this.requestPreemption(lane);
+      void this.requestPreemption(lane, distanceM);
     } else {
       this.client.spawnVehicle(lane, type, count, distanceM);
     }

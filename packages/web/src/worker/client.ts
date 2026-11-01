@@ -165,8 +165,13 @@ export class SimulationClient {
     this.send({ v: WORKER_PROTOCOL_VERSION, type: 'setModalSplit', split });
   }
 
-  public spawnEms(lane: LaneId): void {
-    this.send({ v: WORKER_PROTOCOL_VERSION, type: 'spawnEms', lane });
+  public spawnEms(lane: LaneId, distanceM?: number): void {
+    this.send({
+      v: WORKER_PROTOCOL_VERSION,
+      type: 'spawnEms',
+      lane,
+      ...(distanceM === undefined ? {} : { distanceM }),
+    });
   }
 
   /**

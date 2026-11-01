@@ -154,11 +154,14 @@ export class TwinWorld {
 
     // Emergency vehicle preemption logic: automatically trigger immediate preemption
     // whenever an ambulance enters any approach lane (bypassing normal cycle).
-    if (this.evpAdaptive.getStatus() === null) {
+    // Bind the plan to the ambulance already in the lane (by id) rather than
+    // spawning a fresh one, so a detected EMS preempts for *itself*.
+    if (this.evpAdaptive.getStatus() === null || this.evpAdaptive.getStatus()?.stage === 'RECOVERY') {
       for (const lane of LANES) {
         const laneObs = obsAdaptive.lanes[lane];
         if (laneObs && laneObs.nearestEmsDistanceM !== null && laneObs.nearestEmsDistanceM !== undefined) {
-          this.submitPreemption(lane, laneObs.nearestEmsDistanceM);
+          const existingEmsId = this.simAdaptive.nearestEmsId(lane);
+          this.submitPreemption(lane, laneObs.nearestEmsDistanceM, existingEmsId ?? undefined);
           break;
         }
       }
@@ -203,9 +206,9 @@ export class TwinWorld {
     this.simAdaptive.applyParams({ modalSplit: split });
   }
 
-  public spawnEms(lane: LaneId): string {
-    this.record({ v: 1, type: 'spawnEms', lane });
-    return this.spawnEmsInternal(lane);
+  public spawnEms(lane: LaneId, distanceM?: number): string {
+    this.record({ v: 1, type: 'spawnEms', lane, distanceM });
+    return this.spawnEmsInternal(lane, distanceM);
   }
 
   /**

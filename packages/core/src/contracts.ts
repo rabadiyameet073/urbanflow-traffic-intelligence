@@ -297,6 +297,7 @@ export interface LaneObservation {
   dischargedLast10s: number;
   occupancyPct: number;
   nearestEmsDistanceM: number | null;
+  nearestEmsId?: string | null;
   valid: boolean;
 }
 

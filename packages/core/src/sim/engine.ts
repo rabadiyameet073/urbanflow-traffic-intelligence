@@ -265,6 +265,14 @@ export class SimEngine {
     return this.spawnEmsAt(lane, distanceM ?? this.config.emsDetectDistanceM);
   }
 
+  /**
+   * The EMS id nearest the stop line in `lane`, or null. The auto-preempt uses
+   * this to bind a plan to the ambulance that is already in the lane instead of
+   * injecting a second one (Module 03 §5).
+   */
+  public nearestEmsId(lane: LaneId): string | null {
+    return this.lanes[lane]?.nearestEmsId() ?? null;
+  }
 
   /** Boundary fallback for a full lane: queue the EMS at the entry point. */
   private enqueueEms(lane: LaneId, emsId: string): string {
@@ -328,13 +336,12 @@ export class SimEngine {
     const emsIds: string[] = [];
 
     const lastPos = simLane.count > 0 ? (simLane.pos[simLane.order[simLane.count - 1] as number] ?? 0) : 0;
-    const baseDist = distanceM !== undefined
-      ? distanceM
-      : Math.min(this.config.laneLengthM - 10, Math.max(45, lastPos + spacingM));
+    const reqDist = distanceM !== undefined ? distanceM : 45;
+    const baseDist = Math.max(reqDist, lastPos > 0 ? lastPos + spacingM : reqDist);
 
     for (let i = 0; i < count; i++) {
       // `pos` grows upstream, so member `i` sits *behind* member `i - 1`.
-      const pos = baseDist + i * spacingM;
+      const pos = Math.min(this.config.laneLengthM - 2, baseDist + i * spacingM);
       const emsId = isEms ? `ems-${lane}-${stamp}-${i}` : undefined;
       if (emsId) emsIds.push(emsId);
 
@@ -788,6 +795,7 @@ export class SimEngine {
         // capped at 100 %. It is a storage-occupancy proxy, not a density.
         occupancyPct: Math.min(100, (occupiedLengthM / this.config.laneLengthM) * 100),
         nearestEmsDistanceM: nearestEmsDist,
+        nearestEmsId: lane.nearestEmsId(),
         valid: true,
       };
     }

@@ -283,13 +283,21 @@ function handle(command: WorkerCommand): void {
       break;
 
     case 'spawnEms':
-      world?.spawnEms(command.lane);
-      publish(true);
+      if (world) {
+        world.spawnEms(command.lane, command.distanceM);
+        world.tick();
+        publish(true);
+        postFrames();
+      }
       break;
 
     case 'spawnVehicle':
-      world?.spawnVehicle(command.lane, command.vehicleType, command.count, command.distanceM);
-      publish(true);
+      if (world) {
+        world.spawnVehicle(command.lane, command.vehicleType, command.count, command.distanceM);
+        world.tick();
+        publish(true);
+        postFrames();
+      }
       break;
 
     case 'injectIncident':
@@ -329,8 +337,10 @@ function handle(command: WorkerCommand): void {
     case 'requestPreemption': {
       if (!world) return;
       const result = world.requestPreemption(command.lane, command.distanceM);
+      world.tick();
       post({ v: WORKER_PROTOCOL_VERSION, type: 'preemptionResult', result });
       publish(true);
+      postFrames();
       break;
     }
 
