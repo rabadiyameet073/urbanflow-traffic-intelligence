@@ -247,7 +247,9 @@ function buildTwinCard(opts: {
 }
 
 function buildTrafficLabPanel(): HTMLElement {
-  let selectedLane: LaneId = 'NB-TR';
+  // The selected approach lives in the store, not here: the canvas click and the
+  // arrow keys select the same target the panel shows (Module 31 §4).
+  let selectedLane: LaneId = store.selectedLane.get();
   let selectedVehicle: VehicleType = 'AMBULANCE';
 
   const laneOptions = LANES.map((lane) =>

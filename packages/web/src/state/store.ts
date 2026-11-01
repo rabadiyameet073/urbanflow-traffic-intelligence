@@ -462,11 +462,19 @@ export class AppStore {
    * where the intersection clears itself for it.
    */
   public injectBurst(lane: LaneId, count = 5, type: VehicleType = 'CAR'): void {
-    this.spawnVehicle(lane, type, count);
+    if (type === 'AMBULANCE') {
+      void this.requestPreemption(lane);
+    } else {
+      this.client.spawnVehicle(lane, type, count);
+    }
   }
 
   public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM?: number): void {
-    this.client.spawnVehicle(lane, type, count, distanceM);
+    if (type === 'AMBULANCE') {
+      void this.requestPreemption(lane);
+    } else {
+      this.client.spawnVehicle(lane, type, count, distanceM);
+    }
   }
 
   /** Inject into whichever approach the operator is pointing at. */
