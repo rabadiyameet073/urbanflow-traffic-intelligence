@@ -343,6 +343,7 @@ function buildTestControlsPanel(): HTMLElement {
       btn.setAttribute('aria-pressed', String(isSelected));
     });
     if (laneSelect.value !== activeLane) laneSelect.value = activeLane;
+    updateHud();
   };
 
   const laneOptions = LANES.map((lane) =>
@@ -376,6 +377,74 @@ function buildTestControlsPanel(): HTMLElement {
     ) as HTMLButtonElement;
     laneChips.push(chip);
   });
+
+  // Selected Lane Live Telemetry HUD
+  const hudLaneTitle = h('span', {
+    class: 'lab-hud-lane-title',
+    text: `${LANE_ARROW[selectedLane]} ${selectedLane} · ${LANE_DISPLAY_NAME[selectedLane]}`,
+  });
+  const hudSignalPill = h('span', { class: 'test-signal-pill stop', text: 'RED' });
+  const hudQueueValue = h('span', { class: 'lab-hud-metric-val mono', text: '0m' });
+  const hudWaitCount = h('span', { class: 'lab-hud-metric-val mono', text: '0 veh' });
+  const hudDemandValue = h('span', { class: 'lab-hud-metric-val mono', text: '450 veh/h' });
+  const hudLosBadge = h('span', { class: 'badge badge-safety', text: 'LOS A' });
+
+  const updateHud = (): void => {
+    hudLaneTitle.textContent = `${LANE_ARROW[selectedLane]} ${selectedLane} · ${LANE_DISPLAY_NAME[selectedLane]}`;
+    const demands = store.laneDemands.get();
+    const observed = store.observation.get();
+    const stopped = store.waiting.get();
+    const signal = store.signalAdaptive.get();
+
+    hudDemandValue.textContent = `${demands[selectedLane] ?? 450} veh/h`;
+
+    if (signal) {
+      const ind = signal.lanes[selectedLane];
+      hudSignalPill.textContent = ind === 'G' ? 'GO (Green)' : ind === 'Y' ? 'CLEAR (Yellow)' : 'STOP (Red)';
+      hudSignalPill.className = `test-signal-pill ${ind === 'G' ? 'go' : ind === 'Y' ? 'clear' : 'stop'}`;
+    }
+
+    if (observed) {
+      const laneObs = observed.lanes[selectedLane];
+      const qM = laneObs ? Math.round(laneObs.queueLengthM) : 0;
+      const laneIdx = LANES.indexOf(selectedLane);
+      const count = laneIdx >= 0 ? (stopped[laneIdx] ?? 0) : 0;
+      hudQueueValue.textContent = `${qM}m`;
+      hudWaitCount.textContent = `${count} veh`;
+
+      const grade = qM > 45 ? 'LOS E' : qM > 30 ? 'LOS D' : qM > 18 ? 'LOS C' : qM > 8 ? 'LOS B' : 'LOS A';
+      hudLosBadge.textContent = grade;
+      hudLosBadge.className = qM > 30 ? 'badge badge-mode' : qM > 15 ? 'badge badge-ai' : 'badge badge-safety';
+    }
+  };
+
+  const selectedLaneHud = h('div', { class: 'lab-selected-lane-hud' }, [
+    h('div', { class: 'lab-hud-header' }, [
+      h('div', { class: 'lab-hud-left' }, [
+        h('span', { class: 'badge badge-ai', text: 'SELECTED APPROACH HUD' }),
+        hudLaneTitle,
+      ]),
+      hudSignalPill,
+    ]),
+    h('div', { class: 'lab-hud-metrics-grid' }, [
+      h('div', { class: 'lab-hud-metric-tile' }, [
+        h('span', { class: 'lab-hud-metric-label', text: 'Queue Length' }),
+        hudQueueValue,
+      ]),
+      h('div', { class: 'lab-hud-metric-tile' }, [
+        h('span', { class: 'lab-hud-metric-label', text: 'Vehicles Waiting' }),
+        hudWaitCount,
+      ]),
+      h('div', { class: 'lab-hud-metric-tile' }, [
+        h('span', { class: 'lab-hud-metric-label', text: 'Flow Demand' }),
+        hudDemandValue,
+      ]),
+      h('div', { class: 'lab-hud-metric-tile' }, [
+        h('span', { class: 'lab-hud-metric-label', text: 'Level of Service' }),
+        hudLosBadge,
+      ]),
+    ]),
+  ]);
 
   // --- 2. Vehicle Type Selection ---
   const vehicleOptions = [
@@ -421,6 +490,61 @@ function buildTestControlsPanel(): HTMLElement {
 
   const getCount = (): number => Number(countSelect.value) || 1;
 
+  // --- Distance & Initial Speed Parameters ---
+  let selectedDistance = 45;
+  const distValBadge = h('span', { class: 'badge badge-mono', text: '45 m' });
+  const distSlider = h('input', {
+    class: 'test-density-slider',
+    attrs: {
+      type: 'range',
+      min: '15',
+      max: '300',
+      step: '5',
+      value: '45',
+      'aria-label': 'Injection Distance in metres upstream from stop line',
+    },
+    on: {
+      input: (e) => {
+        selectedDistance = Number((e.target as HTMLInputElement).value) || 45;
+        distValBadge.textContent = `${selectedDistance} m`;
+      },
+    },
+  }) as HTMLInputElement;
+
+  const setDist = (m: number): void => {
+    selectedDistance = m;
+    distSlider.value = String(m);
+    distValBadge.textContent = `${m} m`;
+    sound.click();
+  };
+
+  const distPresets = [
+    { m: 35, label: '35m (Immediate)' },
+    { m: 80, label: '80m (Mid)' },
+    { m: 150, label: '150m (Advance)' },
+    { m: 300, label: '300m (Gate)' },
+  ].map((p) =>
+    h('button', {
+      class: 'btn btn-secondary btn-xs',
+      attrs: { type: 'button' },
+      text: p.label,
+      on: { click: () => setDist(p.m) },
+    }),
+  );
+
+  const speedPresets = [
+    { label: '🛑 Stopped (0 km/h)', dist: 25 },
+    { label: '🚶 Approach (25 km/h)', dist: 45 },
+    { label: '🚀 Cruise (50 km/h)', dist: 100 },
+  ].map((p) =>
+    h('button', {
+      class: 'btn btn-secondary btn-xs',
+      attrs: { type: 'button' },
+      text: p.label,
+      on: { click: () => setDist(p.dist) },
+    }),
+  );
+
   // --- 4. Spawn Buttons ---
   const spawnVisibleBtn = h(
     'button',
@@ -429,20 +553,20 @@ function buildTestControlsPanel(): HTMLElement {
       attrs: { id: 'btn-test-spawn-visible', type: 'button' },
       on: {
         click: () => {
-          const count = getCount();
+          const count = Math.max(1, Math.min(25, getCount()));
           if (selectedVehicle === 'AMBULANCE') {
             sound.emergencyPreempt();
           } else {
             sound.spawn();
           }
-          store.spawnVehicle(selectedLane, selectedVehicle, count, 45);
+          store.spawnVehicle(selectedLane, selectedVehicle, count, selectedDistance);
           feedbackText.textContent = selectedVehicle === 'AMBULANCE'
-            ? `🚑 Emergency Ambulance injected into ${selectedLane} at 45m (Immediate Green Clearance!)`
-            : `✨ Injected ${count} × ${selectedVehicle} into ${selectedLane} at 45m approach (Immediate!)`;
+            ? `🚑 Emergency Ambulance injected into ${selectedLane} at ${selectedDistance}m (Immediate Green Clearance!)`
+            : `✨ Injected ${count} × ${selectedVehicle} into ${selectedLane} at ${selectedDistance}m approach!`;
         },
       },
     },
-    ['⚡ Spawn in Approach (Visible 45m)'],
+    ['⚡ Spawn in Approach (Custom Distance)'],
   );
 
   const spawnEntryBtn = h(
@@ -664,8 +788,19 @@ function buildTestControlsPanel(): HTMLElement {
     });
   };
 
-  store.observation.subscribe(() => updateMatrixTelemetry());
-  store.laneDemands.subscribe(() => updateMatrixTelemetry());
+  store.observation.subscribe(() => {
+    updateMatrixTelemetry();
+    updateHud();
+  });
+  store.laneDemands.subscribe(() => {
+    updateMatrixTelemetry();
+    updateHud();
+  });
+  store.signalAdaptive.subscribe(() => {
+    updateMatrixTelemetry();
+    updateHud();
+  });
+  updateHud();
 
   // --- 6. Scenario Stress Experiments ---
   const experimentPresets = [
@@ -833,6 +968,21 @@ function buildTestControlsPanel(): HTMLElement {
     ['Clear Incident'],
   );
 
+  const clearAllIncidentsBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-test-clear-all-incidents', type: 'button' },
+      on: {
+        click: () => {
+          LANES.forEach((l) => store.clearIncident(l));
+          feedbackText.textContent = 'All incidents cleared across all 8 approach lanes.';
+        },
+      },
+    },
+    ['Clear All Lanes'],
+  );
+
   // The badge is written from the worker echo, not from the click: `setParams`
   // can be refused or clamped, and the panel must show what the engine holds.
   const detectBadge = h('span', {
@@ -864,6 +1014,7 @@ function buildTestControlsPanel(): HTMLElement {
   // Listen for external lane selections (e.g. keyboard navigation or canvas click)
   store.selectedLane.subscribe((lane) => {
     updateLaneChips(lane);
+    updateHud();
   });
 
   // Section 6: MongoDB Persistence & Database Storage
@@ -909,172 +1060,190 @@ function buildTestControlsPanel(): HTMLElement {
 
   // Section 1: Vehicle Spawner Controls
   const section1Spawner = h('div', { class: 'test-section test-spawner-section' }, [
-      h('div', { class: 'test-section-title' }, [
-        h('span', { class: 'test-section-num', text: '1' }),
-        h('span', { text: 'Vehicle Spawning Controls (Select Lane & Class)' }),
+    h('div', { class: 'test-section-title' }, [
+      h('span', { class: 'test-section-num', text: '1' }),
+      h('span', { text: 'Vehicle Spawning Controls & Kinematic Injections' }),
+    ]),
+    h('div', { class: 'test-lane-chips-wrapper' }, [
+      h('span', { class: 'test-field-label', text: 'Target Approach Lane (Click chip or click canvas):' }),
+      h('div', { class: 'test-lane-chips' }, laneChips),
+    ]),
+    h('div', { class: 'test-spawner-form' }, [
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'Approach Dropdown:' }),
+        laneSelect,
       ]),
-      h('div', { class: 'test-lane-chips-wrapper' }, [
-        h('span', { class: 'test-field-label', text: 'Target Approach Lane (Click chip or select):' }),
-        h('div', { class: 'test-lane-chips' }, laneChips),
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'Vehicle Class:' }),
+        vehicleSelect,
       ]),
-      h('div', { class: 'test-spawner-form' }, [
-        h('div', { class: 'test-field' }, [
-          h('label', { class: 'test-field-label', text: 'Approach Dropdown:' }),
-          laneSelect,
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'Injection Quantity:' }),
+        countSelect,
+      ]),
+      h('div', { class: 'test-field' }, [
+        h('div', { class: 'dist-header' }, [
+          h('label', { class: 'test-field-label', text: 'Injection Distance (Upstream):' }),
+          distValBadge,
         ]),
-        h('div', { class: 'test-field' }, [
-          h('label', { class: 'test-field-label', text: 'Vehicle Class:' }),
-          vehicleSelect,
-        ]),
-        h('div', { class: 'test-field' }, [
-          h('label', { class: 'test-field-label', text: 'Injection Quantity:' }),
-          countSelect,
-        ]),
-        h('div', { class: 'test-field test-field-actions' }, [
-          h('label', { class: 'test-field-label', text: 'Dispatch Action:' }),
-          h('div', { class: 'btn-group' }, [spawnVisibleBtn, spawnEntryBtn, emergencyPreemptBtn]),
-        ]),
+        distSlider,
+        h('div', { class: 'test-dist-presets' }, distPresets),
       ]),
-    ]);
-
-    // Section 2: 8-Lane Real-Time Traffic Density Matrix (Sliders for Each Lane!)
-    const section2Density = h('div', { class: 'test-section test-density-section' }, [
-      h('div', { class: 'test-section-title' }, [
-        h('span', { class: 'test-section-num', text: '2' }),
-        h('span', { text: 'Traffic Density & Demand Adjustments (Per-Lane Volume Sliders 0–1,800 veh/h)' }),
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'Initial Speed Profile:' }),
+        h('div', { class: 'test-speed-presets' }, speedPresets),
       ]),
-      h('div', { class: 'density-matrix-grid' }, [nsGroup, ewGroup]),
-    ]);
-
-    // Section 3: Scenario Stress Experiments
-    const section3Stress = h('div', { class: 'test-section test-experiments-section' }, [
-      h('div', { class: 'test-section-title' }, [
-        h('span', { class: 'test-section-num', text: '3' }),
-        h('span', { text: 'Scenario Stress Experiments (Instant Load Presets)' }),
+      h('div', { class: 'test-field test-field-actions' }, [
+        h('label', { class: 'test-field-label', text: 'Dispatch Action:' }),
+        h('div', { class: 'btn-group' }, [spawnVisibleBtn, spawnEntryBtn, emergencyPreemptBtn]),
       ]),
-      h('div', { class: 'test-experiments-grid' }, experimentCards),
-    ]);
+    ]),
+  ]);
 
-    // Section 4: Reset & Revert Actions
-    const section4Reset = h('div', { class: 'test-section test-reset-section' }, [
-      h('div', { class: 'test-section-title' }, [
-        h('span', { class: 'test-section-num', text: '4' }),
-        h('span', { text: 'Reset & Revert Controls' }),
+  // Section 2: 8-Lane Real-Time Traffic Density Matrix (Sliders for Each Lane!)
+  const section2Density = h('div', { class: 'test-section test-density-section' }, [
+    h('div', { class: 'test-section-title' }, [
+      h('span', { class: 'test-section-num', text: '2' }),
+      h('span', { text: 'Traffic Density & Demand Adjustments (Per-Lane Volume Sliders 0–1,800 veh/h)' }),
+    ]),
+    h('div', { class: 'density-matrix-grid' }, [nsGroup, ewGroup]),
+  ]);
+
+  // Section 3: Scenario Stress Experiments
+  const section3Stress = h('div', { class: 'test-section test-experiments-section' }, [
+    h('div', { class: 'test-section-title' }, [
+      h('span', { class: 'test-section-num', text: '3' }),
+      h('span', { text: 'Scenario Stress Experiments (Instant Load Presets)' }),
+    ]),
+    h('div', { class: 'test-experiments-grid' }, experimentCards),
+  ]);
+
+  // Section 4: Reset & Revert Actions
+  const section4Reset = h('div', { class: 'test-section test-reset-section' }, [
+    h('div', { class: 'test-section-title' }, [
+      h('span', { class: 'test-section-num', text: '4' }),
+      h('span', { text: 'Reset & Revert Controls' }),
+    ]),
+    h('div', { class: 'test-reset-actions' }, [resetDemandsBtn, clearPreemptBtn, restartSimBtn]),
+  ]);
+
+  // Section 5: Incidents and EMS Detection Range
+  const section5Safety = h('div', { class: 'test-section' }, [
+    h('div', { class: 'test-section-title' }, [
+      h('span', { class: 'test-section-num', text: '5' }),
+      h('span', { text: 'Roadway Incident Management (Applied to Selected Approach)' }),
+    ]),
+    h('div', { class: 'test-spawner-form' }, [
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'Incident Kind:' }),
+        incidentSelect,
       ]),
-      h('div', { class: 'test-reset-actions' }, [resetDemandsBtn, clearPreemptBtn, restartSimBtn]),
-    ]);
-
-    // Section 5: Incidents and EMS Detection Range
-    const section5Safety = h('div', { class: 'test-section' }, [
-      h('div', { class: 'test-section-title' }, [
-        h('span', { class: 'test-section-num', text: '5' }),
-        h('span', { text: 'Incidents & Emergency-Vehicle Detection (Applied to the Selected Approach)' }),
+      h('div', { class: 'test-field test-field-actions' }, [
+        h('label', { class: 'test-field-label', text: 'Incident Management Actions:' }),
+        h('div', { class: 'btn-group' }, [injectIncidentBtn, clearIncidentBtn, clearAllIncidentsBtn]),
       ]),
-      h('div', { class: 'test-spawner-form' }, [
-        h('div', { class: 'test-field' }, [
-          h('label', { class: 'test-field-label', text: 'Incident Type:' }),
-          incidentSelect,
-        ]),
-        h('div', { class: 'test-field test-field-actions' }, [
-          h('label', { class: 'test-field-label', text: 'Incident Action:' }),
-          h('div', { class: 'btn-group' }, [injectIncidentBtn, clearIncidentBtn]),
-        ]),
-        h('div', { class: 'test-field' }, [
-          h('label', { class: 'test-field-label', text: 'EMS Detection Range:' }),
-          h('div', { class: 'btn-group' }, [...detectButtons, detectBadge]),
-        ]),
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'EMS Detection Range:' }),
+        h('div', { class: 'btn-group' }, [...detectButtons, detectBadge]),
       ]),
-    ]);
+    ]),
+  ]);
 
-    // Section 6: MongoDB Persistence & Database Storage
-    const section6Mongo = h('div', { class: 'test-section test-mongo-section' }, [
-      h('div', { class: 'test-section-title' }, [
-        h('span', { class: 'test-section-num', text: '6' }),
-        h('span', { text: 'MongoDB Persistence & Data Storage' }),
+  // Section 6: MongoDB Persistence & Database Storage
+  const section6Mongo = h('div', { class: 'test-section test-mongo-section' }, [
+    h('div', { class: 'test-section-title' }, [
+      h('span', { class: 'test-section-num', text: '6' }),
+      h('span', { text: 'MongoDB Persistence & Data Storage' }),
+    ]),
+    h('div', { class: 'test-spawner-form' }, [
+      h('div', { class: 'test-field' }, [
+        h('label', { class: 'test-field-label', text: 'Database Status:' }),
+        h('div', { class: 'btn-group' }, [mongoStatusBadge]),
       ]),
-      h('div', { class: 'test-spawner-form' }, [
-        h('div', { class: 'test-field' }, [
-          h('label', { class: 'test-field-label', text: 'Database Status:' }),
-          h('div', { class: 'btn-group' }, [mongoStatusBadge]),
-        ]),
-        h('div', { class: 'test-field test-field-actions' }, [
-          h('label', { class: 'test-field-label', text: 'Storage Actions:' }),
-          h('div', { class: 'btn-group' }, [mongoSaveBtn, mongoRefreshBtn]),
-        ]),
+      h('div', { class: 'test-field test-field-actions' }, [
+        h('label', { class: 'test-field-label', text: 'Storage Actions:' }),
+        h('div', { class: 'btn-group' }, [mongoSaveBtn, mongoRefreshBtn]),
       ]),
-    ]);
+    ]),
+  ]);
 
-    // Panes for tab navigation
-    const paneLab = h('div', { class: 'test-tab-pane active', attrs: { id: 'pane-lab', role: 'tabpanel', 'aria-labelledby': 'tab-btn-lab' } }, [
-      section1Spawner,
-      section2Density,
-    ]);
+  // Distinct Panes for tab navigation
+  const paneSpawner = h('div', { class: 'test-tab-pane active', attrs: { id: 'pane-spawner', role: 'tabpanel', 'aria-labelledby': 'tab-btn-spawner' } }, [
+    section1Spawner,
+  ]);
 
-    const paneStress = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-stress', role: 'tabpanel', 'aria-labelledby': 'tab-btn-stress' } }, [
-      section3Stress,
-      section4Reset,
-    ]);
+  const paneDensity = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-density', role: 'tabpanel', 'aria-labelledby': 'tab-btn-density' } }, [
+    section2Density,
+  ]);
 
-    const paneSafety = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-safety', role: 'tabpanel', 'aria-labelledby': 'tab-btn-safety' } }, [
-      section5Safety,
-    ]);
+  const paneIncident = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-incident', role: 'tabpanel', 'aria-labelledby': 'tab-btn-incident' } }, [
+    section5Safety,
+  ]);
 
-    const paneMongo = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-mongo', role: 'tabpanel', 'aria-labelledby': 'tab-btn-mongo' } }, [
-      section6Mongo,
-    ]);
+  const paneStress = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-stress', role: 'tabpanel', 'aria-labelledby': 'tab-btn-stress' } }, [
+    section3Stress,
+    section4Reset,
+  ]);
 
-    const tabPanes = [paneLab, paneStress, paneSafety, paneMongo];
-    const tabDefs = [
-      { id: 'tab-btn-lab', pane: paneLab, label: '🧪 Traffic & Spawner Lab', icon: ICONS.zap() },
-      { id: 'tab-btn-stress', pane: paneStress, label: '⚡ Stress Scenarios', icon: ICONS.play() },
-      { id: 'tab-btn-safety', pane: paneSafety, label: '🚨 Safety & Preemption', icon: ICONS.ambulance() },
-      { id: 'tab-btn-mongo', pane: paneMongo, label: '🍃 MongoDB Storage', icon: ICONS.database() },
-    ];
+  const paneMongo = h('div', { class: 'test-tab-pane', attrs: { id: 'pane-mongo', role: 'tabpanel', 'aria-labelledby': 'tab-btn-mongo' } }, [
+    section6Mongo,
+  ]);
 
-    const tabButtons: HTMLButtonElement[] = [];
-    tabDefs.forEach((t, idx) => {
-      const btn = h(
-        'button',
-        {
-          class: `test-tab-nav-btn ${idx === 0 ? 'active' : ''}`,
-          attrs: { id: t.id, type: 'button', role: 'tab', 'aria-selected': String(idx === 0) },
-          on: {
-            click: () => {
-              sound.click();
-              tabButtons.forEach((b) => {
-                const active = b === btn;
-                b.classList.toggle('active', active);
-                b.setAttribute('aria-selected', String(active));
-              });
-              tabPanes.forEach((p) => {
-                p.classList.toggle('active', p === t.pane);
-              });
-            },
+  const tabPanes = [paneSpawner, paneDensity, paneIncident, paneStress, paneMongo];
+  const tabDefs = [
+    { id: 'tab-btn-spawner', pane: paneSpawner, label: '🚗 Spawner & Kinematics', icon: ICONS.zap() },
+    { id: 'tab-btn-density', pane: paneDensity, label: '🌊 Traffic Demand (0–1800 veh/h)', icon: ICONS.play() },
+    { id: 'tab-btn-incident', pane: paneIncident, label: '⚠️ Incident Management', icon: ICONS.ambulance() },
+    { id: 'tab-btn-stress', pane: paneStress, label: '⚡ Stress Scenarios', icon: ICONS.sparkle() },
+    { id: 'tab-btn-mongo', pane: paneMongo, label: '🍃 MongoDB Storage', icon: ICONS.database() },
+  ];
+
+  const tabButtons: HTMLButtonElement[] = [];
+  tabDefs.forEach((t, idx) => {
+    const btn = h(
+      'button',
+      {
+        class: `test-tab-nav-btn ${idx === 0 ? 'active' : ''}`,
+        attrs: { id: t.id, type: 'button', role: 'tab', 'aria-selected': String(idx === 0) },
+        on: {
+          click: () => {
+            sound.click();
+            tabButtons.forEach((b) => {
+              const active = b === btn;
+              b.classList.toggle('active', active);
+              b.setAttribute('aria-selected', String(active));
+            });
+            tabPanes.forEach((p) => {
+              p.classList.toggle('active', p === t.pane);
+            });
           },
         },
-        [t.icon, h('span', { text: t.label })],
-      ) as HTMLButtonElement;
-      tabButtons.push(btn);
-    });
+      },
+      [t.icon, h('span', { text: t.label })],
+    ) as HTMLButtonElement;
+    tabButtons.push(btn);
+  });
 
-    const tabNav = h('div', { class: 'test-tab-nav-bar', role: 'tablist', label: 'Simulation Controls Tabs' }, tabButtons);
+  const tabNav = h('div', { class: 'test-tab-nav-bar', role: 'tablist', label: 'Simulation Controls Tabs' }, tabButtons);
 
-    return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
-      // Panel Header
-      h('div', { class: 'panel-title test-panel-header' }, [
-        h('div', { class: 'test-title-group' }, [
-          h('div', { class: 'test-badge-row' }, [
-            h('span', { class: 'badge badge-safety', text: 'LIVE TEST CONTROLS' }),
-            h('span', { class: 'badge badge-ai', text: 'REAL-TIME KINEMATICS' }),
-          ]),
-          h('h2', { class: 'test-heading', text: '🧪 Interactive Simulation Testing & Traffic Control Lab' }),
-          h('p', { class: 'test-sub', text: 'Select any approach lane, manually spawn vehicles (Ambulance, Car, Bus, Truck, Bike), dynamically adjust all 8 approach densities (0–1800 veh/h) without restart, and run emergency preemption stress tests.' }),
+  return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
+    // Panel Header
+    h('div', { class: 'panel-title test-panel-header' }, [
+      h('div', { class: 'test-title-group' }, [
+        h('div', { class: 'test-badge-row' }, [
+          h('span', { class: 'badge badge-safety', text: 'LIVE TEST CONTROLS' }),
+          h('span', { class: 'badge badge-ai', text: 'INTERSECTION LAB' }),
+          h('span', { class: 'badge badge-mono', text: 'MATTE WORKBENCH' }),
         ]),
-        feedbackText,
+        h('h2', { class: 'test-heading', text: '🧪 Intersection Lab & Interactive Testing Suite' }),
+        h('p', { class: 'test-sub', text: 'Select any approach lane by clicking on the visual canvas or using chips below. Spawn vehicles with custom kinematics, adjust 8-lane demands, inject roadway incidents, and test emergency preemption.' }),
       ]),
-      tabNav,
-      ...tabPanes,
-    ]);
+      feedbackText,
+    ]),
+    selectedLaneHud,
+    tabNav,
+    ...tabPanes,
+  ]);
 }
 
 function buildLaneTable(): HTMLElement {

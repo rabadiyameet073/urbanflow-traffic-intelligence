@@ -210,58 +210,107 @@ export class TwinCanvasRenderer {
 
   private drawLaneSelection(viewport: Viewport, palette: CanvasPalette): void {
     const ctx = this.ctx;
+    const pxPerM = viewport.pxPerMetre;
+    const halfWidthPx = (LANE_WIDTH_M / 2) * pxPerM;
 
-    // Draw subtle hover corridor if hovering over a lane that is not selected
+    // 1. Draw subtle hover corridor if hovering over a lane that is not selected
     if (this.hoverLane && this.hoverLane !== this.selectedLane) {
       const hAnchor = laneAnchor(this.hoverLane);
       const hNear = worldToCanvas(hAnchor.x, hAnchor.y, viewport);
-      const hFar = worldToCanvas(hAnchor.x - hAnchor.dx * 45, hAnchor.y - hAnchor.dy * 45, viewport);
+      const hFar = worldToCanvas(hAnchor.x - hAnchor.dx * 50, hAnchor.y - hAnchor.dy * 50, viewport);
+      const perpX = -hAnchor.dy * halfWidthPx;
+      const perpY = hAnchor.dx * halfWidthPx;
+
       ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = palette.car;
-      ctx.lineWidth = Math.max(3, LANE_WIDTH_M * viewport.pxPerMetre);
-      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(hNear.px, hNear.py);
-      ctx.lineTo(hFar.px, hFar.py);
+      ctx.moveTo(hNear.px + perpX, hNear.py + perpY);
+      ctx.lineTo(hFar.px + perpX, hFar.py + perpY);
+      ctx.lineTo(hFar.px - perpX, hFar.py - perpY);
+      ctx.lineTo(hNear.px - perpX, hNear.py - perpY);
+      ctx.closePath();
+
+      ctx.fillStyle = palette.car;
+      ctx.globalAlpha = 0.12;
+      ctx.fill();
+
+      ctx.strokeStyle = palette.car;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.35;
       ctx.stroke();
       ctx.restore();
     }
 
+    // 2. Draw prominent luminous glowing selection corridor on active lane
     const lane = this.selectedLane;
     if (!lane) return;
 
     const anchor = laneAnchor(lane);
-    // 45 m of approach: inside the culled extent at every supported canvas size.
     const near = worldToCanvas(anchor.x, anchor.y, viewport);
-    const far = worldToCanvas(anchor.x - anchor.dx * 45, anchor.y - anchor.dy * 45, viewport);
+    const far = worldToCanvas(anchor.x - anchor.dx * 50, anchor.y - anchor.dy * 50, viewport);
+    const perpX = -anchor.dy * halfWidthPx;
+    const perpY = anchor.dx * halfWidthPx;
 
     ctx.save();
-    // Glowing selection corridor
-    ctx.globalAlpha = 0.45;
-    ctx.strokeStyle = palette.caution;
-    ctx.lineWidth = Math.max(4, LANE_WIDTH_M * viewport.pxPerMetre);
-    ctx.lineCap = 'round';
-    ctx.setLineDash([8, 6]);
+    // Translucent filled corridor
     ctx.beginPath();
-    ctx.moveTo(near.px, near.py);
-    ctx.lineTo(far.px, far.py);
+    ctx.moveTo(near.px + perpX, near.py + perpY);
+    ctx.lineTo(far.px + perpX, far.py + perpY);
+    ctx.lineTo(far.px - perpX, far.py - perpY);
+    ctx.lineTo(near.px - perpX, near.py - perpY);
+    ctx.closePath();
+
+    ctx.fillStyle = palette.caution;
+    ctx.globalAlpha = 0.16;
+    ctx.fill();
+
+    // Luminous glowing borders with shadow blur
+    ctx.shadowColor = palette.caution;
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = palette.caution;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.85;
+
+    // Left and right boundary lines
+    ctx.beginPath();
+    ctx.moveTo(near.px + perpX, near.py + perpY);
+    ctx.lineTo(far.px + perpX, far.py + perpY);
     ctx.stroke();
 
-    // Approach label pill on asphalt
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = palette.caution;
+    ctx.beginPath();
+    ctx.moveTo(near.px - perpX, near.py - perpY);
+    ctx.lineTo(far.px - perpX, far.py - perpY);
+    ctx.stroke();
+
+    // Directional chevron on asphalt
     const midX = (near.px + far.px) / 2;
     const midY = (near.py + far.py) / 2;
-    ctx.font = 'bold 10px monospace';
+    const fwdX = anchor.dx * 8;
+    const fwdY = -anchor.dy * 8;
+
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.moveTo(midX - fwdX - perpX * 0.5, midY - fwdY - perpY * 0.5);
+    ctx.lineTo(midX + fwdX, midY + fwdY);
+    ctx.lineTo(midX - fwdX + perpX * 0.5, midY - fwdY + perpY * 0.5);
+    ctx.strokeStyle = palette.caution;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.6;
+    ctx.stroke();
+
+    // Asphalt badge
+    ctx.globalAlpha = 0.95;
+    ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const labelText = `📍 ${lane}`;
+    const textWidth = ctx.measureText(labelText).width;
     ctx.fillStyle = '#0B0F14';
-    const textWidth = ctx.measureText(lane).width;
-    ctx.fillRect(midX - textWidth / 2 - 4, midY - 7, textWidth + 8, 14);
+    ctx.fillRect(midX - textWidth / 2 - 6, midY - 9, textWidth + 12, 18);
+    ctx.strokeStyle = palette.caution;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(midX - textWidth / 2 - 6, midY - 9, textWidth + 12, 18);
     ctx.fillStyle = palette.caution;
-    ctx.fillText(lane, midX, midY);
+    ctx.fillText(labelText, midX, midY);
 
     ctx.restore();
   }
