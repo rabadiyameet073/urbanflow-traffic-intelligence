@@ -10,7 +10,7 @@
  *      and never a hard-coded delta (Rule 00).
  */
 import { LANES, relativeChangePct, PHASES } from '@urbanflow/core';
-import type { PhaseId, LaneId, VehicleType } from '@urbanflow/core';
+import type { IncidentKind, PhaseId, LaneId, VehicleType } from '@urbanflow/core';
 import { store } from '../state/store.js';
 import type { KpiSnapshot } from '../state/store.js';
 import { STRINGS } from '../i18n/strings.js';
@@ -354,13 +354,10 @@ function buildTestControlsPanel(): HTMLElement {
       on: {
         click: () => {
           const count = getCount();
-          if (selectedVehicle === 'AMBULANCE') {
-            void store.requestPreemption(selectedLane);
-            feedbackText.textContent = `🚑 Emergency Ambulance dispatched on ${selectedLane} (EVP Preemption Active)`;
-          } else {
-            store.spawnVehicle(selectedLane, selectedVehicle, count, 45);
-            feedbackText.textContent = `✨ Injected ${count} × ${selectedVehicle} into ${selectedLane} at 45m upstream`;
-          }
+          store.spawnVehicle(selectedLane, selectedVehicle, count, 45);
+          feedbackText.textContent = selectedVehicle === 'AMBULANCE'
+            ? `🚑 Emergency Ambulance injected into ${selectedLane} at 45m (Immediate Green Clearance!)`
+            : `✨ Injected ${count} × ${selectedVehicle} into ${selectedLane} at 45m approach (Immediate!)`;
         },
       },
     },
@@ -376,7 +373,7 @@ function buildTestControlsPanel(): HTMLElement {
         click: () => {
           const count = getCount();
           if (selectedVehicle === 'AMBULANCE') {
-            void store.requestPreemption(selectedLane);
+            void store.requestPreemption(selectedLane, 45);
             feedbackText.textContent = `🚑 Ambulance preemption requested on ${selectedLane}`;
           } else {
             store.spawnVehicle(selectedLane, selectedVehicle, count, 300);
@@ -499,6 +496,28 @@ function buildTestControlsPanel(): HTMLElement {
         decBtn,
         slider,
         incBtn,
+        h('button', {
+          class: 'btn btn-secondary btn-xs',
+          attrs: { type: 'button', 'aria-label': `Spawn car immediately on ${lane}` },
+          on: {
+            click: () => {
+              updateLaneChips(lane);
+              store.spawnVehicle(lane, 'CAR', 1, 45);
+              feedbackText.textContent = `⚡ Car spawned on ${lane} at 45m approach`;
+            },
+          },
+        }, ['+ 🚗 Car']),
+        h('button', {
+          class: 'btn btn-danger btn-xs',
+          attrs: { type: 'button', 'aria-label': `Spawn ambulance immediately on ${lane}` },
+          on: {
+            click: () => {
+              updateLaneChips(lane);
+              store.spawnVehicle(lane, 'AMBULANCE', 1, 45);
+              feedbackText.textContent = `⚡ Immediate Ambulance on ${lane} at 45m (Signal clearing to Green!)`;
+            },
+          },
+        }, ['⚡ 🚑 EMS']),
       ]),
     ]);
   };
@@ -677,6 +696,87 @@ function buildTestControlsPanel(): HTMLElement {
     ['🔁 Restart Simulation (Seed Start)'],
   );
 
+  // --- 8. Incidents and EMS Detection Range ---
+  // Both act on the *selected* approach, the same target the spawner and the
+  // canvas click use, so an operator never wonders which lane an edit landed in.
+  let incidentKind: IncidentKind = 'BLOCKED';
+
+  const incidentSelect = h(
+    'select',
+    {
+      class: 'form-select test-vehicle-select',
+      attrs: { id: 'test-controls-incident', 'aria-label': 'Select Incident Kind' },
+      on: {
+        change: (e) => {
+          incidentKind = (e.target as HTMLSelectElement).value as IncidentKind;
+        },
+      },
+    },
+    [
+      { kind: 'BLOCKED' as const, label: 'Blocked lane (full closure)' },
+      { kind: 'CAPACITY_DROP' as const, label: 'Capacity drop (lane narrowing)' },
+      { kind: 'DOUBLE_PARKED' as const, label: 'Double-parked (partial block)' },
+    ].map((item) => h('option', { attrs: { value: item.kind }, text: item.label })),
+  );
+
+  const injectIncidentBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { id: 'btn-test-inject-incident', type: 'button' },
+      on: {
+        click: () => {
+          store.injectIncident(incidentKind, selectedLane, 40, 300);
+          feedbackText.textContent = `${incidentKind} incident placed 40 m upstream on ${selectedLane}, for 300 s.`;
+        },
+      },
+    },
+    ['Inject Incident on Selected'],
+  );
+
+  const clearIncidentBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-test-clear-incident', type: 'button' },
+      on: {
+        click: () => {
+          store.clearIncident(selectedLane);
+          feedbackText.textContent = `Incidents cleared on ${selectedLane}.`;
+        },
+      },
+    },
+    ['Clear Incident'],
+  );
+
+  // The badge is written from the worker echo, not from the click: `setParams`
+  // can be refused or clamped, and the panel must show what the engine holds.
+  const detectBadge = h('span', {
+    class: 'lane-density-badge',
+    text: `${store.emsDetectDistanceM.get()} m`,
+  });
+
+  const detectButtons = [150, 300, 500].map((distanceM) =>
+    h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-xs',
+        attrs: { id: `btn-test-detect-${String(distanceM)}`, type: 'button' },
+        on: {
+          click: () => {
+            store.setEmsDetectDistance(distanceM);
+            feedbackText.textContent = `EMS detection range requested at ${distanceM} m.`;
+          },
+        },
+      },
+      [`${distanceM} m`],
+    ),
+  );
+
+  store.emsDetectDistanceM.subscribe((m) => {
+    detectBadge.textContent = `${m} m`;
+  });
+
   // Listen for external lane selections (e.g. keyboard navigation or canvas click)
   store.selectedLane.subscribe((lane) => {
     updateLaneChips(lane);
@@ -752,6 +852,28 @@ function buildTestControlsPanel(): HTMLElement {
       ]),
       h('div', { class: 'test-reset-actions' }, [resetDemandsBtn, clearPreemptBtn, restartSimBtn]),
     ]),
+
+    // Section 5: Incidents and EMS Detection Range
+    h('div', { class: 'test-section' }, [
+      h('div', { class: 'test-section-title' }, [
+        h('span', { class: 'test-section-num', text: '5' }),
+        h('span', { text: 'Incidents & Emergency-Vehicle Detection (Applied to the Selected Approach)' }),
+      ]),
+      h('div', { class: 'test-spawner-form' }, [
+        h('div', { class: 'test-field' }, [
+          h('label', { class: 'test-field-label', text: 'Incident Type:' }),
+          incidentSelect,
+        ]),
+        h('div', { class: 'test-field test-field-actions' }, [
+          h('label', { class: 'test-field-label', text: 'Incident Action:' }),
+          h('div', { class: 'btn-group' }, [injectIncidentBtn, clearIncidentBtn]),
+        ]),
+        h('div', { class: 'test-field' }, [
+          h('label', { class: 'test-field-label', text: 'EMS Detection Range:' }),
+          h('div', { class: 'btn-group' }, [...detectButtons, detectBadge]),
+        ]),
+      ]),
+    ]),
   ]);
 }
 
@@ -804,7 +926,7 @@ function buildLaneTable(): HTMLElement {
       {
         class: 'btn btn-secondary btn-sm',
         attrs: { type: 'button', 'aria-label': `Spawn car on ${lane}` },
-        on: { click: () => store.spawnVehicle(lane, 'CAR') },
+        on: { click: () => store.spawnVehicle(lane, 'CAR', 1, 45) },
       },
       ['+ 🚗 Car'],
     );
@@ -814,7 +936,7 @@ function buildLaneTable(): HTMLElement {
       {
         class: 'btn btn-danger btn-sm',
         attrs: { type: 'button', 'aria-label': `Spawn ambulance on ${lane}` },
-        on: { click: () => store.spawnVehicle(lane, 'AMBULANCE') },
+        on: { click: () => store.spawnVehicle(lane, 'AMBULANCE', 1, 45) },
       },
       ['+ 🚑 EMS'],
     );
@@ -1070,14 +1192,15 @@ function openShortcuts(): void {
 }
 
 async function spawnAmbulance(): Promise<void> {
-  const decision = await store.requestPreemption('NB-TR');
+  const lane = store.selectedLane.get();
+  const decision = await store.requestPreemption(lane, 45);
   const feedback = maybeById('proposal-feedback');
-  if (feedback) {
-    feedback.textContent =
-      decision.decision === 'accepted'
-        ? `EVP accepted for ${decision.id}.`
-        : `EVP rejected: ${decision.reason ?? 'UNKNOWN'}.`;
-  }
+  const testFeedback = maybeById('test-feedback-msg');
+  const msg = decision.decision === 'accepted'
+    ? `🚑 Ambulance spawned immediately on ${lane} at 45m (EVP active, signal turning green!)`
+    : `EVP rejected: ${decision.reason ?? 'UNKNOWN'}.`;
+  if (feedback) feedback.textContent = msg;
+  if (testFeedback) testFeedback.textContent = msg;
 }
 
 function clearDiagnosis(): void {

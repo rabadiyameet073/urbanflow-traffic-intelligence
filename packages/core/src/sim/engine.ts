@@ -344,10 +344,10 @@ export class SimEngine {
         const slot = simLane.insertOrdered(
           type,
           pos,
-          // An ambulance arrives doing its cruise speed; anything written into
-          // the middle of a live lane is a stationary obstruction, which is the
-          // only honest reading of "a vehicle that was not there a tick ago".
-          isEms ? TIMING.EMS_CRUISE_MPS : 0,
+          // An ambulance arrives doing cruise speed; other vehicles enter with approach speed
+          isEms
+            ? TIMING.EMS_CRUISE_MPS
+            : Math.min(spec.maxSpeedMps, this.config.speedLimitMps * 0.8),
           this.simTimeS,
           isEms,
           emsId,

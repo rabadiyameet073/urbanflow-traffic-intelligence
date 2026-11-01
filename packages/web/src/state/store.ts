@@ -410,7 +410,7 @@ export class AppStore {
    * The worker spawns the vehicle and reads its distance back from the
    * simulator, so no part of the plan is invented here.
    */
-  public requestPreemption(lane: LaneId, distanceM?: number): Promise<EvpDecisionResponse> {
+  public requestPreemption(lane: LaneId, distanceM = 45): Promise<EvpDecisionResponse> {
     return this.client.requestPreemption(lane, distanceM);
   }
 
@@ -429,8 +429,8 @@ export class AppStore {
     return this.client.verifyProposal(params);
   }
 
-  public spawnEms(lane: LaneId): void {
-    this.client.spawnEms(lane);
+  public spawnEms(lane: LaneId, distanceM = 45): void {
+    void this.requestPreemption(lane, distanceM);
   }
 
   public injectIncident(
@@ -508,15 +508,15 @@ export class AppStore {
    * is exactly the comparison worth having — `requestPreemption` is the case
    * where the intersection clears itself for it.
    */
-  public injectBurst(lane: LaneId, count = 5, type: VehicleType = 'CAR'): void {
+  public injectBurst(lane: LaneId, count = 5, type: VehicleType = 'CAR', distanceM = 45): void {
     if (type === 'AMBULANCE') {
-      void this.requestPreemption(lane);
+      void this.requestPreemption(lane, distanceM);
     } else {
-      this.client.spawnVehicle(lane, type, count);
+      this.client.spawnVehicle(lane, type, count, distanceM);
     }
   }
 
-  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM?: number): void {
+  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM = 45): void {
     if (type === 'AMBULANCE') {
       void this.requestPreemption(lane);
     } else {
