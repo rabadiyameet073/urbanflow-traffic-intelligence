@@ -328,7 +328,7 @@ function handle(command: WorkerCommand): void {
 
     case 'requestPreemption': {
       if (!world) return;
-      const result = world.requestPreemption(command.lane);
+      const result = world.requestPreemption(command.lane, command.distanceM);
       post({ v: WORKER_PROTOCOL_VERSION, type: 'preemptionResult', result });
       publish(true);
       break;

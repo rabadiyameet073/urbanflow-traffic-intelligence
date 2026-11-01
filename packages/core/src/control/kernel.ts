@@ -27,9 +27,13 @@ export type ViolationType =
   | 'ILLEGAL_FLASH_RED_EXIT';
 
 export class SafetyViolationError extends Error {
-  constructor(message: string) {
+  /** Module 50 §5: every thrown error carries a machine-readable code. */
+  readonly code: ViolationType;
+
+  constructor(message: string, code: ViolationType) {
     super(`[SafetyKernel Violation] ${message}`);
     this.name = 'SafetyViolationError';
+    this.code = code;
   }
 }
 
@@ -105,7 +109,7 @@ export class SafetyKernel {
       this.violationsPrevented.ILLEGAL_FLASH_RED_EXIT++;
       return;
     }
-    // Recovery MUST pass through ALL_RED before going green (Invariant I6)
+    // SAFETY: I6 — recovery MUST pass through ALL_RED before going green.
     this.isFailSafe = false;
     this.indication = 'ALL_RED';
     this.currentPhase = null;
@@ -121,7 +125,7 @@ export class SafetyKernel {
     this.totalTicks++;
     this.timeInStateS += dtS;
 
-    // Track red wait time for anti-starvation (Invariant I4)
+    // SAFETY: I4 — anti-starvation tracking: time each phase has been red.
     for (const p of PHASES) {
       if (this.indication === 'GREEN' && this.currentPhase === p) {
         this.redWaitTimesS[p] = 0;
@@ -155,8 +159,8 @@ export class SafetyKernel {
 
       // If switch is requested to a different phase
       if (desiredPhase !== null && desiredPhase !== this.currentPhase) {
-        // Enforce safety minimum green (Invariant I3): G_MIN_S = 7s
-        // (EVP preemption may truncate in extreme safety rules, but G_MIN_S is respected unless preemption requires immediate clearance)
+        // SAFETY: I3 — minimum green (G_MIN_S = 7s) cannot be clamped below by
+        // any caller; EVP preclear may truncate only to 3.0s, never less.
         const minGreen = evp && evp.stage === 'PRECLEAR' ? 3.0 : TIMING.G_MIN_S;
 
         if (this.timeInStateS < minGreen) {
@@ -186,7 +190,7 @@ export class SafetyKernel {
         }
       }
     } else if (this.indication === 'YELLOW') {
-      // Invariant I5: YELLOW cannot be shortened by any caller, including EVP (3.5s)
+      // SAFETY: I5 — YELLOW cannot be shortened by any caller, including EVP (3.5s)
       if (this.timeInStateS >= TIMING.YELLOW_S - 1e-4) {
         this.yellowIntervals++;
         this.yellowCompliant++;
@@ -194,7 +198,7 @@ export class SafetyKernel {
         this.timeInStateS = 0;
       }
     } else if (this.indication === 'ALL_RED') {
-      // Invariant I5: ALL_RED cannot be shortened by any caller, including EVP (2.0s)
+      // SAFETY: I5 — ALL_RED cannot be shortened by any caller, including EVP (2.0s)
       if (this.timeInStateS >= TIMING.ALL_RED_S - 1e-4) {
         this.allRedIntervals++;
         this.allRedCompliant++;
@@ -257,7 +261,7 @@ export class SafetyKernel {
    * Verified on every single output state!
    */
   public static assertInvariants(state: SignalState): void {
-    // Invariant I1: No two lanes belonging to different phases are non-red at the same time.
+    // SAFETY: I1 — no two lanes belonging to different phases are non-red at the same time.
     let activePhase: PhaseId | null = null;
     for (const lane of LANES) {
       const ind = state.lanes[lane];
@@ -271,16 +275,20 @@ export class SafetyKernel {
         } else if (activePhase !== p) {
           throw new SafetyViolationError(
             `Invariant I1 Violated: Conflicting non-red indications across ${activePhase} and ${p}`,
+            'CONFLICTING_GREENS',
           );
         }
       }
     }
 
-    // Invariant I6: If indication is FLASH_RED, no lane may be GREEN or YELLOW
+    // SAFETY: I6 — if indication is FLASH_RED, no lane may be GREEN or YELLOW.
     if (state.indication === 'FLASH_RED') {
       for (const lane of LANES) {
         if (state.lanes[lane] !== 'R') {
-          throw new SafetyViolationError('Invariant I6 Violated: Non-red lane in FLASH_RED mode');
+          throw new SafetyViolationError(
+            'Invariant I6 Violated: Non-red lane in FLASH_RED mode',
+            'ILLEGAL_FLASH_RED_EXIT',
+          );
         }
       }
     }

@@ -167,6 +167,7 @@ export const RequestPreemptionCommand = z.object({
   v: V,
   type: z.literal('requestPreemption'),
   lane: z.enum(LANES),
+  distanceM: z.number().finite().min(0).max(800).optional(),
 });
 
 /**

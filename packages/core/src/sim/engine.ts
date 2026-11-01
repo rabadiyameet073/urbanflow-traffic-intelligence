@@ -261,8 +261,8 @@ export class SimEngine {
    * doing 54 km/h, so the distance the controller is asked to rescue is the
    * distance the vehicle actually has to cover.
    */
-  public spawnEms(lane: LaneId): string {
-    return this.spawnEmsAt(lane, this.config.emsDetectDistanceM);
+  public spawnEms(lane: LaneId, distanceM?: number): string {
+    return this.spawnEmsAt(lane, distanceM ?? this.config.emsDetectDistanceM);
   }
 
 

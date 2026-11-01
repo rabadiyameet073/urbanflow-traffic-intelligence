@@ -410,8 +410,8 @@ export class AppStore {
    * The worker spawns the vehicle and reads its distance back from the
    * simulator, so no part of the plan is invented here.
    */
-  public requestPreemption(lane: LaneId): Promise<EvpDecisionResponse> {
-    return this.client.requestPreemption(lane);
+  public requestPreemption(lane: LaneId, distanceM?: number): Promise<EvpDecisionResponse> {
+    return this.client.requestPreemption(lane, distanceM);
   }
 
   /** Abandon the running preemption; normal control resumes (Module 03 §5.3). */

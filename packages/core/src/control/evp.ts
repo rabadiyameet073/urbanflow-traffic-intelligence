@@ -13,10 +13,12 @@ import {
   EvpDirective,
   EvpDecisionResponse,
   EvpDecisionReason,
+  EvpStage,
   Observation,
   TIMING,
   conflictsWith,
 } from '../contracts.js';
+import { simWallClockIso } from '../helpers/sim-clock.js';
 
 interface ManagedEms {
   request: EvpRequest;
@@ -30,9 +32,19 @@ interface ManagedEms {
   hasExited: boolean;
 }
 
+/**
+ * Wall-clock origin for a simulated run.
+ *
+ * `packages/core` may not read the real clock (Rule 07, Module 01 §2). A
+ * rejection recorded at sim time `t` must carry the same `serverTime` on every
+ * replay, otherwise two runs of one seed produce different audit records. The
+ * origin and the derivation both live in `helpers/sim-clock.ts` so the NTCIP
+ * status group and the debug bundle cannot drift from this one.
+ */
+
 export class EvpManager {
   private activeEms: ManagedEms | null = null;
-  private stage: 'IDLE' | 'PRECLEAR' | 'EMS_GREEN' | 'RECOVERY' = 'IDLE';
+  private stage: EvpStage = 'IDLE';
   private stageTimeS: number = 0;
 
   // Audit and tracking caches
@@ -44,6 +56,14 @@ export class EvpManager {
   private readonly requestHistory10s: number[] = [];
   private stormGuardUntilS: number = 0;
 
+  // Module 16 §4.1 counters. They outlive a plan on purpose: `getStatus()` is
+  // null once a preemption ends, but "how many requests did this run accept and
+  // reject, and why" is exactly what an operator needs after the fact.
+  private acceptedCount = 0;
+  private rejectedCount = 0;
+  private readonly rejectedByReason = new Map<EvpDecisionReason, number>();
+  private readonly shortfallsS: number[] = [];
+
   public reset(): void {
     this.activeEms = null;
     this.stage = 'IDLE';
@@ -53,6 +73,31 @@ export class EvpManager {
     this.sourceLastRequestTime.clear();
     this.requestHistory10s.length = 0;
     this.stormGuardUntilS = 0;
+    this.acceptedCount = 0;
+    this.rejectedCount = 0;
+    this.rejectedByReason.clear();
+    this.shortfallsS.length = 0;
+  }
+
+  /**
+   * Module 16 §4.1 `evp.requests{accepted,rejected,reason}` and `evp.shortfallS`.
+   *
+   * Counted once per *decision*: an idempotent replay returns the cached response
+   * from step 1 of `submitRequest` and never reaches the counters, so repeating a
+   * request cannot inflate them.
+   */
+  public getCounters(): {
+    accepted: number;
+    rejected: number;
+    rejectedByReason: Record<string, number>;
+    shortfallsS: number[];
+  } {
+    return {
+      accepted: this.acceptedCount,
+      rejected: this.rejectedCount,
+      rejectedByReason: Object.fromEntries(this.rejectedByReason),
+      shortfallsS: [...this.shortfallsS],
+    };
   }
 
   /**
@@ -71,48 +116,83 @@ export class EvpManager {
     }
 
     if (simTimeS < this.stormGuardUntilS) {
-      return this.reject(req.id, 'STORM_GUARD');
+      return this.reject(req.id, 'STORM_GUARD', simTimeS);
     }
 
     if (this.requestHistory10s.length > 20) {
       this.stormGuardUntilS = simTimeS + 30.0;
-      return this.reject(req.id, 'STORM_GUARD');
+      return this.reject(req.id, 'STORM_GUARD', simTimeS);
     }
 
     // 3. Lane validity
     if (!LANES.includes(req.lane)) {
-      return this.reject(req.id, 'UNKNOWN_LANE');
+      return this.reject(req.id, 'UNKNOWN_LANE', simTimeS);
     }
 
     // 4. Nonce replay check
     if (this.seenNonces.has(req.nonce)) {
-      return this.reject(req.id, 'NONCE_REPLAY');
+      return this.reject(req.id, 'NONCE_REPLAY', simTimeS);
     }
 
     // 5. Rate limit per source (<= 1 request / 10s)
     const lastSourceTime = this.sourceLastRequestTime.get(req.source);
     if (lastSourceTime !== undefined && simTimeS - lastSourceTime < 10.0) {
-      return this.reject(req.id, 'RATE_LIMITED');
+      return this.reject(req.id, 'RATE_LIMITED', simTimeS);
     }
 
     // 6. Plausibility checks: speed in [3, 35] m/s, distance in [20, 800] m
     if (req.speedMps < 3 || req.speedMps > 35) {
-      return this.reject(req.id, 'IMPLAUSIBLE_SPEED');
+      return this.reject(req.id, 'IMPLAUSIBLE_SPEED', simTimeS);
     }
     if (req.distanceM < 20 || req.distanceM > 800) {
-      return this.reject(req.id, 'IMPLAUSIBLE_DISTANCE');
+      return this.reject(req.id, 'IMPLAUSIBLE_DISTANCE', simTimeS);
+    }
+
+    const phase = LANE_TO_PHASE[req.lane];
+
+    // 7. One active preemption (§5.3). A same-phase request is served by the
+    // plan already running; a conflicting one waits instead of silently
+    // replacing the vehicle the operator is watching for.
+    if (this.activeEms !== null && this.stage !== 'IDLE') {
+      if (this.activeEms.phase !== phase) {
+        return this.reject(req.id, 'PREEMPTION_ACTIVE', simTimeS);
+      }
+      this.seenNonces.add(req.nonce);
+      this.sourceLastRequestTime.set(req.source, simTimeS);
+      const shared: EvpDecisionResponse = {
+        id: req.id,
+        decision: 'accepted',
+        reason: null,
+        serverTime: this.serverTimeAt(simTimeS),
+      };
+      this.processedIds.set(req.id, shared);
+      this.acceptedCount++;
+      return shared;
     }
 
     // Accept request
     this.seenNonces.add(req.nonce);
     this.sourceLastRequestTime.set(req.source, simTimeS);
 
-    const phase = LANE_TO_PHASE[req.lane];
     const etaS = req.distanceM / req.speedMps;
 
-    // Queue flush & lead calculations
+    // Queue flush & lead calculations (Module 03 §5.2).
+    //
+    // Two declared simplifications live here, both measured and written up in
+    // `docs/LIMITATIONS.md`:
+    //   - §5.2 asks for the *measured* count of vehicles ahead of the ambulance;
+    //     this build uses a two-vehicle placeholder, because the count has to be
+    //     read from the simulator and `EvpRequest` is a frozen wire contract that
+    //     external gateways also fill in.
+    //   - §5.2 makes the yellow/all-red clearance conditional on the switch being
+    //     a conflicting one. This build always includes it, because a request
+    //     arrives without the current phase attached.
+    // Both make the reported plan *more* pessimistic than the truth when the lane
+    // is already green, and *less* pessimistic when the queue ahead is longer
+    // than two vehicles. The sweep in RESULTS §5 is reported under this model.
     const startUpLostS = 2.0;
-    const queueFlushS = startUpLostS + 2.0 * 2; // initial estimate
+    const assumedVehiclesAhead = 2;
+    const queueFlushS = startUpLostS + 2.0 * assumedVehiclesAhead;
     const preclearS = 8.0;
     const clearanceS = TIMING.YELLOW_S + TIMING.ALL_RED_S; // 5.5s
     const requiredLeadS = clearanceS + preclearS + queueFlushS;
@@ -139,21 +219,52 @@ export class EvpManager {
       id: req.id,
       decision: 'accepted',
       reason: null,
-      serverTime: new Date(1730383200000 + simTimeS * 1000).toISOString(),
+      serverTime: this.serverTimeAt(simTimeS),
     };
     this.processedIds.set(req.id, res);
+    this.acceptedCount++;
+    this.shortfallsS.push(shortfallS);
     return res;
   }
 
-  private reject(id: string, reason: EvpDecisionReason): EvpDecisionResponse {
+  /**
+   * Abandon an in-flight preemption (Module 03 §5.3).
+   *
+   * Cancelling during `PRECLEAR` returns straight to normal control: the kernel
+   * has not yet been asked to force a switch, so there is nothing to clear.
+   * Cancelling a preemption that already has green hands over to the ordinary
+   * `RECOVERY` window instead, which is what keeps the interrupted phases honest
+   * — the directive stops forcing anything from that point either way.
+   */
+  public cancelRequest(id: string): boolean {
+    if (this.activeEms === null || this.activeEms.request.id !== id) return false;
+
+    if (this.stage === 'PRECLEAR') {
+      this.activeEms = null;
+      this.stage = 'IDLE';
+    } else {
+      this.stage = 'RECOVERY';
+    }
+    this.stageTimeS = 0;
+    return true;
+  }
+
+  private reject(id: string, reason: EvpDecisionReason, simTimeS: number): EvpDecisionResponse {
+    this.rejectedCount++;
+    this.rejectedByReason.set(reason, (this.rejectedByReason.get(reason) ?? 0) + 1);
     const res: EvpDecisionResponse = {
       id,
       decision: 'rejected',
       reason,
-      serverTime: new Date().toISOString(),
+      serverTime: this.serverTimeAt(simTimeS),
     };
     this.processedIds.set(id, res);
     return res;
+  }
+
+  /** Simulated wall clock. Never the real one — see `helpers/sim-clock.ts`. */
+  private serverTimeAt(simTimeS: number): string {
+    return simWallClockIso(simTimeS);
   }
 
   public step(obs: Observation, dtS: number): EvpDirective | null {
@@ -203,4 +314,24 @@ export class EvpManager {
       activeEmsId: ems.request.id,
     };
   }
+
+  /**
+   * Read-only projection for the operator console.
+   * Returns `null` while no preemption is in progress.
+   */
+  public getStatus(): {
+    stage: EvpStage;
+    planStatus: 'OK' | 'TIGHT';
+    shortfallS: number;
+    activeEmsId: string;
+  } | null {
+    if (this.activeEms === null || this.stage === 'IDLE') return null;
+    return {
+      stage: this.stage,
+      planStatus: this.activeEms.planStatus,
+      shortfallS: this.activeEms.shortfallS,
+      activeEmsId: this.activeEms.request.id,
+    };
+  }
 }
+

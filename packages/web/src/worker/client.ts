@@ -225,11 +225,11 @@ export class SimulationClient {
     this.send({ v: WORKER_PROTOCOL_VERSION, type: 'requestSnapshot' });
   }
 
-  public requestPreemption(lane: LaneId): Promise<EvpDecisionResponse> {
+  public requestPreemption(lane: LaneId, distanceM?: number): Promise<EvpDecisionResponse> {
     const promise = new Promise<EvpDecisionResponse>((resolve) => {
       this.pendingPreemption.push(resolve);
     });
-    this.send({ v: WORKER_PROTOCOL_VERSION, type: 'requestPreemption', lane });
+    this.send({ v: WORKER_PROTOCOL_VERSION, type: 'requestPreemption', lane, distanceM });
     return promise;
   }
 

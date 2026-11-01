@@ -218,9 +218,9 @@ export class TwinWorld {
     return this.simAdaptive.spawnVehicle(lane, type, count, distanceM);
   }
 
-  private spawnEmsInternal(lane: LaneId): string {
-    this.simFixed.spawnEms(lane);
-    return this.simAdaptive.spawnEms(lane);
+  private spawnEmsInternal(lane: LaneId, distanceM?: number): string {
+    this.simFixed.spawnEms(lane, distanceM);
+    return this.simAdaptive.spawnEms(lane, distanceM);
   }
 
   public injectIncident(
@@ -259,21 +259,21 @@ export class TwinWorld {
    * spawned first, then its measured distance is read back and used to build
    * the request. A plan built on a client-supplied distance would be fiction.
    */
-  public requestPreemption(lane: LaneId): EvpDecisionResponse {
-    this.record({ v: 1, type: 'requestPreemption', lane });
-    return this.submitPreemption(lane);
+  public requestPreemption(lane: LaneId, distanceM?: number): EvpDecisionResponse {
+    this.record({ v: 1, type: 'requestPreemption', lane, distanceM });
+    return this.submitPreemption(lane, distanceM);
   }
 
   /** Spawn + request, without logging. Shared by the live path and replay. */
-  private submitPreemption(lane: LaneId): EvpDecisionResponse {
+  private submitPreemption(lane: LaneId, targetDistanceM?: number): EvpDecisionResponse {
     const simTimeS = this.simAdaptive.simTimeS;
     // Spawned in both twins: the arrival must be identical on both sides or the
     // comparison stops being a comparison (Module 25 §1, Module 31 §5).
-    const emsId = this.spawnEmsInternal(lane);
+    const emsId = this.spawnEmsInternal(lane, targetDistanceM);
     const laneObs = this.simAdaptive.observe().lanes[lane];
     const distanceM = Math.min(
       800,
-      Math.max(20, laneObs?.nearestEmsDistanceM ?? this.simAdaptive.config.laneLengthM),
+      Math.max(20, laneObs?.nearestEmsDistanceM ?? (targetDistanceM ?? this.simAdaptive.config.emsDetectDistanceM)),
     );
 
     return this.evpAdaptive.submitRequest(
