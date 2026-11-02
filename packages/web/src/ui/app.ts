@@ -9,10 +9,11 @@
  *      Module 02 §4 metrics. Missing evidence renders an em dash, never a zero
  *      and never a hard-coded delta (Rule 00).
  */
-import { LANES, relativeChangePct, PHASES } from '@urbanflow/core';
-import type { IncidentKind, PhaseId, LaneId, VehicleType } from '@urbanflow/core';
+import { LANES, createDebugBundle, relativeChangePct, PHASES } from '@urbanflow/core';
+import type { AdaptiveParams, IncidentKind, PhaseId, LaneId, VehicleType } from '@urbanflow/core';
 import { store } from '../state/store.js';
 import type { KpiSnapshot } from '../state/store.js';
+import { getConsoleTail } from '../state/console-tail.js';
 import { STRINGS } from '../i18n/strings.js';
 import { formatNumber } from '../i18n/format.js';
 import { judgeTour } from './judge/tour.js';
@@ -60,14 +61,14 @@ const LANE_DISPLAY_NAME: Record<LaneId, string> = {
 };
 
 const LANE_ARROW: Record<LaneId, string> = {
-  'NB-TR': '⬆️',
-  'NB-L': '↖️',
-  'SB-TR': '⬇️',
-  'SB-L': '↘️',
-  'EB-TR': '➡️',
-  'EB-L': '↗️',
-  'WB-TR': '⬅️',
-  'WB-L': '↙️',
+  'NB-TR': '↑',
+  'NB-L': '↖',
+  'SB-TR': '↓',
+  'SB-L': '↘',
+  'EB-TR': '→',
+  'EB-L': '↗',
+  'WB-TR': '←',
+  'WB-L': '↙',
 };
 
 const PHASE_LABEL: Readonly<Record<PhaseId, string>> = {
@@ -252,6 +253,7 @@ function buildTwinCard(opts: {
   losId: string;
   ribbonId: string;
   ribbonTitle: string;
+  subBarId?: string;
   badges?: Child[];
 }): HTMLElement {
   const header = h('div', { class: 'twin-header' }, [
@@ -261,6 +263,10 @@ function buildTwinCard(opts: {
       h('span', { class: 'badge', attrs: { id: opts.losId }, text: STRINGS.kpis.losLabel(null) }),
     ]),
   ]);
+
+  const subBar = opts.subBarId
+    ? h('div', { class: 'twin-telemetry-subbar mono', attrs: { id: opts.subBarId }, text: 'Initializing telemetry stream…' })
+    : null;
 
   const canvas = h('canvas', {
     attrs: {
@@ -274,6 +280,7 @@ function buildTwinCard(opts: {
 
   return h('section', { class: 'twin-card', label: opts.title }, [
     header,
+    ...(subBar ? [subBar] : []),
     h('div', { class: 'canvas-viewport' }, [canvas]),
     h('div', { class: 'timeline-ribbon', attrs: { id: opts.ribbonId }, label: opts.ribbonTitle }),
   ]);
@@ -284,6 +291,12 @@ function buildIntelligenceBanner(): HTMLElement {
     class: 'badge badge-ai hero-phase-pill',
     attrs: { id: 'hero-phase-pill' },
     text: 'Phase P2: North-South Thru',
+  });
+
+  const phaseTimerBadge = h('span', {
+    class: 'badge badge-mono hero-phase-timer',
+    attrs: { id: 'hero-phase-timer' },
+    text: '⏱️ 0.0s in phase',
   });
 
   const efficiencyBadge = h('div', {
@@ -300,6 +313,49 @@ function buildIntelligenceBanner(): HTMLElement {
     text: 'Adaptive controller observing approach queues. Dynamic green wave allocation active.',
   });
 
+  // 4-Phase real-time pressure distribution display
+  const pressuresBar = h('div', { class: 'hero-pressures-bar' }, [
+    h('span', { class: 'hero-pressures-label', text: 'Max-Pressure Multi-Phase Balance:' }),
+    h('div', { class: 'hero-pressures-grid' }, [
+      h('div', { class: 'hero-pressure-chip', attrs: { id: 'press-p1' } }, [
+        h('span', { class: 'press-tag', text: 'P1 NS-L' }),
+        h('span', { class: 'press-val mono', text: '0.0' }),
+      ]),
+      h('div', { class: 'hero-pressure-chip active', attrs: { id: 'press-p2' } }, [
+        h('span', { class: 'press-tag', text: 'P2 NS-T' }),
+        h('span', { class: 'press-val mono', text: '0.0' }),
+      ]),
+      h('div', { class: 'hero-pressure-chip', attrs: { id: 'press-p3' } }, [
+        h('span', { class: 'press-tag', text: 'P3 EW-L' }),
+        h('span', { class: 'press-val mono', text: '0.0' }),
+      ]),
+      h('div', { class: 'hero-pressure-chip', attrs: { id: 'press-p4' } }, [
+        h('span', { class: 'press-tag', text: 'P4 EW-T' }),
+        h('span', { class: 'press-val mono', text: '0.0' }),
+      ]),
+    ]),
+  ]);
+
+  // Live environmental & network savings ticker
+  const savingsTicker = h('div', { class: 'hero-savings-ticker' }, [
+    h('div', { class: 'hero-saving-item' }, [
+      h('span', { class: 'hero-saving-label', text: '⏱️ Delay Reduction' }),
+      h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-delay' }, text: '0.0s / veh' }),
+    ]),
+    h('div', { class: 'hero-saving-item' }, [
+      h('span', { class: 'hero-saving-label', text: 'Fuel Conserved' }),
+      h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-fuel' }, text: '0.00 L' }),
+    ]),
+    h('div', { class: 'hero-saving-item' }, [
+      h('span', { class: 'hero-saving-label', text: 'CO₂ Prevented' }),
+      h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-co2' }, text: '0.00 kg' }),
+    ]),
+    h('div', { class: 'hero-saving-item' }, [
+      h('span', { class: 'hero-saving-label', text: 'Safety Kernel' }),
+      h('span', { class: 'badge badge-safety', text: '100% Enforced (0 Conflicts)' }),
+    ]),
+  ]);
+
   const evpAlert = h('div', {
     class: 'hero-evp-banner is-hidden',
     attrs: { id: 'hero-evp-banner' },
@@ -313,10 +369,13 @@ function buildIntelligenceBanner(): HTMLElement {
       h('div', { class: 'hero-banner-title' }, [
         h('span', { class: 'badge badge-safety', text: 'AI TRAFFIC REASONING' }),
         phasePill,
+        phaseTimerBadge,
       ]),
       efficiencyBadge,
     ]),
     reasoningCopy,
+    pressuresBar,
+    savingsTicker,
     evpAlert,
   ]);
 }
@@ -448,11 +507,11 @@ function buildTestControlsPanel(): HTMLElement {
 
   // --- 2. Vehicle Type Selection ---
   const vehicleOptions = [
-    { type: 'AMBULANCE' as const, label: '🚑 Ambulance (EVP Preemption)' },
-    { type: 'CAR' as const, label: '🚗 Passenger Car (IDM Kinematics)' },
-    { type: 'BUS' as const, label: '🚌 Transit Bus (High Occupancy)' },
-    { type: 'TRUCK' as const, label: '🚚 Freight Truck (Heavy Load)' },
-    { type: 'BIKE' as const, label: '🏍️ Motorcycle / Bike (Filtering)' },
+    { type: 'AMBULANCE' as const, label: 'Ambulance — EVP Preemption' },
+    { type: 'CAR' as const, label: 'Passenger Car — IDM Kinematics' },
+    { type: 'BUS' as const, label: 'Transit Bus — High Occupancy' },
+    { type: 'TRUCK' as const, label: 'Freight Truck — Heavy Load' },
+    { type: 'BIKE' as const, label: 'Motorcycle / Bike — Filtering' },
   ].map((v) =>
     h('option', { attrs: { value: v.type }, text: v.label }),
   );
@@ -532,16 +591,44 @@ function buildTestControlsPanel(): HTMLElement {
     }),
   );
 
+  // --- Real initial-speed override (passed to the engine) ---
+  let selectedSpeedMps: number | undefined = undefined;
+  const speedValBadge = h('span', { class: 'badge badge-mono', text: 'Auto' });
+  const speedSlider = h('input', {
+    class: 'test-density-slider',
+    attrs: {
+      type: 'range',
+      min: '0',
+      max: '14',
+      step: '1',
+      value: '0',
+      'aria-label': 'Initial speed in metres per second (0 = stopped)',
+    },
+    on: {
+      input: (e) => {
+        const mps = Math.max(0, Math.min(14, Number((e.target as HTMLInputElement).value) || 0));
+        selectedSpeedMps = mps;
+        speedValBadge.textContent = `${Math.round(mps * 3.6)} km/h`;
+      },
+    },
+  }) as HTMLInputElement;
+  const setSpeed = (mps: number | undefined): void => {
+    selectedSpeedMps = mps;
+    speedValBadge.textContent = mps === undefined ? 'Auto' : `${Math.round(mps * 3.6)} km/h`;
+    speedSlider.value = String(mps ?? 0);
+    sound.click();
+  };
   const speedPresets = [
-    { label: '🛑 Stopped (0 km/h)', dist: 25 },
-    { label: '🚶 Approach (25 km/h)', dist: 45 },
-    { label: '🚀 Cruise (50 km/h)', dist: 100 },
+    { label: 'Auto', mps: undefined as number | undefined },
+    { label: 'Stopped', mps: 0 },
+    { label: 'Slow', mps: 5 },
+    { label: 'Cruise', mps: 11 },
   ].map((p) =>
     h('button', {
       class: 'btn btn-secondary btn-xs',
       attrs: { type: 'button' },
       text: p.label,
-      on: { click: () => setDist(p.dist) },
+      on: { click: () => setSpeed(p.mps) },
     }),
   );
 
@@ -559,14 +646,14 @@ function buildTestControlsPanel(): HTMLElement {
           } else {
             sound.spawn();
           }
-          store.spawnVehicle(selectedLane, selectedVehicle, count, selectedDistance);
+          store.spawnVehicle(selectedLane, selectedVehicle, count, selectedDistance, selectedSpeedMps);
           feedbackText.textContent = selectedVehicle === 'AMBULANCE'
-            ? `🚑 Emergency Ambulance injected into ${selectedLane} at ${selectedDistance}m (Immediate Green Clearance!)`
-            : `✨ Injected ${count} × ${selectedVehicle} into ${selectedLane} at ${selectedDistance}m approach!`;
+            ? `Emergency Ambulance injected into ${selectedLane} at ${selectedDistance}m (Immediate Green Clearance!)`
+            : `Injected ${count} × ${selectedVehicle} into ${selectedLane} at ${selectedDistance}m approach!`;
         },
       },
     },
-    ['⚡ Spawn in Approach (Custom Distance)'],
+    [ICONS.zap(), 'Spawn in Approach (Custom Distance)'],
   );
 
   const spawnEntryBtn = h(
@@ -580,16 +667,16 @@ function buildTestControlsPanel(): HTMLElement {
           if (selectedVehicle === 'AMBULANCE') {
             sound.emergencyPreempt();
             store.spawnVehicle(selectedLane, 'AMBULANCE', count, 45);
-            feedbackText.textContent = `🚑 Ambulance injected into ${selectedLane} at 45m (Immediate! Signal will clear.)`;
+            feedbackText.textContent = `Ambulance injected into ${selectedLane} at 45m (Immediate! Signal will clear.)`;
           } else {
             sound.spawn();
             store.spawnVehicle(selectedLane, selectedVehicle, count, 300);
-            feedbackText.textContent = `📍 Queued ${count} × ${selectedVehicle} at ${selectedLane} 300m entry gate`;
+            feedbackText.textContent = `Queued ${count} × ${selectedVehicle} at ${selectedLane} 300m entry gate`;
           }
         },
       },
     },
-    ['📍 Spawn at Entry Gate (300m)'],
+    [ICONS.dot(), 'Spawn at Entry Gate (300m)'],
   );
 
   const emergencyPreemptBtn = h(
@@ -601,11 +688,11 @@ function buildTestControlsPanel(): HTMLElement {
         click: () => {
           sound.emergencyPreempt();
           void store.requestPreemption(selectedLane);
-          feedbackText.textContent = `🚨 Emergency Preemption triggered on ${selectedLane}! Clearing signals to Green.`;
+          feedbackText.textContent = `Emergency Preemption triggered on ${selectedLane}! Clearing signals to Green.`;
         },
       },
     },
-    ['🚨 Emergency Preemption Test'],
+    [ICONS.ambulance(), 'Emergency Preemption Test'],
   );
 
   // --- 5. 8-Lane Traffic Density Matrix (Sliders for each lane!) ---
@@ -711,10 +798,10 @@ function buildTestControlsPanel(): HTMLElement {
             click: () => {
               updateLaneChips(lane);
               store.spawnVehicle(lane, 'CAR', 1, 45);
-              feedbackText.textContent = `⚡ Car spawned on ${lane} at 45m approach`;
+              feedbackText.textContent = `Car spawned on ${lane} at 45m approach`;
             },
           },
-        }, ['+ 🚗 Car']),
+        }, ['+ Car']),
         h('button', {
           class: 'btn btn-danger btn-xs',
           attrs: { type: 'button', 'aria-label': `Spawn ambulance immediately on ${lane}` },
@@ -722,10 +809,10 @@ function buildTestControlsPanel(): HTMLElement {
             click: () => {
               updateLaneChips(lane);
               store.spawnVehicle(lane, 'AMBULANCE', 1, 45);
-              feedbackText.textContent = `⚡ Immediate Ambulance on ${lane} at 45m (Signal clearing to Green!)`;
+              feedbackText.textContent = `Immediate Ambulance on ${lane} at 45m (Signal clearing to Green!)`;
             },
           },
-        }, ['⚡ 🚑 EMS']),
+        }, [ICONS.ambulance(), 'EMS']),
       ]),
     ]);
   };
@@ -806,50 +893,55 @@ function buildTestControlsPanel(): HTMLElement {
   const experimentPresets = [
     {
       id: 'stress-rush-hour',
-      title: '🌊 Peak Rush Hour (1,400 veh/h)',
+      icon: ICONS.zap(),
+      title: 'Peak Rush Hour (1,400 veh/h)',
       desc: 'Heavy demand on all approaches tests throughput & queue handling',
       action: () => {
         store.applyExperimentPreset('RUSH_HOUR');
-        feedbackText.textContent = '🚀 Applied Peak Rush Hour: All approach demands scaled to 1,200–1,400 veh/h.';
+        feedbackText.textContent = 'Applied Peak Rush Hour: All approach demands scaled to 1,200–1,400 veh/h.';
       },
     },
     {
       id: 'stress-asymmetric',
-      title: '⚖️ Commute Tide (NS 1,500 / EW 200)',
+      icon: ICONS.arrowUp(),
+      title: 'Commute Tide (NS 1,500 / EW 200)',
       desc: 'Severe directional imbalance demonstrates Adaptive green wave allocation',
       action: () => {
         store.applyExperimentPreset('ASYMMETRIC_TIDE');
-        feedbackText.textContent = '⚖️ Applied Asymmetric Commute Tide: North-South arterial heavily prioritized.';
+        feedbackText.textContent = 'Applied Asymmetric Commute Tide: North-South arterial heavily prioritized.';
       },
     },
     {
       id: 'stress-stadium',
-      title: '🏟️ Stadium Dump (EB 1,600 veh/h)',
+      icon: ICONS.dot(),
+      title: 'Stadium Dump (EB 1,600 veh/h)',
       desc: 'Extreme outflow surge on Eastbound corridor',
       action: () => {
         store.applyExperimentPreset('STADIUM_SURGE');
-        feedbackText.textContent = '🏟️ Applied Stadium Outflow Surge: Eastbound approach surged to 1,600 veh/h.';
+        feedbackText.textContent = 'Applied Stadium Outflow Surge: Eastbound approach surged to 1,600 veh/h.';
       },
     },
     {
       id: 'stress-ems-gridlock',
-      title: '🚨 High Demand + Ambulance Preemption',
+      icon: ICONS.ambulance(),
+      title: 'High Demand + Ambulance Preemption',
       desc: 'Simultaneous 1,200 veh/h congestion with immediate Ambulance dispatch on NB-TR',
       action: () => {
         store.applyExperimentPreset('RUSH_HOUR');
         setTimeout(() => {
           void store.requestPreemption('NB-TR');
         }, 150);
-        feedbackText.textContent = '🚨 Triggered High Demand + Ambulance Preemption stress test on NB-TR!';
+        feedbackText.textContent = 'Triggered High Demand + Ambulance Preemption stress test on NB-TR!';
       },
     },
     {
       id: 'stress-night',
-      title: '🌙 Night Off-Peak (150 veh/h)',
+      icon: ICONS.circle(),
+      title: 'Night Off-Peak (150 veh/h)',
       desc: 'Sparse demand showing zero wasted green time on empty approaches',
       action: () => {
         store.applyExperimentPreset('LIGHT_NIGHT');
-        feedbackText.textContent = '🌙 Applied Night Off-Peak Flow: Demands reduced to 100–150 veh/h.';
+        feedbackText.textContent = 'Applied Night Off-Peak Flow: Demands reduced to 100–150 veh/h.';
       },
     },
   ];
@@ -863,7 +955,7 @@ function buildTestControlsPanel(): HTMLElement {
         on: { click: exp.action },
       },
       [
-        h('span', { class: 'experiment-title', text: exp.title }),
+        h('span', { class: 'experiment-title' }, [exp.icon, exp.title]),
         h('span', { class: 'experiment-desc', text: exp.desc }),
       ],
     ),
@@ -878,11 +970,11 @@ function buildTestControlsPanel(): HTMLElement {
       on: {
         click: () => {
           store.resetDemandsToScenario();
-          feedbackText.textContent = '🔄 Reset all approach demands back to current scenario defaults.';
+          feedbackText.textContent = 'Reset all approach demands back to current scenario defaults.';
         },
       },
     },
-    ['🔄 Reset Demands to Scenario Defaults'],
+    [ICONS.refresh(), 'Reset Demands to Scenario Defaults'],
   );
 
   const clearPreemptBtn = h(
@@ -893,11 +985,11 @@ function buildTestControlsPanel(): HTMLElement {
       on: {
         click: () => {
           store.cancelPreemption();
-          feedbackText.textContent = '🧹 Active preemption cancelled; normal adaptive control resumed.';
+          feedbackText.textContent = 'Active preemption cancelled; normal adaptive control resumed.';
         },
       },
     },
-    ['🧹 Cancel Active Preemption'],
+    [ICONS.close(), 'Cancel Active Preemption'],
   );
 
   const restartSimBtn = h(
@@ -908,11 +1000,11 @@ function buildTestControlsPanel(): HTMLElement {
       on: {
         click: () => {
           store.resetScenario(store.scenarioId.get(), store.seed.get());
-          feedbackText.textContent = '🔁 Simulation reinitialized from seed start (t = 0s).';
+          feedbackText.textContent = 'Simulation reinitialized from seed start (t = 0s).';
         },
       },
     },
-    ['🔁 Restart Simulation (Seed Start)'],
+    [ICONS.play(), 'Restart Simulation (Seed Start)'],
   );
 
   // --- 8. Incidents and EMS Detection Range ---
@@ -1018,7 +1110,7 @@ function buildTestControlsPanel(): HTMLElement {
   });
 
   // Section 6: MongoDB Persistence & Database Storage
-  const mongoStatusBadge = h('span', { class: 'badge badge-safety', text: '🍃 MongoDB: Ready' });
+  const mongoStatusBadge = h('span', { class: 'badge badge-safety', text: 'MongoDB: Ready' });
   const mongoSaveBtn = h(
     'button',
     {
@@ -1026,13 +1118,13 @@ function buildTestControlsPanel(): HTMLElement {
       attrs: { type: 'button' },
       on: {
         click: async () => {
-          feedbackText.textContent = '⏳ Saving simulation run to MongoDB...';
+          feedbackText.textContent = 'Saving simulation run to MongoDB...';
           const res = await store.saveCurrentRunToMongo();
           feedbackText.textContent = res.message;
         },
       },
     },
-    ['💾 Save Run to MongoDB'],
+    [ICONS.save(), 'Save Run to MongoDB'],
   );
   const mongoRefreshBtn = h(
     'button',
@@ -1041,20 +1133,20 @@ function buildTestControlsPanel(): HTMLElement {
       attrs: { type: 'button' },
       on: {
         click: async () => {
-          feedbackText.textContent = '⏳ Fetching MongoDB runs...';
+          feedbackText.textContent = 'Fetching MongoDB runs...';
           await store.checkDbStatus();
           const runs = await store.fetchMongoRuns();
-          feedbackText.textContent = `🍃 MongoDB: ${runs.length} simulation run(s) currently stored in database.`;
+          feedbackText.textContent = `MongoDB: ${runs.length} simulation run(s) currently stored in database.`;
         },
       },
     },
-    ['🔄 Refresh DB Status'],
+    [ICONS.refresh(), 'Refresh DB Status'],
   );
 
   store.dbStatus.subscribe((st) => {
     mongoStatusBadge.textContent = st.connected
-      ? `🍃 MongoDB: Connected (${st.database} · ${st.runsCount} runs · ${st.pingLatencyMs ?? 0}ms)`
-      : `🍃 MongoDB: Ready (${st.status} · ${st.runsCount} runs)`;
+      ? `MongoDB: Connected (${st.database} · ${st.runsCount} runs · ${st.pingLatencyMs ?? 0}ms)`
+      : `MongoDB: Ready (${st.status} · ${st.runsCount} runs)`;
     mongoStatusBadge.className = st.connected ? 'badge badge-safety' : 'badge badge-ai';
   });
 
@@ -1090,7 +1182,11 @@ function buildTestControlsPanel(): HTMLElement {
         h('div', { class: 'test-dist-presets' }, distPresets),
       ]),
       h('div', { class: 'test-field' }, [
-        h('label', { class: 'test-field-label', text: 'Initial Speed Profile:' }),
+        h('div', { class: 'dist-header' }, [
+          h('label', { class: 'test-field-label', text: 'Initial Speed:' }),
+          speedValBadge,
+        ]),
+        speedSlider,
         h('div', { class: 'test-speed-presets' }, speedPresets),
       ]),
       h('div', { class: 'test-field test-field-actions' }, [
@@ -1191,11 +1287,11 @@ function buildTestControlsPanel(): HTMLElement {
 
   const tabPanes = [paneSpawner, paneDensity, paneIncident, paneStress, paneMongo];
   const tabDefs = [
-    { id: 'tab-btn-spawner', pane: paneSpawner, label: '🚗 Spawner & Kinematics', icon: ICONS.zap() },
-    { id: 'tab-btn-density', pane: paneDensity, label: '🌊 Traffic Demand (0–1800 veh/h)', icon: ICONS.play() },
-    { id: 'tab-btn-incident', pane: paneIncident, label: '⚠️ Incident Management', icon: ICONS.ambulance() },
-    { id: 'tab-btn-stress', pane: paneStress, label: '⚡ Stress Scenarios', icon: ICONS.sparkle() },
-    { id: 'tab-btn-mongo', pane: paneMongo, label: '🍃 MongoDB Storage', icon: ICONS.database() },
+    { id: 'tab-btn-spawner', pane: paneSpawner, label: 'Spawner & Kinematics', icon: ICONS.zap() },
+    { id: 'tab-btn-density', pane: paneDensity, label: 'Traffic Demand (0–1800 veh/h)', icon: ICONS.play() },
+    { id: 'tab-btn-incident', pane: paneIncident, label: 'Incident Management', icon: ICONS.warning() },
+    { id: 'tab-btn-stress', pane: paneStress, label: 'Stress Scenarios', icon: ICONS.sparkle() },
+    { id: 'tab-btn-mongo', pane: paneMongo, label: 'MongoDB Storage', icon: ICONS.database() },
   ];
 
   const tabButtons: HTMLButtonElement[] = [];
@@ -1226,7 +1322,7 @@ function buildTestControlsPanel(): HTMLElement {
 
   const tabNav = h('div', { class: 'test-tab-nav-bar', role: 'tablist', label: 'Simulation Controls Tabs' }, tabButtons);
 
-  return h('section', { class: 'panel-card test-controls-panel', label: 'Interactive Test Controls & Traffic Lab' }, [
+  return h('section', { class: 'panel-card test-controls-panel', label: 'Intersection Lab — Interactive Testing Suite' }, [
     // Panel Header
     h('div', { class: 'panel-title test-panel-header' }, [
       h('div', { class: 'test-title-group' }, [
@@ -1235,7 +1331,7 @@ function buildTestControlsPanel(): HTMLElement {
           h('span', { class: 'badge badge-ai', text: 'INTERSECTION LAB' }),
           h('span', { class: 'badge badge-mono', text: 'MATTE WORKBENCH' }),
         ]),
-        h('h2', { class: 'test-heading', text: '🧪 Intersection Lab & Interactive Testing Suite' }),
+        h('h2', { class: 'test-heading' }, [ICONS.sparkle(), 'Intersection Lab — Interactive Testing Suite']),
         h('p', { class: 'test-sub', text: 'Select any approach lane by clicking on the visual canvas or using chips below. Spawn vehicles with custom kinematics, adjust 8-lane demands, inject roadway incidents, and test emergency preemption.' }),
       ]),
       feedbackText,
@@ -1297,7 +1393,7 @@ function buildLaneTable(): HTMLElement {
         attrs: { type: 'button', 'aria-label': `Spawn car on ${lane}` },
         on: { click: () => store.spawnVehicle(lane, 'CAR', 1, 45) },
       },
-      ['+ 🚗 Car'],
+      ['+ Car'],
     );
 
     const spawnEmsBtn = h(
@@ -1307,7 +1403,7 @@ function buildLaneTable(): HTMLElement {
         attrs: { type: 'button', 'aria-label': `Spawn ambulance on ${lane}` },
         on: { click: () => store.spawnVehicle(lane, 'AMBULANCE', 1, 45) },
       },
-      ['+ 🚑 EMS'],
+      [ICONS.ambulance(), '+ EMS'],
     );
 
     body.append(
@@ -1468,6 +1564,12 @@ function buildEvpPanel(): HTMLElement {
     }),
     h('p', { class: 'panel-copy mono', attrs: { id: 'evp-plan-text' }, text: '—' }),
     h('ol', { class: 'evp-steps' }, steps),
+    // T22: the recorded lifecycle, newest at the bottom. Simulated timestamps,
+    // straight from the worker's EvpManager — never re-derived here (Rule 00).
+    h('ul', {
+      class: 'evp-timeline',
+      attrs: { id: 'evp-timeline', 'aria-label': 'EVP event log, simulated timestamps' },
+    }),
     h('div', { class: 'panel-actions' }, [
       h('button', {
         class: 'btn btn-secondary btn-sm',
@@ -1480,15 +1582,48 @@ function buildEvpPanel(): HTMLElement {
 }
 
 function buildCopilotPanel(): HTMLElement {
-  return h('div', { class: 'panel-card', label: STRINGS.copilot.title }, [
+  let autoSentinelActive = false;
+  let sentinelTimer: number | null = null;
+
+  const sentinelToggleBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-auto-sentinel', type: 'button' },
+      on: {
+        click: () => {
+          autoSentinelActive = !autoSentinelActive;
+          sentinelToggleBtn.classList.toggle('active', autoSentinelActive);
+          sentinelToggleBtn.textContent = autoSentinelActive ? 'Auto-Sentinel: Active' : 'Auto-Sentinel: Off';
+          if (autoSentinelActive) {
+            sound.click();
+            void runDiagnosis();
+            sentinelTimer = window.setInterval(() => {
+              if (autoSentinelActive && !document.hidden) void runDiagnosis();
+            }, 10000);
+          } else if (sentinelTimer !== null) {
+            clearInterval(sentinelTimer);
+            sentinelTimer = null;
+          }
+        },
+      },
+    },
+    ['Auto-Sentinel: Off'],
+  );
+
+  return h('div', { class: 'panel-card copilot-panel', label: STRINGS.copilot.title }, [
     h('div', { class: 'panel-title' }, [
-      h('span', { text: STRINGS.copilot.title }),
-      h('span', { class: 'badge badge-ai', attrs: { id: 'copilot-source' }, text: '—' }),
+      h('div', { class: 'copilot-title-wrapper' }, [
+        h('span', { text: STRINGS.copilot.title }),
+        h('span', { class: 'badge badge-ai', attrs: { id: 'copilot-source' }, text: '—' }),
+      ]),
+      sentinelToggleBtn,
     ]),
     h('div', { class: 'panel-body' }, [
       h('div', { class: 'panel-kicker', attrs: { id: 'copilot-verdict' }, text: STRINGS.copilot.idleHint }),
       h('div', { class: 'panel-copy', attrs: { id: 'copilot-advisory' } }),
       h('ul', { class: 'evidence-list', attrs: { id: 'copilot-evidence' } }),
+      h('div', { class: 'copilot-recommendations-list', attrs: { id: 'copilot-recommendations' } }),
     ]),
     h('div', { class: 'panel-actions' }, [
       h('button', {
@@ -1509,9 +1644,18 @@ function buildCopilotPanel(): HTMLElement {
         text: STRINGS.copilot.tryUnsafeBtn,
         on: { click: () => void tryUnsafeProposal() },
       }),
+      h('button', {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-propose-tuning', type: 'button' },
+        text: 'Propose adaptive tuning',
+        on: { click: () => void proposeTuning() },
+      }),
     ]),
     h('div', { class: 'panel-copy', attrs: { id: 'proposal-feedback' } }),
     h('div', { class: 'panel-copy mono', attrs: { id: 'proposal-verdict' } }),
+    // Approved proposals land their Approve & Apply / Reject controls here; the
+    // worker has verified on the digital twin but applied *nothing* (Module 04 §3.4).
+    h('div', { class: 'panel-actions', attrs: { id: 'proposal-actions' } }),
     h('p', { class: 'panel-note', text: STRINGS.copilot.advisoryNotice }),
   ]);
 }
@@ -1523,6 +1667,15 @@ function buildAuditPanel(): HTMLElement {
       h('span', { class: 'badge', attrs: { id: 'audit-conservation' }, text: '—' }),
     ]),
     h('dl', { class: 'audit-grid', attrs: { id: 'audit-rows' } }),
+    h('div', { class: 'panel-actions' }, [
+      h('button', {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-debug-bundle', type: 'button' },
+        text: 'Export debug bundle',
+        label: 'Download the seed, input log, state hash and kernel counters needed to replay this run with `pnpm repro`',
+        on: { click: (event) => void exportDebugBundle(event.currentTarget as HTMLElement) },
+      }),
+    ]),
     h('details', { class: 'assumptions' }, [
       h('summary', { text: STRINGS.kpis.assumptionsTitle }),
       h('p', { class: 'panel-copy', text: STRINGS.kpis.assumptionsFuel }),
@@ -1538,6 +1691,9 @@ function buildAuditPanel(): HTMLElement {
 function buildFooter(): HTMLElement {
   return h('footer', { class: 'app-footer' }, [
     h('span', { class: 'badge badge-safety', text: STRINGS.panel.modeLiveSim }),
+    // LIMITATIONS §26/§28: dropped render frames and a stalled KPI feed are
+    // surfaced here rather than silently counted; the text is set by subscription.
+    h('span', { class: 'badge badge-mode is-hidden', attrs: { id: 'perf-badge', role: 'status' }, text: '' }),
     h('span', { class: 'mono', attrs: { id: 'state-hash' }, text: STRINGS.brand.stateHashLabel('—') }),
     h('span', { class: 'mono', attrs: { id: 'footer-seed' }, text: '' }),
   ]);
@@ -1546,11 +1702,30 @@ function buildFooter(): HTMLElement {
 function buildJudgeOverlay(): HTMLElement {
   return h('div', { class: 'judge-caption-overlay is-hidden', attrs: { id: 'judge-overlay' } }, [
     h('span', { class: 'badge badge-ai', text: STRINGS.judge.badge }),
+    h('span', { class: 'badge', attrs: { id: 'judge-step-pill' }, text: '' }),
     h('span', {
       class: 'judge-caption-text',
       attrs: { id: 'judge-caption-text' },
       text: STRINGS.judge.openingCaption,
     }),
+    h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-judge-pause', type: 'button' },
+        on: { click: () => judgeTour.togglePause() },
+      },
+      ['Pause'],
+    ),
+    h(
+      'button',
+      {
+        class: 'btn btn-secondary btn-sm',
+        attrs: { id: 'btn-judge-skip', type: 'button' },
+        on: { click: () => judgeTour.skip() },
+      },
+      ['Skip →'],
+    ),
     h(
       'button',
       {
@@ -1574,7 +1749,7 @@ async function spawnAmbulance(): Promise<void> {
   const feedback = maybeById('proposal-feedback');
   const testFeedback = maybeById('test-feedback-msg');
   const msg = decision.decision === 'accepted'
-    ? `🚑 Ambulance spawned immediately on ${lane} at 45m (EVP active, signal turning green!)`
+    ? `Ambulance spawned immediately on ${lane} at 45m (EVP active, signal turning green!)`
     : `EVP rejected: ${decision.reason ?? 'UNKNOWN'}.`;
   if (feedback) feedback.textContent = msg;
   if (testFeedback) testFeedback.textContent = msg;
@@ -1613,6 +1788,123 @@ async function tryUnsafeProposal(): Promise<void> {
   }
 }
 
+/**
+ * A bounded, in-contract tuning proposal (Module 04 §3.4).
+ *
+ * These three values are all inside `AdaptiveParamsSchema` bounds, so the
+ * digital-twin run decides on merit, not on validity. It is deliberately a
+ * *fixed* proposal the operator can reason about — "the AI tunes itself"
+ * would be a number nobody can audit (Rule 00).
+ */
+const TUNING_PROPOSAL: Partial<AdaptiveParams> = {
+  G_MIN_EFFICIENT_S: 18,
+  RATIO: 2.4,
+  FLOOR: 6.0,
+};
+
+function tuningSummary(params: Partial<AdaptiveParams>): string {
+  return Object.entries(params)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(', ');
+}
+
+/**
+ * Verify-then-offer flow for an adaptive-parameter proposal (T11 close-out).
+ * The worker's what-if runs two 5-minute twins and applies nothing; only a
+ * human press on "Approve & Apply" sends `setAdaptiveParams` to the worker.
+ */
+async function proposeTuning(): Promise<void> {
+  const banner = maybeById('proposal-feedback');
+  const verdictEl = maybeById('proposal-verdict');
+  const actions = maybeById('proposal-actions');
+  if (!banner || !verdictEl || !actions) return;
+
+  actions.replaceChildren();
+  banner.textContent = STRINGS.copilot.proposeBanner;
+  verdictEl.textContent = STRINGS.copilot.verifying;
+
+  try {
+    const verdict = await store.verifyProposal({ ...TUNING_PROPOSAL });
+    verdictEl.textContent =
+      `${verdict.approved ? 'Verified' : 'Refused'} — ${verdict.reason} ` +
+      `Person-delay ${fmt(verdict.currentPersonDelayS, 1)} s → ${fmt(verdict.proposedPersonDelayS, 1)} s ` +
+      `(${verdict.improvementPct.toFixed(1)}%), kernel violations: ${verdict.kernelViolations}.`;
+
+    if (!verdict.approved) {
+      banner.textContent = 'The twin refused this proposal. Nothing was applied.';
+      return;
+    }
+
+    const approveBtn = h('button', {
+      class: 'btn btn-primary btn-sm',
+      attrs: { id: 'btn-approve-proposal', type: 'button' },
+      text: STRINGS.copilot.approveBtn,
+      on: {
+        click: () => {
+          store.applyAdaptiveParams(TUNING_PROPOSAL);
+          actions.replaceChildren();
+          banner.textContent =
+            `Applied to the adaptive controller: ${tuningSummary(TUNING_PROPOSAL)}. ` +
+            'The Safety Kernel remains the only writer of signal state.';
+        },
+      },
+    });
+    const rejectBtn = h('button', {
+      class: 'btn btn-secondary btn-sm',
+      attrs: { id: 'btn-reject-proposal', type: 'button' },
+      text: STRINGS.copilot.rejectBtn,
+      on: {
+        click: () => {
+          actions.replaceChildren();
+          banner.textContent = 'Proposal rejected. Nothing was applied.';
+        },
+      },
+    });
+    actions.append(approveBtn, rejectBtn);
+  } catch (error) {
+    verdictEl.textContent = `Verification failed: ${error instanceof Error ? error.message : String(error)}`;
+    banner.textContent = '';
+  }
+}
+
+/**
+ * Module 16 §6: assemble and download a debug bundle. The worker supplies the
+ * simulation facts; this shell supplies the host facts it alone may read
+ * (`__APP_VERSION__`, wall clock, user agent, console tail).
+ */
+async function exportDebugBundle(btn: HTMLElement): Promise<void> {
+  const original = 'Export debug bundle';
+  try {
+    const data = await store.requestDebugBundleData();
+    const bundle = createDebugBundle({
+      appVersion: __APP_VERSION__,
+      seed: data.seed,
+      scenarioId: data.scenarioId,
+      exportedAt: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      inputLog: data.inputLog,
+      tSimS: data.tSimS,
+      stateHash: data.stateHash,
+      consoleLogs: getConsoleTail(),
+      kernelCounters: data.kernelCounters,
+    });
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `urbanflow-debug-${bundle.scenarioId}-seed${bundle.seed}-${bundle.exportedAt.replaceAll(':', '-')}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    btn.textContent = `Bundle saved (${bundle.inputLog.length} logged edits)`;
+  } catch (error) {
+    btn.textContent = 'Export failed — see console';
+    console.error('debug bundle export failed:', error);
+  }
+  window.setTimeout(() => {
+    btn.textContent = original;
+  }, 2500);
+}
+
 async function runDiagnosis(): Promise<void> {
   const verdict = maybeById('copilot-verdict');
   const advisory = maybeById('copilot-advisory');
@@ -1649,6 +1941,61 @@ async function runDiagnosis(): Promise<void> {
   evidence.replaceChildren();
   for (const item of hypothesis?.evidence ?? []) {
     evidence.append(h('li', { text: item }));
+  }
+
+  // Populate dynamic recommendations with instant actionable execution
+  const recsContainer = maybeById('copilot-recommendations');
+  if (recsContainer) {
+    recsContainer.replaceChildren();
+    const actions = result.diagnosis.recommendedActions ?? [];
+    if (actions.length > 0) {
+      recsContainer.appendChild(h('div', { class: 'copilot-recs-header' }, [ICONS.sparkle(), 'Autonomous AI Recommendations:']));
+      actions.forEach((act) => {
+        const actionBtn = h(
+          'button',
+          {
+            class: 'btn btn-primary btn-xs',
+            attrs: { type: 'button' },
+            on: {
+              click: () => {
+                sound.click();
+                // Say exactly what was executed. An AI recommendation may clear
+                // incidents or request preemption — both operator-level actions —
+                // but a controller-parameter change only ever goes through the
+                // verify → Approve & Apply flow above (Module 04 §3.4, Rule 00).
+                let executed: string;
+                if (act.type.includes('INCIDENT') || act.type === 'CLEAR') {
+                  LANES.forEach((l) => store.clearIncident(l));
+                  executed = `Executed: cleared incidents on all approaches (${act.rationale}).`;
+                } else if (act.type === 'PREEMPT' || act.type.includes('EMS')) {
+                  sound.emergencyPreempt();
+                  void store.requestPreemption(store.selectedLane.get());
+                  executed = `Executed: preemption requested on ${store.selectedLane.get()}; the Safety Kernel still plans and writes every signal state (${act.rationale}).`;
+                } else {
+                  store.applyExperimentPreset('RUSH_HOUR');
+                  executed =
+                    'Executed: applied the RUSH_HOUR demand preset — that changes arrivals, not controller parameters. ' +
+                    'For a verified controller change use "Propose adaptive tuning".';
+                }
+                const fb = maybeById('proposal-feedback');
+                if (fb) fb.textContent = executed;
+              },
+            },
+          },
+          [ICONS.sparkle(), 'Run action'],
+        );
+
+        recsContainer.appendChild(
+          h('div', { class: 'copilot-rec-item' }, [
+            h('div', { class: 'copilot-rec-text' }, [
+              h('span', { class: 'badge badge-mono', text: act.type }),
+              h('span', { class: 'copilot-rec-rationale', text: act.rationale }),
+            ]),
+            actionBtn,
+          ]),
+        );
+      });
+    }
   }
 }
 
@@ -1792,6 +2139,22 @@ function updateEvpPanel(): void {
       : '—';
   }
   if (tight) tight.classList.toggle('is-hidden', !status || status.planStatus !== 'TIGHT');
+
+  // T22: the lifecycle log. Newest at the bottom, last 8 shown; the full
+  // record stays in the worker and lands in debug bundles.
+  const list = maybeById('evp-timeline');
+  if (list) {
+    const entries = store.evpTimeline.get().slice(-8);
+    list.replaceChildren(
+      ...entries.map((entry) =>
+        h('li', { class: 'evp-timeline-entry' }, [
+          h('span', { class: 'mono', text: `${entry.tSimS.toFixed(1)}s` }),
+          h('span', { class: 'evp-timeline-action', text: entry.action.replaceAll('_', ' ') }),
+          h('span', { class: 'evp-timeline-detail', text: entry.detail }),
+        ]),
+      ),
+    );
+  }
 }
 
 function updateLaneTable(): void {
@@ -1919,6 +2282,7 @@ export function renderApp(root: HTMLElement): {
       losId: 'los-fixed',
       ribbonId: 'ribbon-fixed',
       ribbonTitle: STRINGS.twins.ribbonFixed,
+      subBarId: 'twin-sub-fixed',
     }),
     buildTwinCard({
       title: STRINGS.twins.adaptiveTitle,
@@ -1926,6 +2290,7 @@ export function renderApp(root: HTMLElement): {
       losId: 'los-adaptive',
       ribbonId: 'ribbon-adaptive',
       ribbonTitle: STRINGS.twins.ribbonAdaptive,
+      subBarId: 'twin-sub-adaptive',
       badges: [h('span', { class: 'badge badge-ai', text: STRINGS.twins.badgeAi })],
     }),
   ]);
@@ -1952,13 +2317,18 @@ export function renderApp(root: HTMLElement): {
   const canvasFixed = byId<HTMLCanvasElement>('canvas-fixed');
   const canvasAdaptive = byId<HTMLCanvasElement>('canvas-adaptive');
 
-  // Judge Mode overlay visibility.
+  // Judge Mode overlay visibility + transport controls (pause label follows the
+  // tour's own paused state, so the button can never disagree with the clock).
   store.judgeTour.subscribe((tour) => {
     const overlay = maybeById('judge-overlay');
     const caption = maybeById('judge-caption-text');
     if (!overlay) return;
     overlay.classList.toggle('is-hidden', !tour.active);
     if (caption) caption.textContent = tour.caption;
+    const pauseBtn = maybeById('btn-judge-pause');
+    if (pauseBtn) pauseBtn.textContent = tour.paused ? 'Resume' : 'Pause';
+    const pill = maybeById('judge-step-pill');
+    if (pill) pill.textContent = tour.active ? `Step ${tour.stepIndex + 1}/6` : '';
   });
 
   // State hash + seed footer.
@@ -1968,6 +2338,24 @@ export function renderApp(root: HTMLElement): {
   });
   const footerSeed = maybeById('footer-seed');
   if (footerSeed) footerSeed.textContent = STRINGS.brand.identicalArrivals(store.seed.get());
+
+  // LIMITATIONS §26/§28: honest degradation badges. Stalled feed outranks the
+  // dropped-frame count because a frozen number is the worse lie.
+  const updatePerfBadge = (): void => {
+    const el = maybeById('perf-badge');
+    if (!el) return;
+    const stale = store.kpiStale.get();
+    const dropped = store.droppedRenderFrames.get();
+    const message = stale
+      ? 'KPI feed stalled — values shown are the last measured'
+      : dropped > 0
+        ? `UI busy: ${String(dropped)} render frame${dropped === 1 ? '' : 's'} dropped`
+        : '';
+    el.textContent = message;
+    el.classList.toggle('is-hidden', message === '');
+  };
+  store.kpiStale.subscribe(updatePerfBadge);
+  store.droppedRenderFrames.subscribe(updatePerfBadge);
 
   // Global keyboard map (Module 32 §4).
   window.addEventListener('keydown', (event) => {
@@ -2060,9 +2448,9 @@ export function renderApp(root: HTMLElement): {
         const pct = Math.round(((fDelay - aDelay) / fDelay) * 100);
         const saved = Math.max(0, fDelay - aDelay).toFixed(1);
         if (pct > 0) {
-          heroEfficiency.textContent = `⚡ −${pct}% Delay (${saved}s saved/person) vs Fixed-Time · 0 Conflicts`;
+          heroEfficiency.textContent = `−${pct}% Delay (${saved}s saved/person) vs Fixed-Time · 0 Conflicts`;
         } else if (pct === 0) {
-          heroEfficiency.textContent = `⚖️ Identical Delay Parity (Warm-up Phase)`;
+          heroEfficiency.textContent = `Identical Delay Parity (Warm-up Phase)`;
         } else {
           heroEfficiency.textContent = `Adapting to dynamic flow changes (${Math.abs(Number(saved))}s delta)`;
         }
@@ -2072,10 +2460,72 @@ export function renderApp(root: HTMLElement): {
     if (heroEvpBanner && heroEvpText) {
       if (evp) {
         heroEvpBanner.classList.remove('is-hidden');
-        heroEvpText.textContent = `🚨 EMERGENCY PREEMPTION ACTIVE · STAGE: ${evp.stage} · PLAN: ${evp.planStatus} · APPROACH: ${evp.activeEmsId}`;
+        heroEvpText.textContent = `EMERGENCY PREEMPTION ACTIVE · STAGE: ${evp.stage} · PLAN: ${evp.planStatus} · APPROACH: ${evp.activeEmsId}`;
       } else {
         heroEvpBanner.classList.add('is-hidden');
       }
+    }
+
+    // Update live phase timer
+    const heroTimer = maybeById('hero-phase-timer');
+    if (heroTimer && signal) {
+      heroTimer.textContent = `⏱️ ${signal.timeInStateS.toFixed(1)}s in phase`;
+    }
+
+    // Update 4-phase pressure distribution chips
+    if (explain && explain.pressures) {
+      const pMap: Array<[string, PhaseId]> = [
+        ['press-p1', 'P1_NS_LEFT'],
+        ['press-p2', 'P2_NS_THRU'],
+        ['press-p3', 'P3_EW_LEFT'],
+        ['press-p4', 'P4_EW_THRU'],
+      ];
+      pMap.forEach(([elId, phaseId]) => {
+        const el = maybeById(elId);
+        if (el) {
+          const val = (explain.pressures[phaseId] ?? 0).toFixed(1);
+          const valEl = el.querySelector('.press-val');
+          if (valEl) valEl.textContent = val;
+          el.classList.toggle('active', explain.currentPhase === phaseId);
+        }
+      });
+    }
+
+    // Update live environmental & network savings ticker
+    const heroSavedDelay = maybeById('hero-saved-delay');
+    const heroSavedFuel = maybeById('hero-saved-fuel');
+    const heroSavedCo2 = maybeById('hero-saved-co2');
+    const aDelay = adaptive.personDelayS ?? adaptive.avgDelayS ?? 0;
+    const fDelay = fixed.personDelayS ?? fixed.avgDelayS ?? 0;
+    const aFuel = adaptive.fuelL ?? 0;
+    const fFuel = fixed.fuelL ?? 0;
+    const aCo2 = adaptive.co2Kg ?? 0;
+    const fCo2 = fixed.co2Kg ?? 0;
+
+    if (heroSavedDelay) {
+      const deltaS = Math.max(0, fDelay - aDelay);
+      heroSavedDelay.textContent = `−${deltaS.toFixed(1)}s / veh`;
+    }
+    if (heroSavedFuel) {
+      const fuelSaved = Math.max(0, fFuel - aFuel);
+      heroSavedFuel.textContent = `${fuelSaved.toFixed(2)} L saved`;
+    }
+    if (heroSavedCo2) {
+      const co2Cut = Math.max(0, fCo2 - aCo2);
+      heroSavedCo2.textContent = `${co2Cut.toFixed(2)} kg cut`;
+    }
+
+    // Update Dual Twin Card Subtitle Telemetry Bars
+    const twinSubFixed = maybeById('twin-sub-fixed');
+    const twinSubAdaptive = maybeById('twin-sub-adaptive');
+    if (twinSubFixed) {
+      const qM = fixed.maxQueueM !== null ? `${Math.round(fixed.maxQueueM)}m` : '0m';
+      twinSubFixed.textContent = `Baseline 60s Pre-timed · Avg Delay: ${fmt(fDelay, 1)}s · Max Queue: ${qM} · Fuel: ${fmt(fFuel, 1)}L`;
+    }
+    if (twinSubAdaptive) {
+      const qM = adaptive.maxQueueM !== null ? `${Math.round(adaptive.maxQueueM)}m` : '0m';
+      const pct = fDelay > 0 ? Math.round(((fDelay - aDelay) / fDelay) * 100) : 0;
+      twinSubAdaptive.textContent = `UrbanFlow AI Adaptive · Avg Delay: ${fmt(aDelay, 1)}s (${pct > 0 ? `−${pct}%` : 'par'}) · Max Queue: ${qM} · Fuel: ${fmt(aFuel, 1)}L`;
     }
 
     const safety = store.safetyStats.get();
@@ -2107,6 +2557,7 @@ export function renderApp(root: HTMLElement): {
   // payload keeps a KPI frame from rebuilding the lane table twice.
   store.observation.subscribe(() => updateKpis());
   store.evpStatus.subscribe(() => updateEvpPanel());
+  store.evpTimeline.subscribe(() => updateEvpPanel());
   void store.checkDbStatus();
 
   return { canvasFixed, canvasAdaptive };

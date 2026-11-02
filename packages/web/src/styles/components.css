@@ -619,6 +619,38 @@ dialog::backdrop {
   color: var(--color-go);
 }
 
+/* T22: EVP lifecycle log — simulated timestamp, action, detail. */
+.evp-timeline {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  color: var(--color-text-2);
+}
+
+.evp-timeline-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.evp-timeline-action {
+  flex: none;
+  text-transform: capitalize;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.evp-timeline-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .audit-grid {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -902,6 +934,9 @@ dialog::backdrop {
 }
 
 .test-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--color-text);
@@ -1233,6 +1268,9 @@ dialog::backdrop {
 }
 
 .experiment-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.88rem;
   font-weight: 700;
   color: var(--color-text);
@@ -1578,5 +1616,172 @@ dialog::backdrop {
   align-items: center;
   margin-top: 4px;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Hero AI Traffic Intelligence & Multi-Phase Max-Pressure Widgets           */
+/* ------------------------------------------------------------------------- */
+
+.hero-phase-timer {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: color-mix(in srgb, var(--color-surface-elevated) 80%, transparent);
+  border: 1px solid var(--color-hairline);
+  color: var(--color-text-2);
+}
+
+.hero-pressures-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+
+.hero-pressures-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-3);
+}
+
+.hero-pressures-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-2);
+}
+
+.hero-pressure-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  transition: all var(--dur-fast) ease;
+}
+
+.hero-pressure-chip .press-tag {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-text-2);
+}
+
+.hero-pressure-chip .press-val {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.hero-pressure-chip.active {
+  background: color-mix(in srgb, var(--color-go) 15%, var(--color-canvas));
+  border-color: var(--color-go);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-go) 25%, transparent);
+}
+
+.hero-pressure-chip.active .press-tag {
+  color: var(--color-go);
+  font-weight: 700;
+}
+
+.hero-pressure-chip.active .press-val {
+  color: var(--color-go);
+}
+
+.hero-savings-ticker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.hero-saving-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--color-canvas) 80%, transparent);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+}
+
+.hero-saving-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hero-saving-val {
+  font-size: 0.90rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* Dual Twin Card Subtitle Telemetry Strip */
+.twin-telemetry-subbar {
+  font-size: 0.74rem;
+  color: var(--color-text-2);
+  padding: 4px 12px;
+  background: color-mix(in srgb, var(--color-canvas) 90%, transparent);
+  border-bottom: 1px solid var(--color-hairline);
+  letter-spacing: -0.01em;
+}
+
+/* Copilot Panel Autonomous Sentinel & Actionable Fixes */
+.copilot-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copilot-recommendations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: var(--space-2);
+}
+
+.copilot-recs-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.copilot-rec-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-hairline));
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.copilot-rec-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.copilot-rec-rationale {
+  font-size: 0.82rem;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
 
 

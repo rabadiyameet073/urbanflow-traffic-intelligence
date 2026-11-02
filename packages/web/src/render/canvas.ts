@@ -237,6 +237,21 @@ export class TwinCanvasRenderer {
       ctx.lineWidth = 1.5;
       ctx.globalAlpha = 0.35;
       ctx.stroke();
+
+      // Subtle hover badge on asphalt
+      const hMidX = (hNear.px + hFar.px) / 2;
+      const hMidY = (hNear.py + hFar.py) / 2;
+      ctx.globalAlpha = 0.85;
+      ctx.font = 'bold 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const hText = `👆 ${this.hoverLane}`;
+      const hWidth = ctx.measureText(hText).width;
+      ctx.fillStyle = '#0B0F14';
+      ctx.fillRect(hMidX - hWidth / 2 - 4, hMidY - 8, hWidth + 8, 16);
+      ctx.fillStyle = palette.car;
+      ctx.fillText(hText, hMidX, hMidY);
+
       ctx.restore();
     }
 
@@ -302,13 +317,13 @@ export class TwinCanvasRenderer {
     ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const labelText = `📍 ${lane}`;
+    const labelText = `📍 ${lane} (SELECTED)`;
     const textWidth = ctx.measureText(labelText).width;
     ctx.fillStyle = '#0B0F14';
-    ctx.fillRect(midX - textWidth / 2 - 6, midY - 9, textWidth + 12, 18);
+    ctx.fillRect(midX - textWidth / 2 - 8, midY - 10, textWidth + 16, 20);
     ctx.strokeStyle = palette.caution;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(midX - textWidth / 2 - 6, midY - 9, textWidth + 12, 18);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(midX - textWidth / 2 - 8, midY - 10, textWidth + 16, 20);
     ctx.fillStyle = palette.caution;
     ctx.fillText(labelText, midX, midY);
 
@@ -465,6 +480,33 @@ export class TwinCanvasRenderer {
           ctx.arc(rearX + perpX * spread * sign, rearY + perpY * spread * sign, dot, 0, Math.PI * 2);
           ctx.fill();
         }
+      }
+
+      // Forward headlights: soft ambient illumination casting onto pavement
+      if (typeIdx > 0) {
+        const fx = Math.cos(heading);
+        const fy = -Math.sin(heading);
+        const frontX = point.px + fx * (longPx / 2);
+        const frontY = point.py + fy * (longPx / 2);
+        const perpX = -fy;
+        const perpY = fx;
+        const spread = shortPx * 0.28;
+        const beamLen = Math.min(22, longPx * 1.3);
+
+        ctx.save();
+        ctx.fillStyle = '#FFF8E7';
+        ctx.globalAlpha = 0.06;
+        for (const sign of [-1, 1]) {
+          const lx = frontX + perpX * spread * sign;
+          const ly = frontY + perpY * spread * sign;
+          ctx.beginPath();
+          ctx.moveTo(lx, ly);
+          ctx.lineTo(lx + fx * beamLen + perpX * (spread * 0.9), ly + fy * beamLen + perpY * (spread * 0.9));
+          ctx.lineTo(lx + fx * beamLen - perpX * (spread * 0.9), ly + fy * beamLen - perpY * (spread * 0.9));
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
       }
     }
   }
@@ -706,6 +748,16 @@ export class TwinCanvasRenderer {
       ctx.beginPath();
       ctx.roundRect(x - 14, y - 10, 28, 20, 4);
       ctx.fill();
+
+      // Soft pavement reflection glow
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, 16, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.15;
+      ctx.fill();
+      ctx.restore();
+
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
       ctx.stroke();
