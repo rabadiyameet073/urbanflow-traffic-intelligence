@@ -19,3 +19,4 @@ Adopt option (a). Use fast native Vitest for TypeScript unit and integration tes
 
 ## Evidence
 Test suites in `packages/*/test` and `pipeline/spark/tests`.
+

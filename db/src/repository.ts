@@ -24,11 +24,14 @@ export class SimulationRepository {
   public async saveRun(run: SimulationRunDoc): Promise<SimulationRunDoc> {
     const col = this.mgr.runsCollection();
     if (col) {
+      // `createdAt` must appear only in $setOnInsert, never in $set — MongoDB
+      // rejects an update that writes the same path through both operators.
+      const { createdAt: _createdAt, ...runFields } = run;
       await col.updateOne(
         { runId: run.runId },
         {
           $set: {
-            ...run,
+            ...runFields,
             updatedAt: new Date(),
           },
           $setOnInsert: {

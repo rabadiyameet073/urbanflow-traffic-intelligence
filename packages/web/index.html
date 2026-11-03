@@ -3,20 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <title>UrbanFlow AI – Adaptive Traffic Signals & Emergency Preemption</title>
+    <title>UrbanFlow AI – Adaptive Signals & Emergency Preemption</title>
     <meta name="description" content="Open-source traffic-signal simulation: adaptive control vs fixed-time on identical arrivals, safe emergency preemption and a guarded Meta AI copilot." />
-    <link rel="canonical" href="https://urbanflow.pages.dev/" />
+    <!-- Self-hosted flat SVG favicon (Module 33 §2): no CDN, no emoji, no gradient. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Canonical and social URLs must match the Pages project name in
+         docs/DEPLOY.md and ALLOWED_ORIGINS in wrangler.toml. -->
+    <link rel="canonical" href="https://urbanflow-ai.pages.dev/" />
     <meta name="theme-color" content="#0B0F14" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#F6F8FA" media="(prefers-color-scheme: light)" />
+    <!-- Edge gateway base URL; empty means same-origin (Module 22 §2). -->
+    <meta name="urbanflow-api-base" content="" />
 
     <!-- Open Graph & Social Cards (Module 33 §2) -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="UrbanFlow AI" />
     <meta property="og:description" content="Adaptive traffic control with safe emergency preemption. Simulation, not real roads." />
-    <meta property="og:url" content="https://urbanflow.pages.dev/" />
-    <meta property="og:image" content="https://urbanflow.pages.dev/og.png" />
+    <meta property="og:url" content="https://urbanflow-ai.pages.dev/" />
+    <meta property="og:image" content="https://urbanflow-ai.pages.dev/og.png" />
     <meta property="og:image:alt" content="Twin view of two intersections: fixed-time versus adaptive control." />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="UrbanFlow AI" />
+    <meta name="twitter:image" content="https://urbanflow-ai.pages.dev/og.png" />
 
     <!-- Preload fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -41,9 +49,10 @@
     </script>
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
     <div id="app"></div>
     <noscript>
-      <div style="padding: 2rem; color: #E8EEF4; background: #0B0F14; font-family: sans-serif;">
+      <div class="noscript-fallback">
         <h1>UrbanFlow AI</h1>
         <p>JavaScript is required to run the real-time simulation engine.</p>
       </div>

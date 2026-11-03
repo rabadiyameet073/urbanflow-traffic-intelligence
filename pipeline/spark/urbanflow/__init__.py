@@ -3,6 +3,7 @@ UrbanFlow AI Streaming Pipeline Package.
 """
 from .constants import LANES, PHASES, TIMING
 from .anomalies import Ewma, ewma_update, zscore, detect_anomalies
+from .errors import ConfigError, PipelineError, UrbanFlowError
 
 __all__ = [
     "LANES",
@@ -12,4 +13,8 @@ __all__ = [
     "ewma_update",
     "zscore",
     "detect_anomalies",
+    "UrbanFlowError",
+    "ConfigError",
+    "PipelineError",
 ]
+

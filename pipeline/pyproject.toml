@@ -1,0 +1,46 @@
+[project]
+name = "urbanflow-pipeline"
+version = "0.1.0"
+description = "UrbanFlow Spark streaming pipeline (module 23)"
+requires-python = ">=3.11"
+
+# Module 23 §2: mypy --strict on `urbanflow/`, ruff for lint + format, pytest.
+# `pythonpath = ["spark"]` is what makes `import urbanflow...` work without an
+# editable install (and without a setup.py that would shadow the monorepo).
+
+[tool.pytest.ini_options]
+pythonpath = ["spark"]
+testpaths = ["spark/tests"]
+addopts = "-q -m 'not integration'"
+# Module 52 §4: slow tests carry `@pytest.mark.integration`; CI runs unit by
+# default and `make test-integration` opts them in. Registered here so an
+# unregistered marker is an error, not a silent warning.
+markers = [
+    "integration: needs a running Docker/Spark stack (default: deselected)",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["spark/urbanflow"]
+mypy_path = "spark"
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["recordings", "out"]
+
+[tool.ruff.lint]
+# Module 52 §1: the full standard rule set. `S` (bandit) and `ANN`
+# (annotations) are included because they encode the module's security and
+# "type everything public" rules; they are advisory here since CI runs only
+# `pytest`, not `ruff`, so turning them on cannot redden the pipeline.
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "PT", "RUF", "N", "ANN"]
+ignore = [
+    "E501",  # lengths are advisory; the formatter owns them
+]
+
+[tool.ruff.lint.per-file-ignores]
+"spark/tests/*" = ["S101", "B011"]

@@ -30,3 +30,4 @@ export function canonicalJson(value: Json): string {
   }
   return `{${parts.join(',')}}`;
 }
+

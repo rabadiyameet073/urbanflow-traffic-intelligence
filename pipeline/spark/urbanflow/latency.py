@@ -21,3 +21,4 @@ class LatencyTracker:
         sorted_samples = sorted(self.samples)
         idx = int(0.95 * (len(sorted_samples) - 1))
         return float(sorted_samples[idx])
+

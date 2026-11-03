@@ -64,7 +64,7 @@ export class Logger {
     } else if (payload.level === 'warn') {
       console.warn(jsonLine);
     } else {
-      console.log(jsonLine);
+      console.log(jsonLine); // AUDIT-OK(A10): structured JSON-line log sink (Module 16); not debug output
     }
   }
 
@@ -95,3 +95,4 @@ export class Logger {
     });
   }
 }
+

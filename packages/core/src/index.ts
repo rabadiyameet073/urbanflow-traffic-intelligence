@@ -5,17 +5,21 @@
 
 export * from './contracts.js';
 export * from './helpers/rng.js';
+export * from './helpers/sim-clock.js';
 export * from './helpers/hash.js';
 export * from './helpers/hmac.js';
 export * from './helpers/canonical-json.js';
 export * from './helpers/stats.js';
+export * from './helpers/never.js';
 
 export * from './sim/types.js';
+export * from './sim/geometry.js';
 export * from './sim/lane.js';
 export * from './sim/engine.js';
 
 export * from './control/kernel.js';
 export * from './control/fixed.js';
+export * from './control/pressure.js';
 export * from './control/adaptive.js';
 export * from './control/evp.js';
 export * from './control/what_if.js';
@@ -23,7 +27,11 @@ export * from './control/ntcip1202.js';
 export * from './control/watchdog.js';
 export * from './helpers/share-codec.js';
 export * from './helpers/debug-bundle.js';
+export * from './metrics/metrics.js';
 export * from './vision/camera_mode.js';
 
 export * from './scenarios.js';
+
+export * from './worker/protocol.js';
+export * from './worker/twin.js';
 

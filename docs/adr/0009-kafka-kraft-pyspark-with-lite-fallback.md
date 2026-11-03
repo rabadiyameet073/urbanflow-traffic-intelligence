@@ -20,3 +20,4 @@ Adopt option (a). Maintain full PySpark stream with pinned Spark 3.5.x connector
 
 ## Evidence
 `pipeline/spark/tests/test_anomalies.py` and `packages/core/test/system_design.test.ts` verify matching anomaly detections.
+

@@ -38,3 +38,4 @@ export async function verifyHex(secret: string, message: string, signatureHex: s
 export function withinWindow(tsMs: number, nowMs: number, windowMs: number): boolean {
   return Number.isFinite(tsMs) && Math.abs(nowMs - tsMs) <= windowMs;
 }
+

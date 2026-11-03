@@ -16,3 +16,4 @@
    - In Cloudflare Pages dashboard: Rollback to previous known-good deployment artifact.
 5. **Verify:**
    - Run `pnpm smoke --url <live-url>` to confirm clean startup.
+

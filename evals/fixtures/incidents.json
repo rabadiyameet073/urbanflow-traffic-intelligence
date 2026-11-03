@@ -1,0 +1,2842 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "evals/generate.mjs",
+  "generator": {
+    "triggerS": 300,
+    "captureS": 480,
+    "durationS": 540,
+    "baseDemandVph": {
+      "NB-TR": 450,
+      "NB-L": 150,
+      "SB-TR": 450,
+      "SB-L": 150,
+      "EB-TR": 450,
+      "EB-L": 150,
+      "WB-TR": 450,
+      "WB-L": 150
+    },
+    "note": "SIGNAL_FAULT windows freeze the indication offline to manufacture stuck-signal evidence; no product path bypasses the Safety Kernel."
+  },
+  "incidents": [
+    {
+      "id": "blocked_lane-1",
+      "label": {
+        "cause": "BLOCKED_LANE",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2007,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 15,
+            "queueLengthM": 70.3,
+            "sumWeightedWaitS": 636.7,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 34.1
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 9,
+            "queueLengthM": 120.7,
+            "sumWeightedWaitS": 763.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 23.8
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 96.4,
+            "sumWeightedWaitS": 688.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 37.9
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 24.8,
+            "sumWeightedWaitS": 188.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 9.8
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2745.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 2,
+            "occupancyPct": 72.6
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 16.5,
+            "sumWeightedWaitS": 72.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.1
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 25,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2596.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 65
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 6.1,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "blocked_lane-2",
+      "label": {
+        "cause": "BLOCKED_LANE",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2014,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 31,
+            "queueLengthM": 231,
+            "sumWeightedWaitS": 2665.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 79.6
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 18.3,
+            "sumWeightedWaitS": 87.7,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 9.8
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 13,
+            "queueLengthM": 48.4,
+            "sumWeightedWaitS": 403.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 35.8
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 13,
+            "queueLengthM": 141.9,
+            "sumWeightedWaitS": 1440.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 37.8
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 30,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3368.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 3,
+            "occupancyPct": 67.7
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 12,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 410.2,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 3,
+            "occupancyPct": 26
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2.3,
+            "sumWeightedWaitS": 2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "blocked_lane-3",
+      "label": {
+        "cause": "BLOCKED_LANE",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2021,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 18,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1403.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 1,
+            "occupancyPct": 47.7
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 22,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2460.7,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 3,
+            "occupancyPct": 51.9
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 7.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 10.8
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 56.6,
+            "sumWeightedWaitS": 966,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 43.8
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 10,
+            "queueLengthM": 117.3,
+            "sumWeightedWaitS": 687.7,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 20.6
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 26,
+            "queueLengthM": 57,
+            "sumWeightedWaitS": 3946.3,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 64.9
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 6,
+            "queueLengthM": 44.2,
+            "sumWeightedWaitS": 213.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 16.3
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "blocked_lane-4",
+      "label": {
+        "cause": "BLOCKED_LANE",
+        "lane": "WB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2028,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 11,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 242.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 5,
+            "occupancyPct": 28.2
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 5.4
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 15,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 991.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 4,
+            "occupancyPct": 37.4
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 9.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 30,
+            "queueLengthM": 194,
+            "sumWeightedWaitS": 2459.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 72.1
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 9,
+            "queueLengthM": 28,
+            "sumWeightedWaitS": 213.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 18.4
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 10,
+            "queueLengthM": 28.3,
+            "sumWeightedWaitS": 181.2,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 21.7
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 7,
+            "queueLengthM": 101.1,
+            "sumWeightedWaitS": 536.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 15.2
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "blocked_lane-5",
+      "label": {
+        "cause": "BLOCKED_LANE",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2035,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 29,
+            "queueLengthM": 190.6,
+            "sumWeightedWaitS": 1997.1,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 69.4
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 75,
+            "sumWeightedWaitS": 510.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 66.5,
+            "sumWeightedWaitS": 772.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 32.5
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2.1,
+            "sumWeightedWaitS": 3.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1687.9,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 3,
+            "occupancyPct": 71.5
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 24.3,
+            "sumWeightedWaitS": 260.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 12,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 634.5,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 4,
+            "occupancyPct": 28.7
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 52.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 3.3
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "blocked_lane-6",
+      "label": {
+        "cause": "BLOCKED_LANE",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2042,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 23,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2171.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 4,
+            "occupancyPct": 57.4
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 8.5,
+            "sumWeightedWaitS": 43.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 3,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 5,
+            "occupancyPct": 10.8
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 10,
+            "queueLengthM": 117.3,
+            "sumWeightedWaitS": 1245.7,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 20.6
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 25,
+            "queueLengthM": 155.5,
+            "sumWeightedWaitS": 1173,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 61.8
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 36,
+            "sumWeightedWaitS": 829.7,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 13.5
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 182.2,
+            "sumWeightedWaitS": 3513.1,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 66.6
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 15,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "capacity_drop-1",
+      "label": {
+        "cause": "CAPACITY_DROP",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2049,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 23,
+            "queueLengthM": 154.6,
+            "sumWeightedWaitS": 1288.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 57.4
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 3.3
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 20,
+            "queueLengthM": 165.7,
+            "sumWeightedWaitS": 2216.2,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 67.7
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 7.6
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 13,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 445.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 2,
+            "occupancyPct": 25
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 8.5,
+            "sumWeightedWaitS": 43.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 36,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3359.1,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 2,
+            "occupancyPct": 80.2
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 7
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 11.5
+        }
+      }
+    },
+    {
+      "id": "capacity_drop-2",
+      "label": {
+        "cause": "CAPACITY_DROP",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2056,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 2.3,
+            "sumWeightedWaitS": 2049.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 3,
+            "occupancyPct": 58.5
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 23,
+            "sumWeightedWaitS": 149.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 15.1
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 20,
+            "queueLengthM": 2.8,
+            "sumWeightedWaitS": 989.5,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 3,
+            "occupancyPct": 47.1
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 8.9,
+            "sumWeightedWaitS": 9.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 10.8
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2844.3,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 65
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 83.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 21,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1215.5,
+            "arrivalsLast10s": 4,
+            "dischargedLast10s": 0,
+            "occupancyPct": 51.4
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 8.5,
+            "sumWeightedWaitS": 50.4,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 0.4
+        }
+      }
+    },
+    {
+      "id": "capacity_drop-3",
+      "label": {
+        "cause": "CAPACITY_DROP",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2063,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 20,
+            "queueLengthM": 86.6,
+            "sumWeightedWaitS": 1114.7,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 54.2
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 32,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 10,
+            "queueLengthM": 66.9,
+            "sumWeightedWaitS": 435.9,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 26
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2.5,
+            "sumWeightedWaitS": 1.4,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 144.5,
+            "sumWeightedWaitS": 2022,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 47.7
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 4,
+            "occupancyPct": 15.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 97.8,
+            "sumWeightedWaitS": 1511.3,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 40.6
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          }
+        },
+        "signal": {
+          "phase": "P3_EW_LEFT",
+          "indication": "YELLOW",
+          "timeInStateS": 1.5
+        }
+      }
+    },
+    {
+      "id": "capacity_drop-4",
+      "label": {
+        "cause": "CAPACITY_DROP",
+        "lane": "WB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2070,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 30,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3982.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 3,
+            "occupancyPct": 70.9
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 8.5,
+            "sumWeightedWaitS": 27.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1305.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 41.7
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 28,
+            "sumWeightedWaitS": 157.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 10.8
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 26,
+            "queueLengthM": 182.3,
+            "sumWeightedWaitS": 5016.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 62.3
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 23,
+            "sumWeightedWaitS": 366.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 9.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 12,
+            "queueLengthM": 47.5,
+            "sumWeightedWaitS": 434.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 24.9
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "demand_surge-1",
+      "label": {
+        "cause": "DEMAND_SURGE",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2077,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1583.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 4,
+            "occupancyPct": 50.3
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 42,
+            "queueLengthM": 239.1,
+            "sumWeightedWaitS": 3912.6,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 95.8
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 779.7,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 4,
+            "occupancyPct": 38
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 19,
+            "queueLengthM": 94.6,
+            "sumWeightedWaitS": 768.2,
+            "arrivalsLast10s": 4,
+            "dischargedLast10s": 0,
+            "occupancyPct": 48.2
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 15.1,
+            "sumWeightedWaitS": 37.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 38,
+            "queueLengthM": 246.7,
+            "sumWeightedWaitS": 3667.9,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 88.3
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 8.5,
+            "sumWeightedWaitS": 37.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "demand_surge-2",
+      "label": {
+        "cause": "DEMAND_SURGE",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2084,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 12.6,
+            "sumWeightedWaitS": 2473.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 60.7
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 19,
+            "queueLengthM": 22,
+            "sumWeightedWaitS": 1771.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 2,
+            "occupancyPct": 48.8
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 27,
+            "queueLengthM": 66.3,
+            "sumWeightedWaitS": 1049.3,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 62.3
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1527.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 33.6
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.4
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 20,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1207.3,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 48.2
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 6,
+            "queueLengthM": 60.3,
+            "sumWeightedWaitS": 227.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 21.7
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 2.3
+        }
+      }
+    },
+    {
+      "id": "demand_surge-3",
+      "label": {
+        "cause": "DEMAND_SURGE",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2091,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 219.3,
+            "sumWeightedWaitS": 2934.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 74.7
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 17.3,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 19,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2203.1,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 51.4
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 15,
+            "sumWeightedWaitS": 55.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 15,
+            "queueLengthM": 2.3,
+            "sumWeightedWaitS": 513.5,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 4,
+            "occupancyPct": 36.3
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 40,
+            "queueLengthM": 292.7,
+            "sumWeightedWaitS": 2451,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 98.1
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 3.4,
+            "sumWeightedWaitS": 2663,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 4,
+            "occupancyPct": 60.1
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 8.5,
+            "sumWeightedWaitS": 103.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 10.8
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 0.4
+        }
+      }
+    },
+    {
+      "id": "demand_surge-4",
+      "label": {
+        "cause": "DEMAND_SURGE",
+        "lane": "WB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2098,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 34,
+            "queueLengthM": 57,
+            "sumWeightedWaitS": 4177.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 75.8
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 9.6,
+            "sumWeightedWaitS": 4.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 22,
+            "queueLengthM": 82.6,
+            "sumWeightedWaitS": 1668.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 51
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2035.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 2,
+            "occupancyPct": 55.8
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 46.7,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 23,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3100.9,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 54.7
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 36,
+            "queueLengthM": 257.1,
+            "sumWeightedWaitS": 2679.1,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 95.3
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "demand_surge-5",
+      "label": {
+        "cause": "DEMAND_SURGE",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2105,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 18,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1464.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 5,
+            "occupancyPct": 44.9
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 27,
+            "queueLengthM": 78.5,
+            "sumWeightedWaitS": 1380.2,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 69.4
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 18,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 927.7,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 5,
+            "occupancyPct": 48.2
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 14,
+            "queueLengthM": 80.1,
+            "sumWeightedWaitS": 1099.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 32.5
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 45.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 22,
+            "queueLengthM": 176.4,
+            "sumWeightedWaitS": 3080.7,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 62.3
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 8.8,
+            "sumWeightedWaitS": 56.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22
+        }
+      }
+    },
+    {
+      "id": "demand_surge-6",
+      "label": {
+        "cause": "DEMAND_SURGE",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2112,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 25,
+            "queueLengthM": 153,
+            "sumWeightedWaitS": 2674.6,
+            "arrivalsLast10s": 4,
+            "dischargedLast10s": 0,
+            "occupancyPct": 60.1
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 21,
+            "queueLengthM": 139.6,
+            "sumWeightedWaitS": 949.9,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 54.2
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 34,
+            "queueLengthM": 165.4,
+            "sumWeightedWaitS": 2486,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 82.9
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 12,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 938.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 3,
+            "occupancyPct": 27.1
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 35,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3835.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 4,
+            "occupancyPct": 85
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 11.2,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "signal_fault-1",
+      "label": {
+        "cause": "SIGNAL_FAULT",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2119,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 28,
+            "queueLengthM": 174.3,
+            "sumWeightedWaitS": 4314.7,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 66.6
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 1,
+            "occupancyPct": 10.8
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 35,
+            "queueLengthM": 293,
+            "sumWeightedWaitS": 10349.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 98.4
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 1,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 32,
+            "queueLengthM": 231.4,
+            "sumWeightedWaitS": 7938.4,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 82.8
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 17,
+            "queueLengthM": 99.6,
+            "sumWeightedWaitS": 1922.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 36.8
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 36,
+            "queueLengthM": 208.3,
+            "sumWeightedWaitS": 5614.8,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 79.6
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 11,
+            "queueLengthM": 73.5,
+            "sumWeightedWaitS": 1382.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 28.2
+          }
+        },
+        "signal": {
+          "phase": "P1_NS_LEFT",
+          "indication": "GREEN",
+          "timeInStateS": 203.8
+        }
+      }
+    },
+    {
+      "id": "signal_fault-2",
+      "label": {
+        "cause": "SIGNAL_FAULT",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2126,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 41,
+            "queueLengthM": 279.8,
+            "sumWeightedWaitS": 7505.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 94.8
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 39,
+            "queueLengthM": 274.9,
+            "sumWeightedWaitS": 7579.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 95.4
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 1,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 181.9,
+            "sumWeightedWaitS": 5361.8,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 66.6
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 12,
+            "queueLengthM": 60.5,
+            "sumWeightedWaitS": 1671.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 26
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 38,
+            "queueLengthM": 293.1,
+            "sumWeightedWaitS": 9662.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 100
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 6,
+            "queueLengthM": 28,
+            "sumWeightedWaitS": 669.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 13
+          }
+        },
+        "signal": {
+          "phase": "P1_NS_LEFT",
+          "indication": "GREEN",
+          "timeInStateS": 203.8
+        }
+      }
+    },
+    {
+      "id": "signal_fault-3",
+      "label": {
+        "cause": "SIGNAL_FAULT",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2133,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 33,
+            "queueLengthM": 205.2,
+            "sumWeightedWaitS": 8926.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 69.9
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 1,
+            "occupancyPct": 4.8
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 40,
+            "queueLengthM": 268.2,
+            "sumWeightedWaitS": 9514.1,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 90.9
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 2,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 40,
+            "queueLengthM": 291.5,
+            "sumWeightedWaitS": 7542,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 98.7
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 10,
+            "queueLengthM": 73.4,
+            "sumWeightedWaitS": 1390.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 26
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 36,
+            "queueLengthM": 293.1,
+            "sumWeightedWaitS": 7574.5,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 100
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 10,
+            "queueLengthM": 76.6,
+            "sumWeightedWaitS": 1365.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 29.3
+          }
+        },
+        "signal": {
+          "phase": "P1_NS_LEFT",
+          "indication": "GREEN",
+          "timeInStateS": 203.8
+        }
+      }
+    },
+    {
+      "id": "signal_fault-4",
+      "label": {
+        "cause": "SIGNAL_FAULT",
+        "lane": "WB-L"
+      },
+      "expectedSeverity": "critical",
+      "seed": 2140,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 35,
+            "queueLengthM": 288.4,
+            "sumWeightedWaitS": 8084.1,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 100
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 10,
+            "queueLengthM": 56.3,
+            "sumWeightedWaitS": 3249.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 28.7
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 39,
+            "queueLengthM": 263.7,
+            "sumWeightedWaitS": 7707.6,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 93.8
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 14,
+            "queueLengthM": 80,
+            "sumWeightedWaitS": 2008.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 30.3
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 40,
+            "queueLengthM": 292.5,
+            "sumWeightedWaitS": 11829.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 99.1
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 1,
+            "occupancyPct": 2.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 41,
+            "queueLengthM": 292.5,
+            "sumWeightedWaitS": 8607.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 99.1
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          }
+        },
+        "signal": {
+          "phase": "P3_EW_LEFT",
+          "indication": "GREEN",
+          "timeInStateS": 203.8
+        }
+      }
+    },
+    {
+      "id": "bus_bunching-1",
+      "label": {
+        "cause": "BUS_BUNCHING",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2147,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 25,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 4428.1,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 3,
+            "occupancyPct": 74.4
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 16.5,
+            "sumWeightedWaitS": 563.9,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 9.2
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 26,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3318.4,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 72.9
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 26.4,
+            "sumWeightedWaitS": 404.7,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 15.1
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 127.9,
+            "sumWeightedWaitS": 2012.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 48.5
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 12,
+            "queueLengthM": 90.8,
+            "sumWeightedWaitS": 2578.4,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 38.8
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "bus_bunching-2",
+      "label": {
+        "cause": "BUS_BUNCHING",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2154,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 13,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 5225.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 4,
+            "occupancyPct": 44.2
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 28.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 13,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 949.1,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 3,
+            "occupancyPct": 36.7
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 1.1
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 30,
+            "queueLengthM": 292.2,
+            "sumWeightedWaitS": 5313.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 100
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 6,
+            "queueLengthM": 44.7,
+            "sumWeightedWaitS": 1103.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 16.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 30,
+            "queueLengthM": 293.1,
+            "sumWeightedWaitS": 7422.9,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 99.3
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 2.5,
+            "sumWeightedWaitS": 40.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 11.3
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "bus_bunching-3",
+      "label": {
+        "cause": "BUS_BUNCHING",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2161,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 19,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 5493.7,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 4,
+            "occupancyPct": 68.4
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.8
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 5894.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 2,
+            "occupancyPct": 86.4
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 2.5,
+            "sumWeightedWaitS": 351,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 16.2
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 29,
+            "queueLengthM": 293.1,
+            "sumWeightedWaitS": 9427.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 100
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 45.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 9.2
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 16,
+            "queueLengthM": 146.1,
+            "sumWeightedWaitS": 3088.4,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 59.9
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 5,
+            "queueLengthM": 29.5,
+            "sumWeightedWaitS": 596.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 16.2
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "ems_obstructed-1",
+      "label": {
+        "cause": "EMS_OBSTRUCTED",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2168,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 34,
+            "queueLengthM": 233.6,
+            "sumWeightedWaitS": 5549.8,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 79.1
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 10,
+            "queueLengthM": 180.5,
+            "sumWeightedWaitS": 105001.7,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 26.7
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 20,
+            "queueLengthM": 129.2,
+            "sumWeightedWaitS": 1413.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 55.3
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2486.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 59.6
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 11.8,
+            "sumWeightedWaitS": 96.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 5.4
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 20,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2949.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 5,
+            "occupancyPct": 55.8
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 7,
+            "queueLengthM": 47.4,
+            "sumWeightedWaitS": 410.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 19.5
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 20.4
+        }
+      }
+    },
+    {
+      "id": "ems_obstructed-2",
+      "label": {
+        "cause": "EMS_OBSTRUCTED",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2175,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 61,
+            "sumWeightedWaitS": 788.4,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 36.9
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 26,
+            "queueLengthM": 161.3,
+            "sumWeightedWaitS": 2415.8,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 68.3
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 122,
+            "sumWeightedWaitS": 103523.5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 9.3
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 27,
+            "queueLengthM": 203.7,
+            "sumWeightedWaitS": 3324.4,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 75.8
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 12,
+            "queueLengthM": 81.5,
+            "sumWeightedWaitS": 2288.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 28.7
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 26,
+            "queueLengthM": 169.4,
+            "sumWeightedWaitS": 2334.6,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 60.1
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 7,
+            "queueLengthM": 42.6,
+            "sumWeightedWaitS": 1464.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 15.7
+          }
+        },
+        "signal": {
+          "phase": "P1_NS_LEFT",
+          "indication": "GREEN",
+          "timeInStateS": 53.1
+        }
+      }
+    },
+    {
+      "id": "ems_obstructed-3",
+      "label": {
+        "cause": "EMS_OBSTRUCTED",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "warning",
+      "seed": 2182,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 26,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3036.4,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 65.5
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 5.3,
+            "sumWeightedWaitS": 23.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 5.4
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 3034.8,
+            "arrivalsLast10s": 4,
+            "dischargedLast10s": 3,
+            "occupancyPct": 61.2
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 8.6,
+            "sumWeightedWaitS": 24.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 23,
+            "queueLengthM": 144.9,
+            "sumWeightedWaitS": 1136.6,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 58.5
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 17,
+            "queueLengthM": 203.2,
+            "sumWeightedWaitS": 105575.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 40.8
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 33,
+            "queueLengthM": 292.6,
+            "sumWeightedWaitS": 5548.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 99.1
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 0,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 0
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "normal_variation-1",
+      "label": {
+        "cause": "NORMAL_VARIATION",
+        "lane": "NB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2189,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 25,
+            "queueLengthM": 190.2,
+            "sumWeightedWaitS": 3076,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 67.1
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 15,
+            "queueLengthM": 78.3,
+            "sumWeightedWaitS": 1530.6,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 0,
+            "occupancyPct": 41.1
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 22.2,
+            "sumWeightedWaitS": 86.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 13
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 8,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 875.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 4,
+            "occupancyPct": 21.6
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 7,
+            "queueLengthM": 49,
+            "sumWeightedWaitS": 543.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 17.8
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 14,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 675.5,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 5,
+            "occupancyPct": 28.2
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 3,
+            "queueLengthM": 11.8,
+            "sumWeightedWaitS": 150.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 5.4
+          }
+        },
+        "signal": {
+          "phase": "P4_EW_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 22.5
+        }
+      }
+    },
+    {
+      "id": "normal_variation-2",
+      "label": {
+        "cause": "NORMAL_VARIATION",
+        "lane": "SB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2196,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 23,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 2972.9,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 4,
+            "occupancyPct": 56.9
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 5,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 7,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 530.7,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 4,
+            "occupancyPct": 24.8
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 3,
+            "sumWeightedWaitS": 0.5,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 31,
+            "queueLengthM": 221.7,
+            "sumWeightedWaitS": 3214.5,
+            "arrivalsLast10s": 3,
+            "dischargedLast10s": 0,
+            "occupancyPct": 90.4
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 2,
+            "sumWeightedWaitS": 24.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 30,
+            "queueLengthM": 202.3,
+            "sumWeightedWaitS": 2557.6,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 70.5
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 6,
+            "queueLengthM": 15.2,
+            "sumWeightedWaitS": 29.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 13
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 19.2
+        }
+      }
+    },
+    {
+      "id": "normal_variation-3",
+      "label": {
+        "cause": "NORMAL_VARIATION",
+        "lane": "EB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2203,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 25,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1836.9,
+            "arrivalsLast10s": 2,
+            "dischargedLast10s": 3,
+            "occupancyPct": 62.3
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 2,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 4.3
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 15,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1691.2,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 2,
+            "occupancyPct": 35.2
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 15.4,
+            "sumWeightedWaitS": 36.4,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 8.7
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 32,
+            "queueLengthM": 62.3,
+            "sumWeightedWaitS": 2837.4,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 76.9
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 4,
+            "queueLengthM": 18.3,
+            "sumWeightedWaitS": 236.3,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 7.6
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 24,
+            "queueLengthM": 59.4,
+            "sumWeightedWaitS": 1516.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 61.8
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 7,
+            "queueLengthM": 15.7,
+            "sumWeightedWaitS": 113.3,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 22.2
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    },
+    {
+      "id": "normal_variation-4",
+      "label": {
+        "cause": "NORMAL_VARIATION",
+        "lane": "WB-L"
+      },
+      "expectedSeverity": "info",
+      "seed": 2210,
+      "triggerS": 300,
+      "captureS": 480,
+      "window": {
+        "simTimeS": 480.1,
+        "horizonS": 60,
+        "lanes": {
+          "NB-TR": {
+            "lane": "NB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 947.8,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 36.3
+          },
+          "NB-L": {
+            "lane": "NB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "SB-TR": {
+            "lane": "SB-TR",
+            "vehicleCount": 17,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 1110.1,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 3,
+            "occupancyPct": 42.3
+          },
+          "SB-L": {
+            "lane": "SB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          },
+          "EB-TR": {
+            "lane": "EB-TR",
+            "vehicleCount": 13,
+            "queueLengthM": 65.3,
+            "sumWeightedWaitS": 852.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 29.8
+          },
+          "EB-L": {
+            "lane": "EB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 0,
+            "dischargedLast10s": 0,
+            "occupancyPct": 6.5
+          },
+          "WB-TR": {
+            "lane": "WB-TR",
+            "vehicleCount": 14,
+            "queueLengthM": 108.9,
+            "sumWeightedWaitS": 2349.2,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 40
+          },
+          "WB-L": {
+            "lane": "WB-L",
+            "vehicleCount": 1,
+            "queueLengthM": 0,
+            "sumWeightedWaitS": 0,
+            "arrivalsLast10s": 1,
+            "dischargedLast10s": 0,
+            "occupancyPct": 2.2
+          }
+        },
+        "signal": {
+          "phase": "P2_NS_THRU",
+          "indication": "GREEN",
+          "timeInStateS": 9.9
+        }
+      }
+    }
+  ]
+}

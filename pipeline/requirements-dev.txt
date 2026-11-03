@@ -1,0 +1,20 @@
+# Module 52 §1: dev requirements — exact pins (`==`) only, per the standard.
+# Install: pip install -r pipeline/requirements-dev.txt
+#
+# Every pin below is copied from a version already recorded in this repo —
+# inventing a version number would violate Rule 00 (honest numbers). Versions
+# marked UNRECORDED are left to the resolver and must be pinned here the first
+# time a `pip freeze` from a real dev environment lands in the tree.
+
+ruff==0.6.9          # recorded in pipeline/Makefile `lint`
+mypy==1.11.2         # recorded in pipeline/Makefile `typecheck`
+
+# UNRECORDED: CI installs these bare (`pip install pytest pydantic numpy`), so
+# no exact version exists in the tree yet. Pin them after the first freeze.
+pytest               # unit + contract suite (`make test`)
+pydantic             # CI-only import support for the pipeline tests
+numpy                # Module 23 §4 EWMA reference test
+
+# Runtime deps live in docker/spark/requirements.txt (pyspark==3.5.2,
+# pyarrow==16.1.0). The unit suite imports neither, so they are not repeated
+# here; `make test` deliberately runs without Spark (Module 23 §6).

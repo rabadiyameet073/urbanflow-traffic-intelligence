@@ -1,0 +1,21 @@
+# Module 63 §6: changes to the safety kernel, frozen contracts, the EVP/security
+# boundary, and CI config require human maintainer approval. GitHub only
+# enforces this once the placeholder below is replaced with the real handle
+# (Rule 09 — agents never invent identity) and "Require review from Code
+# Owners" is enabled in branch protection for main.
+#
+# Owners must be filled by the human maintainer (Rule 09 — agents never
+# invent identity); tracked in state of agent/pending-component-work.md.
+
+# Safety kernel and all controllers (Rule 06, Rule 07)
+packages/core/src/control/ @<GITHUB_HANDLE>
+
+# Frozen wire contracts (Rule 12 — change needs ADR + approval + version bump)
+packages/core/src/contracts.ts @<GITHUB_HANDLE>
+
+# EVP verification, security helpers, and the Durable Object nonce store
+packages/edge/src/security/ @<GITHUB_HANDLE>
+packages/edge/src/do/ @<GITHUB_HANDLE>
+
+# CI and this file itself (Module 34 §3)
+.github/ @<GITHUB_HANDLE>

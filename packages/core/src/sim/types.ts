@@ -24,3 +24,4 @@ export interface QueuedArrival {
   isEms: boolean;
   emsId?: string;
 }
+

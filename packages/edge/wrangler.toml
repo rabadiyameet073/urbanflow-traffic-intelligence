@@ -11,7 +11,10 @@ tag = "v1"
 new_sqlite_classes = ["Room"]
 
 [vars]
-ALLOWED_ORIGINS = "https://urbanflow.pages.dev,http://localhost:5173"
+# Must match the Pages project name in docs/DEPLOY.md; a mismatch makes the
+# browser preflight fail with 403 ORIGIN_FORBIDDEN.
+ALLOWED_ORIGINS = "https://urbanflow-ai.pages.dev,http://localhost:5173"
 AI_DAILY_CAP = "1500"
 META_MODEL = "muse-spark-1.3"
 META_API_BASE = "https://api.dev.meta.ai/v1"
+

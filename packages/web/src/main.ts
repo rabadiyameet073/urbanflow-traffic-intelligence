@@ -11,6 +11,7 @@
  * message; this file never computes one (Rule 00).
  */
 import { store } from './state/store.js';
+import { installConsoleTail } from './state/console-tail.js';
 import { renderApp } from './ui/app.js';
 import { TwinCanvasRenderer } from './render/canvas.js';
 import { judgeTour } from './ui/judge/tour.js';
@@ -107,6 +108,9 @@ function init(): void {
     return;
   }
 
+  // Wrap the console first so the debug bundle's tail covers everything that
+  // follows, including the boot notices below (Module 16 §6).
+  installConsoleTail();
   installGlobalErrorHandlers();
   installDebugApi();
   mountNoticeRegion();

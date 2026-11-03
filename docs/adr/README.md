@@ -26,3 +26,5 @@ Every architectural decision that shapes UrbanFlow is recorded when it is made, 
 | [ADR-018](0018-property-tests-fast-check-vitest.md) | Vitest + fast-check + Playwright + pytest | Accepted | 2026-10-31 |
 | [ADR-019](0019-share-state-url-hash-input-log.md) | Share state in URL hash as deterministic input log | Accepted | 2026-10-31 |
 | [ADR-020](0020-right-hand-traffic-geometry.md) | Right-hand-traffic geometry; mirroring only by explicit config | Accepted | 2026-10-31 |
+| [ADR-021](0021-shared-db-package.md) | MongoDB persistence consolidated into a shared `@urbanflow/db` package | Accepted | 2026-11-02 |
+

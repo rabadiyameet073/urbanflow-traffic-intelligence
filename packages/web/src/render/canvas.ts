@@ -481,33 +481,6 @@ export class TwinCanvasRenderer {
           ctx.fill();
         }
       }
-
-      // Forward headlights: soft ambient illumination casting onto pavement
-      if (typeIdx > 0) {
-        const fx = Math.cos(heading);
-        const fy = -Math.sin(heading);
-        const frontX = point.px + fx * (longPx / 2);
-        const frontY = point.py + fy * (longPx / 2);
-        const perpX = -fy;
-        const perpY = fx;
-        const spread = shortPx * 0.28;
-        const beamLen = Math.min(22, longPx * 1.3);
-
-        ctx.save();
-        ctx.fillStyle = '#FFF8E7';
-        ctx.globalAlpha = 0.06;
-        for (const sign of [-1, 1]) {
-          const lx = frontX + perpX * spread * sign;
-          const ly = frontY + perpY * spread * sign;
-          ctx.beginPath();
-          ctx.moveTo(lx, ly);
-          ctx.lineTo(lx + fx * beamLen + perpX * (spread * 0.9), ly + fy * beamLen + perpY * (spread * 0.9));
-          ctx.lineTo(lx + fx * beamLen - perpX * (spread * 0.9), ly + fy * beamLen - perpY * (spread * 0.9));
-          ctx.closePath();
-          ctx.fill();
-        }
-        ctx.restore();
-      }
     }
   }
 
@@ -738,23 +711,23 @@ export class TwinCanvasRenderer {
   private drawSignalHeads(viewport: Viewport, palette: CanvasPalette): void {
     const ctx = this.ctx;
 
-    const drawHead = (x: number, y: number, code: number): void => {
+    const drawHead = (x: number, y: number, code: number, isLeft = false): void => {
       const color =
         code === SIGNAL_HEAD.G ? palette.go : code === SIGNAL_HEAD.Y ? palette.caution : palette.stop;
-      // Redundant encoding: colour + glyph (Module 41 §3).
-      const glyph = code === SIGNAL_HEAD.G ? '●' : code === SIGNAL_HEAD.Y ? '▲' : '■';
+      // Redundant encoding: colour + glyph (Module 41 §3). Left-turn gets arrow.
+      const glyph = code === SIGNAL_HEAD.G ? (isLeft ? '←' : '●') : code === SIGNAL_HEAD.Y ? '▲' : '■';
 
       ctx.fillStyle = palette.signalPlate;
       ctx.beginPath();
-      ctx.roundRect(x - 14, y - 10, 28, 20, 4);
+      ctx.roundRect(x - 12, y - 9, 24, 18, 3);
       ctx.fill();
 
       // Soft pavement reflection glow
       ctx.save();
       ctx.beginPath();
-      ctx.arc(x, y, 16, 0, Math.PI * 2);
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
       ctx.fillStyle = color;
-      ctx.globalAlpha = 0.15;
+      ctx.globalAlpha = 0.12;
       ctx.fill();
       ctx.restore();
 
@@ -763,26 +736,26 @@ export class TwinCanvasRenderer {
       ctx.stroke();
 
       ctx.fillStyle = color;
-      ctx.font = 'bold 10px monospace';
+      ctx.font = 'bold 9px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(glyph, x, y);
     };
 
-    // One head per approach, on the kerb to the driver's right at the stop line.
+    // One head per approach stop line (both Through and Protected Left-turn lanes)
     for (let i = 0; i < LANES.length; i++) {
       const lane = LANES[i]!;
-      if (!lane.endsWith('-TR')) continue;
-
+      const isLeft = lane.endsWith('-L');
       const code = this.curHeads[i] ?? SIGNAL_HEAD.R;
       const anchor = laneAnchor(lane);
-      // Sit the head 1.5 m to the driver's right and 2 m upstream of the stop line.
+      // For through lanes: sits to driver's right; for left lanes: sits on divider
+      const offsetLateral = isLeft ? -0.8 : 1.5;
       const point = worldToCanvas(
-        anchor.x + anchor.dy * 1.5 - anchor.dx * 2,
-        anchor.y - anchor.dx * 1.5 - anchor.dy * 2,
+        anchor.x + anchor.dy * offsetLateral - anchor.dx * 2,
+        anchor.y - anchor.dx * offsetLateral - anchor.dy * 2,
         viewport,
       );
-      drawHead(point.px, point.py, code);
+      drawHead(point.px, point.py, code, isLeft);
     }
   }
 

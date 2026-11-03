@@ -15,8 +15,9 @@ High vehicle counts (100-300 vehicles) require silky-smooth 60 FPS animation. He
 Adopt option (a). Simulation steps in a dedicated Web Worker isolate; main thread interpolates positions using 2D Canvas rendering with pre-rendered static road geometry cache.
 
 ## Consequences
-- Positive: Guaranteed 60 FPS with <= 20ms frame times; main UI thread remains completely responsive to clicks and toggles.
+- Positive: Designed for 60 FPS with <= 20ms frame times (the p95 budget is enforced by Module 15 and tracked at QA-30b, still PARTIAL); main UI thread remains responsive to clicks and toggles.
 - Negative: Cannot run complex 3D shader lighting without WebGL (satisfies 2D digital twin requirements).
 
 ## Evidence
 `packages/web/src/render/canvas.ts` benchmarks frame times under 12ms at 200 vehicles.
+

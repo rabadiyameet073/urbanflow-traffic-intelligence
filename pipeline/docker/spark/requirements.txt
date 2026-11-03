@@ -1,0 +1,8 @@
+# Module 23 §1: pinned runtime dependencies for the Spark job.
+# Every version is exact — a floating tag makes a rerun of the same commit a
+# different experiment (Rule 07 — determinism).
+pyspark==3.5.2
+pyarrow==16.1.0
+# Optional analytics mirror (ADR-0008 keeps Parquet authoritative). Imported
+# lazily by urbanflow.mongo_sink, so its absence never breaks the default run.
+pymongo==4.8.0

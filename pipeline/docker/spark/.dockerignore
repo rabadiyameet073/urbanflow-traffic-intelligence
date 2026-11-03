@@ -1,0 +1,12 @@
+# Module 23 §5: the image carries the interpreter and pinned jars only.
+# Application code is mounted read-only at runtime, never baked in.
+node_modules
+.git
+data
+out
+recordings
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache

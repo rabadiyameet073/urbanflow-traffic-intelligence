@@ -108,6 +108,7 @@ function publish(force = false): void {
       observation: world.observation(),
       waiting,
       control: world.control(),
+      droppedRenderFrames: droppedFrames,
     };
     post(event);
 
@@ -129,6 +130,7 @@ function publish(force = false): void {
       type: 'evp',
       status: world.evpStatus(),
       counters: world.evpCounters(),
+      timeline: world.evpTimeline(),
     };
     post(event);
   }
@@ -293,7 +295,7 @@ function handle(command: WorkerCommand): void {
 
     case 'spawnVehicle':
       if (world) {
-        world.spawnVehicle(command.lane, command.vehicleType, command.count, command.distanceM);
+        world.spawnVehicle(command.lane, command.vehicleType, command.count, command.distanceM, command.speedMps);
         world.tick();
         publish(true);
         postFrames();
@@ -314,6 +316,30 @@ function handle(command: WorkerCommand): void {
       world?.setParams(command.params);
       publish(true);
       break;
+
+    case 'setAdaptiveParams':
+      // The wire schema already rejected out-of-bounds patches (`parseCommand`
+      // above); what arrives here is an operator-approved, bounds-valid patch.
+      world?.setAdaptiveParams(command.params);
+      publish(true);
+      break;
+
+    case 'exportDebugBundle': {
+      if (!world) return;
+      const data = world.debugBundleData();
+      post({
+        v: WORKER_PROTOCOL_VERSION,
+        type: 'debugBundleData',
+        seed: data.seed,
+        scenarioId: data.scenarioId,
+        stateHash: data.stateHash,
+        tSimS: data.tSimS,
+        inputLog: data.inputLog,
+        kernelCounters: data.kernelCounters,
+        adaptiveParams: data.adaptiveParams,
+      });
+      break;
+    }
 
     case 'restoreTo':
       if (!world) return;
@@ -369,7 +395,7 @@ function handle(command: WorkerCommand): void {
       break;
 
     default:
-      // Module 50 §5: exhaustive switch with a never-check. All 19 command
+      // Module 50 §5: exhaustive switch with a never-check. All 21 command
       // variants are handled above; a new protocol command without an arm
       // here stops compiling rather than being silently ignored.
       return assertNever(command);

@@ -1,0 +1,5 @@
+{
+  "primarySource": "muse-spark",
+  "top1PctFloor": null,
+  "note": "Floor stays null until the first trusted eval:replay run records it (`node evals/replay.mjs --record-floor`). A recorded number is the regression gate for prompt and model changes (Module 24 §9). null means 'not yet measured' — never a placeholder value."
+}

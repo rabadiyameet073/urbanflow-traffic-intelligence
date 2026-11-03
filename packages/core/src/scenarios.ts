@@ -158,3 +158,4 @@ export const SCENARIO_LIBRARY: readonly BenchmarkScenario[] = [
     ],
   },
 ];
+

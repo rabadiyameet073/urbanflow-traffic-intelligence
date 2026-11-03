@@ -1,6 +1,14 @@
 node_modules/
 dist/
 out/
+# Benchmark artefacts are committed on purpose: every published number is
+# derived from them and `pnpm docs:check` diffs the docs against them.
+!packages/bench/out/
+!packages/bench/out/**
+# The eval report is committed for the same reason: it is generated only,
+# never hand-typed (Module 24 §9).
+!evals/out/
+!evals/out/**
 .wrangler/
 .env
 .env.local

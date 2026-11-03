@@ -44,7 +44,7 @@ import type { ChatSnapshot } from './copilot/tools.js';
 import { Logger } from './logging.js';
 import { EdgeMetrics } from './metrics.js';
 import { SignedEvpSchema, signHex, canonicalJson } from '@urbanflow/core';
-import { MongoManager, SimulationRepository } from './db/index.js';
+import { MongoManager, SimulationRepository } from '@urbanflow/db';
 
 export { Room };
 

@@ -19,3 +19,4 @@ Adopt option (a). All packages (`@urbanflow/core`, `@urbanflow/edge`, `@urbanflo
 
 ## Evidence
 Root `pnpm-workspace.yaml` and unified Vitest execution across all packages.
+

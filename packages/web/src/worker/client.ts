@@ -15,6 +15,7 @@
  */
 import { WORKER_PROTOCOL_VERSION, assertNever } from '@urbanflow/core';
 import type {
+  AdaptiveParams,
   EvpDecisionResponse,
   FrameEvent,
   IncidentKind,
@@ -33,6 +34,9 @@ export interface ProposalVerdict {
   proposedPersonDelayS: number;
   kernelViolations: number;
 }
+
+/** Worker-side debug-bundle facts, resolved by the `debugBundleData` event. */
+export type DebugBundleData = Extract<WorkerEvent, { type: 'debugBundleData' }>;
 
 export interface SimulationHandlers {
   onFrame(event: FrameEvent): void;
@@ -62,6 +66,7 @@ export class SimulationClient {
   private heartbeat: ReturnType<typeof setInterval>;
   private pendingPreemption: Array<(result: EvpDecisionResponse) => void> = [];
   private pendingProposal: Array<(result: ProposalVerdict) => void> = [];
+  private pendingDebug: Array<(data: DebugBundleData) => void> = [];
   private restarts = 0;
 
   constructor(handlers: Partial<SimulationHandlers> = {}) {
@@ -95,6 +100,7 @@ export class SimulationClient {
     this.worker.terminate();
     this.pendingPreemption = [];
     this.pendingProposal = [];
+    this.pendingDebug = [];
     this.worker = this.spawn();
     this.restarts++;
 
@@ -186,6 +192,7 @@ export class SimulationClient {
     vehicleType: VehicleType,
     count = 1,
     distanceM?: number,
+    speedMps?: number,
   ): void {
     this.send({
       v: WORKER_PROTOCOL_VERSION,
@@ -194,6 +201,7 @@ export class SimulationClient {
       vehicleType,
       count,
       ...(distanceM === undefined ? {} : { distanceM }),
+      ...(speedMps === undefined ? {} : { speedMps }),
     });
   }
 
@@ -220,6 +228,25 @@ export class SimulationClient {
   public setParams(params: Partial<SimConfig>): void {
     // The worker re-validates; sending a partial patch is the documented shape.
     this.send({ v: WORKER_PROTOCOL_VERSION, type: 'setParams', params } as WorkerCommand);
+  }
+
+  /**
+   * Apply an operator-approved adaptive-parameter patch (Module 04 §3.4).
+   * Fire-and-forget: the next `kpis`/`decision` echo is the confirmation, in
+   * line with the store's echo discipline — the UI never claims success on the
+   * strength of the request alone (Rule 00).
+   */
+  public setAdaptiveParams(params: Partial<AdaptiveParams>): void {
+    this.send({ v: WORKER_PROTOCOL_VERSION, type: 'setAdaptiveParams', params } as WorkerCommand);
+  }
+
+  /** Ask the worker for the simulation-side half of a debug bundle (Module 16 §6). */
+  public requestDebugBundle(): Promise<DebugBundleData> {
+    const promise = new Promise<DebugBundleData>((resolve) => {
+      this.pendingDebug.push(resolve);
+    });
+    this.send({ v: WORKER_PROTOCOL_VERSION, type: 'exportDebugBundle' });
+    return promise;
   }
 
   public restoreTo(tSimS: number): void {
@@ -312,6 +339,12 @@ export class SimulationClient {
       case 'proposalVerified': {
         const resolve = this.pendingProposal.shift();
         resolve?.(data.result);
+        break;
+      }
+
+      case 'debugBundleData': {
+        const resolve = this.pendingDebug.shift();
+        resolve?.(data);
         break;
       }
 

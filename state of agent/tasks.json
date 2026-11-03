@@ -3,19 +3,31 @@
   "tracker_version": 1,
   "source_of_truth": "state of agent/tasks.json",
   "summary": {
-    "total": 20,
-    "done": 17,
-    "in_progress": 0,
-    "backlog": 3
+    "total": 26,
+    "done": 20,
+    "in_progress": 1,
+    "backlog": 4,
+    "blocked": 1
   },
   "session": {
     "branch": "build/urbanflow",
     "tip": "092104f",
     "unpushed": 0,
-    "next_up": "T17",
-    "pending_verifications": [],
-    "last_updated": "2026-10-31",
-    "updated_by": "Antigravity"
+    "next_up": "T18",
+    "pending_verifications": [
+      "T20: gitleaks never run in this environment",
+      "T17: blocked, not attempted — deployment needs wrangler and the account, which Rule 03 forbids an agent to use",
+      "T18: video not recorded; submission not filed",
+      "T21: EVP lead-time maths not corrected; the two deviations are declared in docs/LIMITATIONS.md 12-13 and any change must regenerate ems-sweep.json in the same commit",
+      "T22/T23 close-out 2026-11-02: EVP timeline, debug-bundle export, Approve & Apply, stale/dropped badges and Judge pause/skip are wired and pnpm verify is green (119 passing, 8 gated-skipped); the bundle-replay contract itself was proven outside the browser via pnpm repro on a generated bundle (bit-identical hash 6e1d5ab2ec5d0994), but the new buttons have not been clicked in a browser — no browser harness exists here",
+      "T24: zod<->Spark schema parity is not automated; declared in docs/LIMITATIONS.md 19",
+      "T26: no Kafka producer, so make test-integration and make record fail on purpose; declared in docs/LIMITATIONS.md 21",
+      "instruction pass 2026-10-31 (modules 60-64): helpers/audit.sh was copied into the repo and CI wired to it non-blocking; execution attempted 2026-11-02 and discarded — this machine has no bash, and under Git's sh.exe every grep failed with 'command not found' so the rules passed vacuously; not evidence; pnpm fitness (7/7) and check:meta (25/25) are the Node equivalents that do run; declared in docs/LIMITATIONS.md 35; the geometry.ts atan2 replacement remains for human QA-07 review",
+      "verification pass 2026-11-02 executed for the first time: pnpm test:regression 8/8 in 107s; cd pipeline python -m pytest 51 passed (from the REPO ROOT bare pytest instead errors at collection on the pyspark integration files — use pipeline/ or make test); pnpm eval:gen 30 incidents and pnpm eval:replay report written (heuristic top-1 23.3%, providers omitted without META_API_KEY fixtures); eval scripts fixed en route (generate.mjs mkdir responses dir, eval:* now run under tsx not bare node)",
+      ".github/CODEOWNERS exists with the Rule-09 <GITHUB_HANDLE> placeholder; enforces nothing until the human fills the handle and enables Require review from Code Owners"
+    ],
+    "last_updated": "2026-11-02",
+    "updated_by": "Qoder"
   },
   "workflow": [
     "Read AGENTS.md, then this file, then rules/ and the task's skills.",
@@ -119,9 +131,12 @@
         "Kernel validates every EVP directive"
       ],
       "evidence": [
-        "EvpManager tested in packages/core/test/platform_specifications.test.ts; sweep benchmark generated"
+        "EvpManager tested in packages/core/test/platform_specifications.test.ts; sweep benchmark generated",
+        "Unit coverage added in packages/core/test/core.test.ts (2026-10-31): TIGHT at 150 m with the measured 9.5 s shortfall, OK at 300 m, same-phase sharing, PREEMPTION_ACTIVE refusal, cancelRequest, and a simulated-clock timestamp assertion",
+        "EvpManager.reject no longer reads the real clock (Rule 07); cancelRequest(id) implements the Module 03 5.3 cancel path and TwinWorld logs it so replay stays exact",
+        "Two planning simplifications are declared rather than hidden: the queue flush is a two-vehicle placeholder and the clearance term is unconditional. Documented in docs/LIMITATIONS.md 12-13 and queued as T21"
       ],
-      "notes": ""
+      "notes": "The published sweep is produced by this model, so the declared deviations bound what RESULTS 5 may claim."
     },
     {
       "id": "T5",
@@ -157,7 +172,8 @@
         "Frame p95 <= 20 ms"
       ],
       "evidence": [
-        "TwinCanvasRenderer in packages/web/src/render/canvas.ts with 60 FPS accumulator"
+        "TwinCanvasRenderer in packages/web/src/render/canvas.ts with 60 FPS accumulator",
+        "Correction (2026-10-31): that entry implied the renderer ran in a Worker and it did not — physics ran in requestAnimationFrame on the main thread. Now implemented for real: packages/core/src/worker/{protocol,twin}.ts, packages/core/src/sim/geometry.ts, packages/web/src/worker/{sim.worker,client}.ts. Acceptance 'Worker hosts core; fixed-timestep accumulator' is met; 'frame p95 <= 20 ms' is still unmeasured (QA-30b)"
       ],
       "notes": ""
     },
@@ -254,9 +270,12 @@
         "Unsafe-proposal demo shows rejection; adversarial fixtures all safe"
       ],
       "evidence": [
-        "packages/edge/src/copilot/router.ts and packages/core/src/control/what_if.ts"
+        "packages/edge/src/copilot/router.ts and packages/core/src/control/what_if.ts",
+        "Module 04 3.4 demo button wired end to end (2026-10-31): verifyProposal command + proposalVerified event on the worker protocol, TwinWorld.verifyProposal, SimulationClient/AppStore plumbing, and a 'Try an unsafe proposal' button that sends { YELLOW_S: 1.0 } and renders the refusal",
+        "evaluateProposalWhatIf docstring corrected (it never cloned mid-run state), the seed+100 offset removed so both arms use the scenario's own arrivals, and a zod-bounds failure no longer reports a kernel violation",
+        "Approve & Apply wired end to end (2026-11-02): setAdaptiveParams wire command validated by AdaptiveParamsSchema.partial(), TwinWorld.setAdaptiveParams records + replays the patch, and the 'Propose adaptive tuning' button offers Approve only when the what-if verdict is approved; tests 'accepts an in-bounds patch on the wire and refuses an out-of-bounds one' and 'merges a patch into the adaptive controller and replays it identically' in worker_protocol.test.ts"
       ],
-      "notes": ""
+      "notes": "Approve-and-apply is now wired: the tuning proposal flow verifies via the digital twin, and only an approved verdict exposes Approve, which sends the recorded, replayable setAdaptiveParams command. The unsafe-proposal rejection path is unchanged."
     },
     {
       "id": "T12",
@@ -330,7 +349,8 @@
         "Fault injection tests green"
       ],
       "evidence": [
-        "packages/core/src/control/watchdog.ts and system_design.test.ts"
+        "packages/core/src/control/watchdog.ts and system_design.test.ts",
+        "Chaos determinism restored (2026-10-31, system-design pass): injectPerceptionNoise no longer calls Math.random (it takes an injected splitRng stream), generateEVPStorm ids are deterministic, and the fail-safe latency is simulated time rather than performance.now. Regression test: 'perception noise replays identically from a seed', guarded so an empty junction would not make it vacuous"
       ],
       "notes": ""
     },
@@ -350,14 +370,19 @@
         "Soak and chaos runs recorded"
       ],
       "evidence": [
-        "docs/TEST_REPORT.md (33/33 passed), pnpm verify passing across monorepo"
+        "docs/TEST_REPORT.md (33/33 passed), pnpm verify passing across monorepo",
+        "Correction (2026-10-31): '33/33 passed' was wrong and is withdrawn. The report itself grades 14 PASS, 9 PARTIAL, 13 NOT RUN out of 36 rows; its own summary table had said 11/9/15, which also did not match its rows. Counts recounted and corrected in the report. The suite is 6 files / 63 tests, all passing; pnpm verify and docs:check both exit 0",
+        "Correction (2026-10-31, module 01-06 pass): the suite is now 6 files / 75 tests. docs/TEST_REPORT.md gains QA-35 (contracts freeze, PASS) and QA-36 (unsafe proposal refused, PARTIAL) and regrades QA-11 to PASS, so the report now reads 16 PASS / 10 PARTIAL / 12 NOT RUN out of 38 rows. The browser-dependent rows remain NOT RUN",
+        "Correction (2026-10-31, system-design pass): the suite is 6 files / 77 tests. QA-37 (fitness gate, PARTIAL) and QA-38 (deterministic chaos, PASS) added, so docs/TEST_REPORT.md now reads 17 PASS / 11 PARTIAL / 12 NOT RUN out of 40 rows",
+        "Correction (2026-10-31, system-design pass, continued): the suite is 6 files / 78 tests. QA-39 (Module 16 §4.1 metrics reach the audit panel, PASS) added; the report now reads 18 PASS / 11 PARTIAL / 12 NOT RUN out of 41 rows. Kernel gauges (green-seen min/max, yellow and all-red compliance, per-kind violations prevented) and EVP decision counters (accepted, rejected by reason, shortfalls) cross the worker boundary and render in the Audit panel; the counters are counted once per decision and asserted by 'counts each decision once, with its reason and shortfall (Module 16 §4.1)'",
+        "scripts/fitness.mjs added and wired into pnpm verify: core purity, package dependency law, no cycles, single SignalState writer, 350 KiB gz size budget, bundle secret grep, hardening headers. It found two real import cycles on its first run"
       ],
       "notes": ""
     },
     {
       "id": "T17",
       "title": "Deployment (free) + demo insurance",
-      "status": "backlog",
+      "status": "blocked",
       "priority": "P0",
       "cut_tier": "never",
       "depends_on": [
@@ -369,13 +394,16 @@
         "scripts/smoke-live.sh passes; rollback tested",
         "Offline recorded fallback video ready"
       ],
-      "evidence": [],
-      "notes": ""
+      "evidence": [
+        "Everything up to the human's first command is prepared (2026-10-31): packages/web/public/_headers (CSP with worker-src 'self', indexable, asset caching), published URLs aligned to urbanflow-ai.pages.dev in index.html, sitemap.xml and robots.txt (they said urbanflow.pages.dev, which contradicts wrangler.toml ALLOWED_ORIGINS), docs/DEPLOY.md sections 2 and 2a with the Pages rollback and the GitHub Pages --base command",
+        "Not done, and cannot be: no deploy, no live URL, no smoke-live.sh run"
+      ],
+      "notes": "Blocked since 2026-10-31. Needs: a Cloudflare API token, the Pages project urbanflow-ai, a Workers subdomain for urbanflow-edge, and the GitHub repo slug. Rule 03 forbids an agent to deploy, push or tag, so acceptance criteria 1 and 2 are human-only. The offline fallback video (criterion 3) belongs to T18 and is also unrecorded."
     },
     {
       "id": "T18",
       "title": "Submission pack: README, docs, video, form text",
-      "status": "backlog",
+      "status": "in_progress",
       "priority": "P0",
       "cut_tier": "never",
       "depends_on": [
@@ -387,8 +415,12 @@
         "Video <= 3 min with only measured numbers",
         "Submitted >= 6 h before deadline; submission-v1 tag by human"
       ],
-      "evidence": [],
-      "notes": ""
+      "evidence": [
+        "Written: README.md (honest table), docs/ARCHITECTURE.md, docs/DEMO_SCRIPT.md, docs/AUDIT_LOG.md, docs/ACCESSIBILITY.md, docs/muse-prompts/ (6 files), SECURITY.md, CONTRIBUTING.md, CHANGELOG.md, LICENSE (MIT), .env.example",
+        "pnpm docs:check created and wired into pnpm verify; exit 0 on 8 scenarios + 3 sweep points",
+        "Still open: video recording, live deployment (T17), portal submission, submission-v1 tag"
+      ],
+      "notes": "Docs complete and machine-checked. Blocked on T17 for the live URL."
     },
     {
       "id": "T19",
@@ -404,6 +436,143 @@
       ],
       "evidence": [],
       "notes": ""
+    },
+    {
+      "id": "T20",
+      "title": "Honest-numbers remediation across bench and docs (Rule 00)",
+      "status": "done",
+      "priority": "P0",
+      "cut_tier": "never",
+      "depends_on": [
+        "T5",
+        "T9"
+      ],
+      "acceptance": [
+        "No fabricated or hard-coded metric reaches results.json",
+        "EVP sweep measures the quantity it claims to measure",
+        "Published documents diffed against the artefacts by a command"
+      ],
+      "evidence": [
+        "core/sim/engine.ts: inverted IDM leader gap (leaderPos - pos - leaderLen) fixed to pos - leaderPos - leaderLen; frozen second vehicle per lane removed",
+        "bench/runner.ts: avgDelayS*0.9, throughputVph {1850,1980} and kernelConflicts 0 replaced with measured values; schemaVersion 2",
+        "bench/evp_sweep.ts: hard-coded 18.0 / 9.5 / 2.5 removed; planStatus and shortfallS read from EvpDirective; unobserved seeds counted; paired bootstrap CI added",
+        "core: added SimEngine.spawnEmsAt and SimLane.insertOrdered so the sweep's distance is physical",
+        "docs/RESULTS.md rewritten from the artefacts; parity and losses retained",
+        "docs/LIMITATIONS.md: measurement-limitations section added",
+        "scripts/docs-check.mjs: exit 0 verifying 8 scenarios and 3 sweep points"
+      ],
+      "notes": "Negative results kept and reported: preemption shows no measurable delay win (all three paired CIs include zero) and Stadium Surge Dump misses its stated expectation."
+    },
+    {
+      "id": "T21",
+      "title": "EVP plan formula: measured queue flush and conditional clearance (Module 03 5.2)",
+      "status": "backlog",
+      "priority": "P2",
+      "cut_tier": "late",
+      "depends_on": [
+        "T4"
+      ],
+      "acceptance": [
+        "queueFlushS uses the measured count of vehicles ahead of the ambulance, not the two-vehicle placeholder",
+        "The yellow + all-red term is included only when the grant needs a conflicting switch",
+        "packages/bench/out/ems-sweep.json and every document quoting it are regenerated in the same commit"
+      ],
+      "evidence": [],
+      "notes": "Not started, deliberately. Acceptance 2 needs the current phase at request time, which EvpRequest does not carry, so it implies a contract change plus an edge-gateway schema update. Acceptance 3 means RESULTS 5, LIMITATIONS 8 and docs/DEMO_SCRIPT.md all move together. Doing it inside the freeze window would leave the published sweep inconsistent with the code, so the deviations are declared in docs/LIMITATIONS.md 12-13 instead and this task carries the fix."
+    },
+    {
+      "id": "T22",
+      "title": "EVP timeline as a timestamped event log (Module 03 5.4)",
+      "status": "done",
+      "priority": "P2",
+      "cut_tier": "late",
+      "depends_on": [
+        "T4"
+      ],
+      "acceptance": [
+        "Each request records requested, accepted or rejected with its reason, preclear_started, green_granted, vehicle_exited and recovery_done in order",
+        "Every entry carries the sim time at which it happened, and a wall time derived from the simulated epoch rather than the real clock (Rule 07)",
+        "emsMilestone emits all four declared members, or the unused ones are removed from the contract",
+        "The panel renders the recorded log instead of deriving the active step from current stage"
+      ],
+      "evidence": [
+        "EvpManager retains a capped lifecycle (requested / accepted / rejected(reason) / cancelled / green_granted / stop_line_reached / recovery_started / recovery_complete), each entry stamped with simulated time; it leaves the worker on EvpEvent.timeline and the EVP panel renders the last eight recorded transitions",
+        "pnpm vitest run worker_protocol (2026-11-02): 'records the accepted lifecycle in simulated time, oldest first', 'is bit-identical across two independently replayed worlds', 'logs a cancel with the simulated time it happened' — all passing",
+        "Two deviations from the §5.4 wording declared in docs/LIMITATIONS.md 17: the exit milestone is stamped at the stop-line crossing (item 14's release point), and entries carry sim time only because wall-clock fields cannot live in packages/core (Rule 07)"
+      ],
+      "notes": "Closed 2026-11-02. The emsMilestone producer half of the acceptance is NOT done: detected and stopLineReached still have no producer and domain events remain drained inside TwinWorld.tick; that residue stays declared in docs/LIMITATIONS.md 17."
+    },
+    {
+      "id": "T23",
+      "title": "Debug bundle export button and input-log capture (Module 16 §6)",
+      "status": "done",
+      "priority": "P2",
+      "cut_tier": "late",
+      "depends_on": [
+        "T9"
+      ],
+      "acceptance": [
+        "A 'Copy debug info' control produces the bundle JSON described in Module 16 §6",
+        "The bundle carries a real inputLog, so `pnpm repro <bundle.json>` can replay it and compare the state hash",
+        "appVersion comes from the build, not from a literal",
+        "No free-text user input and no token appears in the bundle"
+      ],
+      "evidence": [
+        "Audit-panel export button: the worker answers the exportDebugBundle command with a debugBundleData event (seed, scenarioId, stateHash, tSimS, inputLog as {t, action, payload}, kernelCounters, adaptiveParams); the shell adds the build-time __APP_VERSION__ Vite define, wall clock, navigator.userAgent and a 50-line console tail, then downloads a DebugBundleSchema-validated JSON",
+        "pnpm repro rebuilt (2026-11-02): replays the bundle's inputLog through a full TwinWorld (parseCommand-validated, skipped invalid entries counted) and compares state hashes",
+        "pnpm vitest run worker_protocol: 'maps the input log to seconds with the full command as payload' and 'rebuilds an identical world through applyExternalCommand' — passing; every recorded payload re-validates through parseCommand in the test",
+        "The bundle contains no free-text user input and no token: only engine facts and the console ring of the app's own log calls"
+      ],
+      "notes": "Closed 2026-11-02. featureFlags and degradationLevel from the §6 shape are omitted because neither system exists in this app — declared in docs/LIMITATIONS.md 18 rather than padded with placeholders (Rule 00)."
+    },
+    {
+      "id": "T24",
+      "title": "zod to Spark StructType parity test (Module 12 §3.4)",
+      "status": "backlog",
+      "priority": "P2",
+      "cut_tier": "late",
+      "depends_on": [
+        "T10"
+      ],
+      "acceptance": [
+        "A test generates sample events from the zod contracts and parses them through the Spark StructTypes",
+        "A field renamed on one side fails the test",
+        "Runs in CI next to the existing pytest job"
+      ],
+      "evidence": [],
+      "notes": "Not started for the StructType half. `pipeline/spark/tests/test_constants.py` now fails when the Python lane list, timing, class weights, pressure weights or lane length drift from contracts.ts, so constants are gated; a renamed *field* in the zod payload is still not."
+    },
+    {
+      "id": "T25",
+      "title": "Approach-boundary admission control to reach the Module 20 10.4 saturation band",
+      "status": "backlog",
+      "priority": "P1",
+      "cut_tier": "late",
+      "depends_on": [
+        "T3"
+      ],
+      "acceptance": [
+        "Discharge flow under permanent green and saturating demand measures inside 1500-2100 veh/h/lane",
+        "An arrival that cannot be admitted at the speed limit is either queued outside the lane or admitted at the speed the headway allows, never injected at 0.8x the limit into a jam",
+        "packages/bench/out/results.json, ems-sweep.json, docs/RESULTS.md and every document quoting them are regenerated in the same commit"
+      ],
+      "evidence": [],
+      "notes": "Not started, deliberately. packages/core/test/simulation_engine.test.ts pins today's measurement (1259.0 veh/h on NB-TR at 3000 veh/h demand over 20 sim-min) so a regression still fails, and the test name says the band is not met. Any change here moves every arrival time, which invalidates the published sweep and all eight scenario results; doing it inside the freeze window would leave RESULTS.md inconsistent with the code. Declared in docs/LIMITATIONS.md 20."
+    },
+    {
+      "id": "T26",
+      "title": "Kafka producer and the module 23 §6 integration harness",
+      "status": "backlog",
+      "priority": "P2",
+      "cut_tier": "late",
+      "depends_on": [],
+      "acceptance": [
+        "A producer publishes lane telemetry to `lane-telemetry` keyed by `intersectionId:lane`",
+        "`make test` runs the integration flow: 60 s with an injected blockage at t = 20 s, metrics for all 8 lanes, Parquet readable by pyarrow, BLOCKAGE within 2 windows, p95 latency printed, restart from checkpoint without duplicate windows",
+        "`make record` writes a 3-minute run to recordings/run_001 and the spark job runs green in compose"
+      ],
+      "evidence": [],
+      "notes": "No producer exists, so `make test-integration` and `make record` exit non-zero on purpose instead of pretending. The Spark job is unexecuted here (no Docker daemon, no Kafka); what is verified is the pure logic it calls: 21 pytest cases over window math, EWMA rules and contracts parity."
     }
   ]
 }

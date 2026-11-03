@@ -19,3 +19,4 @@ Adopt option (a). Any two distinct phases conflict. No overlap phases or permiss
 
 ## Evidence
 Reachable-state model checker explores 100% of state transitions without state explosion.
+

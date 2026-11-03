@@ -20,3 +20,4 @@ Adopt option (a). Vanilla TypeScript factory functions returning DOM elements an
 
 ## Evidence
 `packages/web` bundle builds under 120 KB gzip, sustaining 60 FPS local frame rate.
+

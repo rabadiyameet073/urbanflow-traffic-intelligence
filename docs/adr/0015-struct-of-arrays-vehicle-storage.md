@@ -19,3 +19,4 @@ Adopt option (a). Pre-allocate fixed typed arrays per lane (`posM`, `speedMps`, 
 
 ## Evidence
 `packages/bench/test/bench.test.ts` executes 3600 sim-seconds in < 2 seconds.
+

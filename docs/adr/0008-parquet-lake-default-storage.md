@@ -19,3 +19,4 @@ Adopt option (a). Default to Snappy-compressed Parquet lake on standard filesyst
 
 ## Evidence
 `pipeline/docker-compose.yml` runs Spark + Kafka within standard memory limits.
+

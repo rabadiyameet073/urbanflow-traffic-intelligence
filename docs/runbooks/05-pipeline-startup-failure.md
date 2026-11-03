@@ -19,3 +19,4 @@
 4. **Clean Stale Checkpoints:**
    - Corrupt state directories can block streaming startup. Remove stale test checkpoints:
      `make clean`
+

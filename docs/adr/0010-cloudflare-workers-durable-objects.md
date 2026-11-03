@@ -19,3 +19,4 @@ Adopt option (a). Use a single Durable Object class (`Room`) holding an embedded
 
 ## Evidence
 `packages/edge/src/do/Room.ts` stores nonces and replays with instant lookup and expiration.
+

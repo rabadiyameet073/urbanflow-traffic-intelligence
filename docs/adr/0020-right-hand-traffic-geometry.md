@@ -19,3 +19,4 @@ Adopt option (a). All canonical lane IDs (`NB-TR`, `NB-L`, `SB-TR`, `SB-L`, `EB-
 
 ## Evidence
 `packages/core/src/contracts.ts` lane topology and safety invariant definitions.
+

@@ -19,3 +19,4 @@ Adopt option (a). State and user actions are serialized as a deterministic input
 
 ## Evidence
 `packages/core/src/helpers/share-codec.ts` and fuzz-testing with 1000 malformed input strings.
+

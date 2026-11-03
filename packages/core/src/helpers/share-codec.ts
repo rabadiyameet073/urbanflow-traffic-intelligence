@@ -8,11 +8,11 @@ import { z } from 'zod';
 
 export const ShareStateSchema = z.object({
   scenarioId: z.string().default('morning_commute'),
-  seed: z.number().int().default(42),
+  seed: z.number().finite().int().default(42),
   overrides: z.record(z.any()).default({}),
-  detectionDistance: z.number().default(300),
+  detectionDistance: z.number().finite().default(300),
   inputLog: z.array(z.object({
-    t: z.number(),
+    t: z.number().finite(),
     action: z.string(),
     payload: z.any().optional(),
   })).default([]),
@@ -87,3 +87,4 @@ export function decodeShareState(rawHash: string): ShareState {
     return { ...DEFAULT_SHARE_STATE };
   }
 }
+

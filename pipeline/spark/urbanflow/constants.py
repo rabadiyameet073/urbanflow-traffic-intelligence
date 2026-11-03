@@ -33,3 +33,44 @@ TIMING = {
 }
 
 SCHEMA_VERSION = 1
+
+# Module 02 §3 / Module 12 §3.1 (Rule 12): the six frozen Kafka topics —
+# name, message key, partition count and retention. `tests/test_constants.py`
+# parses the `KAFKA_TOPICS` block in contracts.ts and fails on drift; the
+# Makefile creates exactly these topics.
+KAFKA_TOPICS = {
+    "laneTelemetry": {"name": "lane-telemetry", "key": "intersectionId:lane", "partitions": 3, "retention_ms": 3_600_000},
+    "signalState": {"name": "signal-state", "key": "intersectionId", "partitions": 1, "retention_ms": 3_600_000},
+    "emergencyEvents": {"name": "emergency-events", "key": "intersectionId", "partitions": 1, "retention_ms": 3_600_000},
+    "laneMetrics": {"name": "lane-metrics", "key": "intersectionId:lane", "partitions": 3, "retention_ms": 3_600_000},
+    "anomalyEvents": {"name": "anomaly-events", "key": "intersectionId", "partitions": 1, "retention_ms": 3_600_000},
+    "dlq": {"name": "dlq", "key": "topic", "partitions": 1, "retention_ms": 86_400_000},
+}
+
+# --- Mirrors of packages/core contracts -------------------------------------------------
+# `pressure.py` in core is the single source of truth; these three tables exist
+# so the Python side can compute the same index without importing TypeScript.
+# `tests/test_constants.py` parses contracts.ts and fails when they drift.
+
+# VEHICLE_SPECS[type].priorityWeight
+VEHICLE_PRIORITY_WEIGHTS = {
+    "BIKE": 1.0,
+    "CAR": 1.2,
+    "BUS": 8.5,
+    "TRUCK": 2.0,
+    "AMBULANCE": 1000.0,
+}
+
+# DEFAULT_PRESSURE_WEIGHTS
+PRESSURE_WEIGHTS = {"alpha": 1.0, "beta": 1.0, "gamma": 1.0}
+
+# DEFAULT_SIM_CONFIG.laneLengthM
+LANE_LENGTH_M = 300.0
+
+# Module 23 §4: West's update with alpha 0.1, a z threshold of 2.5 and a warm-up
+# of 12 windows before a z-score is meaningful. These are the values the
+# detector below actually uses — not aspirations, and not a second copy.
+EWMA_ALPHA = 0.1
+EWMA_WARMUP_N = 12
+EWMA_Z_THRESHOLD = 2.5
+

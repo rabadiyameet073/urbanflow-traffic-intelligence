@@ -23,3 +23,4 @@
    - Fix the state machine logic in `packages/core/src/control/kernel.ts`.
 5. **Add Regression Mutant Test:**
    - Add a test reproducing the exact failure sequence before declaring resolution.
+

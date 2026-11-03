@@ -13,8 +13,10 @@
  */
 import { DEFAULT_SIM_CONFIG, LANES, SCENARIO_LIBRARY, SimConfigSchema } from '@urbanflow/core';
 import type {
+  AdaptiveParams,
   EvpDecisionResponse,
   EvpStage,
+  EvpTimelineEntry,
   FrameEvent,
   IncidentKind,
   LaneId,
@@ -26,7 +28,7 @@ import type {
   VehicleType,
 } from '@urbanflow/core';
 import { SimulationClient } from '../worker/client.js';
-import type { ProposalVerdict } from '../worker/client.js';
+import type { DebugBundleData, ProposalVerdict } from '../worker/client.js';
 import { STRINGS } from '../i18n/strings.js';
 import { loadThemePref, resolveTheme, saveThemePref, loadMotionPref, saveMotionPref } from './storage.js';
 import type { MotionPref } from './storage.js';
@@ -114,6 +116,9 @@ export interface EvpCountersView {
   shortfallsS: number[];
 }
 
+/** Wall-clock milliseconds without fresh KPIs before the UI calls the feed stalled. */
+const KPI_STALE_AFTER_MS = 2000;
+
 /** Project a measured metrics snapshot onto the UI without inventing values. */
 export function toKpi(metrics: MetricsSnapshot): KpiSnapshot {
   return {
@@ -161,6 +166,23 @@ export class AppStore {
     rejectedByReason: {},
     shortfallsS: [],
   });
+
+  /** T22: timestamped EVP lifecycle, straight from the worker's recorder. */
+  public readonly evpTimeline = signal<EvpTimelineEntry[]>([]);
+
+  /**
+   * Render frames the worker dropped for want of a recycled buffer (LIMITATIONS
+   * §26). Cumulative since worker start; the footer badge appears when it climbs.
+   */
+  public readonly droppedRenderFrames = signal<number>(0);
+
+  /**
+   * True when the sim is running but no `kpis` frame has arrived for
+   * `KPI_STALE_AFTER_MS` (LIMITATIONS §28). The numbers on screen are then the
+   * *last measured* ones, and the UI has to say so rather than let a frozen
+   * delay look current (Rule 00).
+   */
+  public readonly kpiStale = signal<boolean>(false);
 
   /** Per-lane stopped-vehicle counts, in `LANES` order, from the worker. */
   public readonly waiting = signal<number[]>([]);
@@ -230,10 +252,12 @@ export class AppStore {
     active: boolean;
     stepIndex: number;
     caption: string;
+    paused: boolean;
   }>({
     active: false,
     stepIndex: 0,
     caption: '',
+    paused: false,
   });
 
   /** MongoDB persistence & connection status */
@@ -256,12 +280,19 @@ export class AppStore {
   /** Frame subscribers, called once per worker frame per twin. */
   private frameHandlers: Array<(event: FrameEvent) => void> = [];
 
+  /** Wall-clock ms of the last `kpis` message; 0 until the first one lands. */
+  private lastKpiWallMs = 0;
+  private readonly kpiWatchdog: ReturnType<typeof setInterval>;
+
   constructor() {
     this.client = new SimulationClient({
       onFrame: (event) => {
         for (const handler of this.frameHandlers) handler(event);
       },
       onKpis: (event) => {
+        this.lastKpiWallMs = Date.now();
+        this.kpiStale.set(false);
+        this.droppedRenderFrames.set(event.droppedRenderFrames);
         this.kpiFixed.set(toKpi(event.kpis.fixed));
         this.kpiAdaptive.set(toKpi(event.kpis.adaptive));
         this.observation.set(event.observation);
@@ -299,6 +330,7 @@ export class AppStore {
       onEvp: (event) => {
         this.evpStatus.set(event.status);
         this.evpCounters.set(event.counters);
+        this.evpTimeline.set(event.timeline);
       },
       onError: (code, message) => {
         this.workerNotice.set(`${code}: ${message}`);
@@ -307,6 +339,18 @@ export class AppStore {
         this.workerNotice.set(STRINGS.panel.workerRestarted(tSimS));
       },
     });
+
+    // 1 Hz freshness check. This is UI pacing only — no displayed or simulated
+    // number reads this clock (Rule 07).
+    this.kpiWatchdog = setInterval(() => {
+      if (this.isPaused.get() || this.lastKpiWallMs === 0) return;
+      this.kpiStale.set(Date.now() - this.lastKpiWallMs > KPI_STALE_AFTER_MS);
+    }, 1000);
+  }
+
+  /** Stop the watchdog; only used by tests/shutdown paths. */
+  public dispose(): void {
+    clearInterval(this.kpiWatchdog);
   }
 
   /** Wire frame consumers. Called once from `main.ts` before `start()`. */
@@ -402,6 +446,9 @@ export class AppStore {
     this.observation.set(null);
     this.evpStatus.set(null);
     this.evpCounters.set({ accepted: 0, rejected: 0, rejectedByReason: {}, shortfallsS: [] });
+    this.evpTimeline.set([]);
+    this.kpiStale.set(false);
+    this.lastKpiWallMs = 0;
     this.tSimS.set(0);
     this.waiting.set([]);
     this.workerNotice.set('');
@@ -444,6 +491,20 @@ export class AppStore {
    */
   public verifyProposal(params: Record<string, unknown>): Promise<ProposalVerdict> {
     return this.client.verifyProposal(params);
+  }
+
+  /**
+   * Apply an operator-approved parameter patch to the adaptive controller
+   * (Module 04 §3.4, step 3). Bounds are enforced again on the wire; the kernel
+   * never sees this call and cannot be bypassed by it.
+   */
+  public applyAdaptiveParams(params: Partial<AdaptiveParams>): void {
+    this.client.setAdaptiveParams(params);
+  }
+
+  /** Worker-side facts for a debug bundle (Module 16 §6); host facts are added by the caller. */
+  public requestDebugBundleData(): Promise<DebugBundleData> {
+    return this.client.requestDebugBundle();
   }
 
   public spawnEms(lane: LaneId, distanceM = 45): void {
@@ -528,17 +589,46 @@ export class AppStore {
    * auto-trigger reacts to the vehicle that is actually present -- preemption
    * follows the ambulance, not the reverse.
    */
-  public injectBurst(lane: LaneId, count = 5, type: VehicleType = 'CAR', distanceM = 45): void {
-    this.client.spawnVehicle(lane, type, count, distanceM);
+  public injectBurst(
+    lane: LaneId,
+    count = 5,
+    type: VehicleType = 'CAR',
+    distanceM = 45,
+    speedMps?: number,
+  ): void {
+    this.spawnVehicle(lane, type, count, distanceM, speedMps);
   }
 
-  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM = 45): void {
-    this.client.spawnVehicle(lane, type, count, distanceM);
+  /**
+   * Central spawn funnel. Every operator-triggered injection (UI buttons,
+   * keyboard, presets, copilot actions) routes through here, so out-of-range
+   * inputs are clamped once and never reach the worker — the wire schema would
+   * reject them anyway, but clamping keeps a stray call from silently dropping.
+   */
+  public spawnVehicle(
+    lane: LaneId,
+    type: VehicleType,
+    count = 1,
+    distanceM = 45,
+    speedMps?: number,
+  ): void {
+    const safeCount = Math.max(1, Math.min(25, Math.floor(count) || 1));
+    const safeDistM = Number.isFinite(distanceM) ? Math.max(0, Math.min(800, distanceM)) : 45;
+    const safeSpeed =
+      speedMps !== undefined && Number.isFinite(speedMps)
+        ? Math.max(0, Math.min(30, speedMps))
+        : undefined;
+    this.client.spawnVehicle(lane, type, safeCount, safeDistM, safeSpeed);
   }
 
   /** Inject into whichever approach the operator is pointing at. */
-  public spawnInSelectedLane(type: VehicleType, count = 1, distanceM?: number): void {
-    this.spawnVehicle(this.selectedLane.get(), type, count, distanceM);
+  public spawnInSelectedLane(
+    type: VehicleType,
+    count = 1,
+    distanceM?: number,
+    speedMps?: number,
+  ): void {
+    this.spawnVehicle(this.selectedLane.get(), type, count, distanceM, speedMps);
   }
 
   public selectLane(lane: LaneId): void {

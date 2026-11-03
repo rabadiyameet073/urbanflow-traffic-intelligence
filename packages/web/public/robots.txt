@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 Disallow: /api/
-Sitemap: https://urbanflow.pages.dev/sitemap.xml
+Sitemap: https://urbanflow-ai.pages.dev/sitemap.xml
+

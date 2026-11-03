@@ -19,3 +19,4 @@ Adopt option (a). Controller and SafetyKernel execute in `@urbanflow/core` in th
 
 ## Evidence
 Cold-open browser demo functions without active edge network connectivity.
+

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "warmupS": 60,
+  "scenarioDurationS": 180,
+  "distances": [
+    {
+      "distanceM": 150,
+      "laneLengthM": 300,
+      "fixedEmsDelayS": {
+        "mean": 13.9,
+        "ci95": [
+          7.72,
+          25.38
+        ],
+        "n": 5,
+        "unobservedSeeds": 0
+      },
+      "adaptiveEmsDelayS": {
+        "mean": 13.43,
+        "ci95": [
+          4.34,
+          22.52
+        ],
+        "n": 5,
+        "unobservedSeeds": 0
+      },
+      "deltaVsFixedS": {
+        "mean": 0.47,
+        "ci95": [
+          -13.96,
+          20.6
+        ],
+        "excludesZero": false,
+        "n": 5
+      },
+      "tightPlansPct": 100,
+      "meanShortfallS": 9.5,
+      "planStatusCounts": {
+        "OK": 0,
+        "TIGHT": 5
+      },
+      "verdict": "TIGHT: every run needs 9.5 s more lead time than the clearance interval allows. EMS delay difference 0.47 s is inside the noise floor (95% CI [-13.96, 20.6] includes zero), so this point does not establish a winner."
+    },
+    {
+      "distanceM": 300,
+      "laneLengthM": 360,
+      "fixedEmsDelayS": {
+        "mean": 42.57,
+        "ci95": [
+          29.87,
+          64.59
+        ],
+        "n": 5,
+        "unobservedSeeds": 0
+      },
+      "adaptiveEmsDelayS": {
+        "mean": 56.67,
+        "ci95": [
+          34.41,
+          77.31
+        ],
+        "n": 5,
+        "unobservedSeeds": 0
+      },
+      "deltaVsFixedS": {
+        "mean": -14.1,
+        "ci95": [
+          -44.52,
+          25.64
+        ],
+        "excludesZero": false,
+        "n": 5
+      },
+      "tightPlansPct": 0,
+      "meanShortfallS": 0,
+      "planStatusCounts": {
+        "OK": 5,
+        "TIGHT": 0
+      },
+      "verdict": "OK: every run is planned with lead time to spare. EMS delay difference -14.1 s is inside the noise floor (95% CI [-44.52, 25.64] includes zero), so this point does not establish a winner."
+    },
+    {
+      "distanceM": 500,
+      "laneLengthM": 560,
+      "fixedEmsDelayS": {
+        "mean": 76.18,
+        "ci95": [
+          68.52,
+          88.58
+        ],
+        "n": 5,
+        "unobservedSeeds": 0
+      },
+      "adaptiveEmsDelayS": {
+        "mean": 76.18,
+        "ci95": [
+          72.4,
+          79.96
+        ],
+        "n": 5,
+        "unobservedSeeds": 0
+      },
+      "deltaVsFixedS": {
+        "mean": 0,
+        "ci95": [
+          -6.2,
+          10.1
+        ],
+        "excludesZero": false,
+        "n": 5
+      },
+      "tightPlansPct": 0,
+      "meanShortfallS": 0,
+      "planStatusCounts": {
+        "OK": 5,
+        "TIGHT": 0
+      },
+      "verdict": "OK: every run is planned with lead time to spare. EMS delay difference 0 s is inside the noise floor (95% CI [-6.2, 10.1] includes zero), so this point does not establish a winner."
+    }
+  ],
+  "modelNote": "The emergency vehicle is spawned at its physical detection distance through SimEngine.spawnEmsAt, and the approach is lengthened to distance + 60 m so the vehicle fits. Lengthening the approach also adds storage; background demand is identical across points and laneLengthM is reported per row so that confound is auditable. Delay is measured from the emsMilestone/boxExited event; seeds with no observed exit are counted in unobservedSeeds and excluded from the mean rather than replaced with a placeholder.",
+  "narrative": "Detection at 150 m produced TIGHT plans. Yellow (3.5 s) and all-red (2.0 s) are fixed by Safety Kernel invariants I2 and I5, so the only recourse is to accept the shortfall and record it; the controller may not shorten clearance to buy the missing seconds. Longer detection distances produce OK plans because the ETA covers the full required lead time."
+}

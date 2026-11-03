@@ -1,6 +1,7 @@
 /**
  * Deterministic RNG helpers for @urbanflow/core (Rule 07).
- * Pure: no Math.random, Date, or platform APIs. Basic arithmetic only, so results
+ * Pure: no unseeded RNG, no clock reads, no platform APIs. Basic arithmetic
+ * only, so results
  * are bit-identical across JS engines.
  */
 
@@ -78,3 +79,4 @@ export function expSample(rng: () => number, ratePerS: number): number {
   const u = 1 - rng(); // (0, 1]
   return -detLn(u) / ratePerS;
 }
+

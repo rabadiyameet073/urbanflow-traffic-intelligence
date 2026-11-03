@@ -19,3 +19,4 @@ Adopt option (a). All Copilot calls go through `CopilotRouter`. Failures, budget
 
 ## Evidence
 `packages/edge/src/copilot/router.ts` fallback chain tests.
+

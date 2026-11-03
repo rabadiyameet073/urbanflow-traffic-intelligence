@@ -15,3 +15,4 @@
    - Core simulation and single-user control room run unimpeded locally in the browser.
 4. **Inspect Error Logs:**
    - Run `npx wrangler tail` to stream live Edge Worker exceptions.
+

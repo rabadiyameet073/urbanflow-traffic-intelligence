@@ -16,7 +16,7 @@
  * zod-validated on the hot path; only their header is checked.
  */
 import { z } from 'zod';
-import { LANES, SimConfigSchema, VEHICLE_TYPES } from '../contracts.js';
+import { AdaptiveParamsSchema, LANES, SimConfigSchema, VEHICLE_TYPES } from '../contracts.js';
 import type { EvpDecisionResponse, EvpStage, LaneId, Observation, SignalState } from '../contracts.js';
 import type { MetricsSnapshot } from '../metrics/metrics.js';
 
@@ -129,6 +129,7 @@ export const SpawnVehicleCommand = z.object({
   vehicleType: z.enum(VEHICLE_TYPES),
   count: z.number().finite().int().min(1).max(25).default(1),
   distanceM: z.number().finite().min(0).max(800).optional(),
+  speedMps: z.number().finite().min(0).max(30).optional(),
   priority: z.enum(['immediate', 'normal']).default('immediate').optional(),
 });
 
@@ -151,6 +152,35 @@ export const SetParamsCommand = z.object({
   v: V,
   type: z.literal('setParams'),
   params: SimConfigSchema.partial(),
+});
+
+/**
+ * Apply an *approved* adaptive-parameter proposal (Module 04 §3.4, step 3).
+ *
+ * The bounds ARE enforced here, unlike `VerifyProposalCommand`: verification
+ * deliberately lets bad values through so the domain layer can explain *why*
+ * they were refused, but an apply is a decision already made and a partial
+ * patch outside `AdaptiveParamsSchema` must fail on the wire, not in the
+ * controller. The kernel is untouched either way — this changes a *proposal*
+ * policy, never the safety invariants.
+ */
+export const SetAdaptiveParamsCommand = z.object({
+  v: V,
+  type: z.literal('setAdaptiveParams'),
+  params: AdaptiveParamsSchema.partial(),
+});
+
+/**
+ * Ask the worker for the raw material of a debug bundle (Module 16 §6).
+ *
+ * The worker answers with seed, scenario, state hash, the recorded input log
+ * and kernel counters; the *host* facts (version, wall clock, user agent,
+ * console tail) are added by the main thread, because `core` may not read them
+ * (ADR-001).
+ */
+export const ExportDebugBundleCommand = z.object({
+  v: V,
+  type: z.literal('exportDebugBundle'),
 });
 
 export const RestoreToCommand = z.object({
@@ -230,6 +260,8 @@ export const WorkerCommandSchema = z.discriminatedUnion('type', [
   InjectIncidentCommand,
   ClearIncidentCommand,
   SetParamsCommand,
+  SetAdaptiveParamsCommand,
+  ExportDebugBundleCommand,
   RestoreToCommand,
   RequestSnapshotCommand,
   RequestPreemptionCommand,
@@ -294,6 +326,12 @@ export interface KpisEvent {
   waiting: number[];
   /** Current control values, so the sandbox panel renders the worker's truth. */
   control: ControlEcho;
+  /**
+   * Render frames dropped because the pool was empty (§2.3). Cumulative since
+   * worker start. LIMITATIONS §26 asked for this to be visible rather than
+   * silently counted — the UI shows a "running slower" badge when it climbs.
+   */
+  droppedRenderFrames: number;
 }
 
 export interface DecisionEvent {
@@ -327,6 +365,24 @@ export interface HashEvent {
   stateHash: string;
 }
 
+/**
+ * One recorded EVP state transition (T22). `tSimS` is simulated time, so two
+ * replays of one seed produce the identical timeline (Rule 07).
+ */
+export interface EvpTimelineEntry {
+  tSimS: number;
+  action:
+    | 'requested'
+    | 'accepted'
+    | 'rejected'
+    | 'green_granted'
+    | 'stop_line_reached'
+    | 'recovery_started'
+    | 'recovery_complete'
+    | 'cancelled';
+  detail: string;
+}
+
 export interface EvpEvent {
   v: typeof WORKER_PROTOCOL_VERSION;
   type: 'evp';
@@ -347,6 +403,8 @@ export interface EvpEvent {
     rejectedByReason: Record<string, number>;
     shortfallsS: number[];
   };
+  /** Timestamped event log, oldest first (T22). */
+  timeline: EvpTimelineEntry[];
 }
 
 export interface SnapshotEvent {
@@ -375,6 +433,24 @@ export interface ProposalVerifiedEvent {
     proposedPersonDelayS: number;
     kernelViolations: number;
   };
+}
+
+/**
+ * Worker-side half of a debug bundle (Module 16 §6). Everything here is a fact
+ * the worker measured; the IO shell adds `appVersion`/`exportedAt`/`userAgent`
+ * before the bundle is validated by `createDebugBundle`.
+ */
+export interface DebugBundleDataEvent {
+  v: typeof WORKER_PROTOCOL_VERSION;
+  type: 'debugBundleData';
+  seed: number;
+  scenarioId: string;
+  stateHash: string;
+  /** Simulated time of the export, so `pnpm repro` can replay to the same tick. */
+  tSimS: number;
+  inputLog: Array<{ t: number; action: string; payload: unknown }>;
+  kernelCounters: Record<string, number>;
+  adaptiveParams: Record<string, number>;
 }
 
 export interface ErrorEvent {
@@ -407,6 +483,7 @@ export type WorkerEvent =
   | SnapshotEvent
   | PreemptionResultEvent
   | ProposalVerifiedEvent
+  | DebugBundleDataEvent
   | ErrorEvent
   | PongEvent
   | DroppedEvent;

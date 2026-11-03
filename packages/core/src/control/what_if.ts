@@ -1,20 +1,22 @@
 /**
  * Module 01 & Module 04: Digital-Twin What-If Verification Engine
  *
- * Clones the simulation state, fast-forwards 5 sim-minutes on identical arrival streams
- * under current parameters vs proposed parameters, evaluates person-delay, and enforces
- * Kernel dry-run safety verification before any AI proposal can be approved.
+ * Runs two 5-simulated-minute simulations on the same seed (and therefore the
+ * same arrivals), one under the current parameters and one under the proposed
+ * ones, and compares person-delay. A proposal is approved only when it improves
+ * person-delay by more than 3 % *and* the kernel dry-run records no invariant
+ * violation.
+ *
+ * What this is not: it does not clone the running simulation's mid-run state.
+ * Both twins start from t = 0 with the live scenario's config and seed, so the
+ * comparison is a fair A/B between two parameter sets on that demand, not a
+ * continuation of the run on screen. Cloning mid-run state would need an engine
+ * snapshot/restore path that does not exist (see `docs/LIMITATIONS.md`).
  */
-import {
-  SimEngine,
-  AdaptiveController,
-  SafetyKernel,
-  AdaptiveParams,
-  AdaptiveParamsSchema,
-  DEFAULT_ADAPTIVE_PARAMS,
-  TIMING,
-  SimConfig,
-} from '../index.js';
+import { SimEngine } from '../sim/engine.js';
+import { AdaptiveController } from './adaptive.js';
+import { SafetyKernel } from './kernel.js';
+import { AdaptiveParams, AdaptiveParamsSchema, TIMING, SimConfig } from '../contracts.js';
 
 export interface WhatIfEvaluationResult {
   approved: boolean;
@@ -28,7 +30,8 @@ export interface WhatIfEvaluationResult {
 export function evaluateProposalWhatIf(
   baseSim: SimEngine,
   currentParams: AdaptiveParams,
-  proposedPartialParams: Partial<AdaptiveParams> & Record<string, unknown>,
+  /** Untrusted: an AI proposal. Bounds are decided by zod below, never trusted. */
+  proposedPartialParams: Record<string, unknown>,
   durationS = 300.0, // 5 simulated minutes
 ): WhatIfEvaluationResult {
   // 1. Zod bounds validation & Non-configurable check (Rule 08)
@@ -50,30 +53,31 @@ export function evaluateProposalWhatIf(
   const mergedParams = { ...currentParams, ...proposedPartialParams };
   const parseResult = AdaptiveParamsSchema.safeParse(mergedParams);
   if (!parseResult.success) {
+    // A bounds failure is not a kernel violation: nothing reached the kernel.
     return {
       approved: false,
       reason: `Out of bounds: ${parseResult.error.issues.map((i) => i.message).join(', ')}`,
       improvementPct: 0,
       currentPersonDelayS: 0,
       proposedPersonDelayS: 0,
-      kernelViolations: 1,
+      kernelViolations: 0,
     };
   }
 
   const validatedProposedParams = parseResult.data;
 
-  // 2. Clone Simulator State for Digital-Twin Fast-Forward
+  // Both twins are built from the scenario's own config and seed, so the two
+  // halves see one arrival stream and the only difference is the parameters.
   const currentConfig: SimConfig = { ...baseSim.config };
   const currentSeed = baseSim.config.seed;
-  const currentSimTime = baseSim.simTimeS;
 
   // Run Twin A: Current Parameters
-  const simCurrent = new SimEngine({ ...currentConfig, seed: currentSeed + 100 });
+  const simCurrent = new SimEngine({ ...currentConfig, seed: currentSeed });
   const ctrlCurrent = new AdaptiveController(currentParams);
   const kernelCurrent = new SafetyKernel();
 
   // Run Twin B: Proposed Parameters (Identical Seed & Arrivals)
-  const simProposed = new SimEngine({ ...currentConfig, seed: currentSeed + 100 });
+  const simProposed = new SimEngine({ ...currentConfig, seed: currentSeed });
   const ctrlProposed = new AdaptiveController(validatedProposedParams);
   const kernelProposed = new SafetyKernel();
 

@@ -1,0 +1,12 @@
+# Module 23 §5: keep the monorepo out of the build context.
+node_modules
+packages/**/node_modules
+.git
+data
+out
+recordings
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache

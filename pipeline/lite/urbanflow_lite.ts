@@ -8,8 +8,15 @@ import {
   LaneTelemetryPayload,
   LaneMetricsPayload,
   AnomalyEventPayload,
-  AnomalyType,
+  VEHICLE_SPECS,
+  makeEventId,
 } from '@urbanflow/core';
+
+/** Module 26 §2: `lane_metrics.pressure_index` uses the controller's formula. */
+const LANE_LENGTH_M = 300.0;
+const EWMA_ALPHA = 0.1;
+const EWMA_WARMUP_N = 12;
+const EWMA_Z_THRESHOLD = 2.5;
 
 export interface LiteEwma {
   mean: number;
@@ -17,7 +24,7 @@ export interface LiteEwma {
   n: number;
 }
 
-export function ewmaUpdate(s: LiteEwma, x: number, alpha = 0.1): LiteEwma {
+export function ewmaUpdate(s: LiteEwma, x: number, alpha = EWMA_ALPHA): LiteEwma {
   if (s.n === 0) {
     return { mean: x, var: 0, n: 1 };
   }
@@ -51,11 +58,16 @@ export class UrbanFlowLiteProcessor {
 
   /**
    * Drain 10-second window buffer and compute lane metrics + anomalies
+   *
+   * `windowIndex` is the monotonic 10 s window counter; Module 02 §3 requires a
+   * deterministic eventId (`<runId>:<tick>:<lane|na>:<kind>`), so replaying the
+   * same inputs yields byte-identical ids and duplicates stay detectable.
    */
   public flushWindow(
     windowStart: string,
     windowEnd: string,
     runId: string,
+    windowIndex: number,
     signalLanes: Record<LaneId, 'G' | 'Y' | 'R'>,
   ): { metrics: LaneMetricsPayload[]; anomalies: AnomalyEventPayload[] } {
     const metrics: LaneMetricsPayload[] = [];
@@ -63,26 +75,46 @@ export class UrbanFlowLiteProcessor {
 
     for (const lane of LANES) {
       const events = this.windowBuffers.get(lane) ?? [];
-      const vehicleCount = events.length;
-      let totalWait = 0;
+
+      // Module 26 §2: the window row reports *vehicles*, not telemetry records —
+      // one vehicle appears once per tick, so counting records inflates the lane
+      // occupancy by the tick rate.
+      const vehicleIds = new Set<string>();
+      const dischargedIds = new Set<string>();
+      let weightedDelay = 0;
       let maxQueueM = 0;
+      let queueSum = 0;
+      let queueSamples = 0;
       let totalSpeed = 0;
+      let speedSamples = 0;
 
       for (const ev of events) {
-        totalWait += ev.vehicle.waitingTimeSeconds;
+        vehicleIds.add(ev.vehicle.vehicleId);
+        // Same quantity the controller's pressure formula consumes.
+        weightedDelay += VEHICLE_SPECS[ev.vehicle.type].priorityWeight * ev.vehicle.waitingTimeSeconds;
         totalSpeed += ev.vehicle.speedKmh;
-        if (ev.laneMetrics.currentQueueLengthMeters > maxQueueM) {
-          maxQueueM = ev.laneMetrics.currentQueueLengthMeters;
+        speedSamples++;
+        if (ev.vehicle.distanceToStopLineMeters <= 0) {
+          dischargedIds.add(ev.vehicle.vehicleId);
         }
+        const queueM = ev.laneMetrics.currentQueueLengthMeters;
+        if (queueM > maxQueueM) maxQueueM = queueM;
+        queueSum += queueM;
+        queueSamples++;
       }
 
-      const avgSpeedKmh = vehicleCount > 0 ? totalSpeed / vehicleCount : null;
-      const dischargeCount = 0; // calculated across transitions
-      const pressureIndex = vehicleCount + totalWait / 10.0 + (10.0 * maxQueueM) / 300.0;
+      const vehicleCount = vehicleIds.size;
+      const avgSpeedKmh = speedSamples > 0 ? totalSpeed / speedSamples : null;
+      const meanQueueM = queueSamples > 0 ? queueSum / queueSamples : 0;
+      // Module 26 §2: same formula as the controller, evaluated on window means.
+      const pressureIndex = Math.max(
+        0,
+        vehicleCount + weightedDelay / 10.0 + (10.0 * meanQueueM) / LANE_LENGTH_M,
+      );
 
       const metric: LaneMetricsPayload = {
         schemaVersion: 1,
-        eventId: `${runId}:${lane}:metric:${Date.now()}`,
+        eventId: makeEventId(runId, windowIndex, lane, 'metrics'),
         timestamp: windowEnd,
         intersectionId: 'INT_042_MARKET_5TH',
         controller: 'adaptive',
@@ -90,10 +122,10 @@ export class UrbanFlowLiteProcessor {
         windowEnd,
         approachLane: lane,
         vehicleCount,
-        weightedDelay: totalWait,
+        weightedDelay,
         maxQueueM,
         avgSpeedKmh,
-        dischargeCount,
+        dischargeCount: dischargedIds.size,
         pressureIndex,
         runId,
       };
@@ -111,7 +143,7 @@ export class UrbanFlowLiteProcessor {
       if (signal === 'G' && maxQueueM > 80.0 && vehicleCount >= 3) {
         anomalies.push({
           schemaVersion: 1,
-          eventId: `${runId}:${lane}:anom:blockage`,
+          eventId: makeEventId(runId, windowIndex, lane, 'anomaly-blockage'),
           timestamp: windowEnd,
           intersectionId: 'INT_042_MARKET_5TH',
           type: 'BLOCKAGE',
@@ -129,12 +161,12 @@ export class UrbanFlowLiteProcessor {
       }
 
       // 2. DEMAND_SURGE
-      if (ewma.n >= 12) {
+      if (ewma.n >= EWMA_WARMUP_N) {
         const z = zscore(ewma, vehicleCount);
-        if (z > 2.5) {
+        if (z > EWMA_Z_THRESHOLD) {
           anomalies.push({
             schemaVersion: 1,
-            eventId: `${runId}:${lane}:anom:surge`,
+            eventId: makeEventId(runId, windowIndex, lane, 'anomaly-surge'),
             timestamp: windowEnd,
             intersectionId: 'INT_042_MARKET_5TH',
             type: 'DEMAND_SURGE',
@@ -159,3 +191,4 @@ export class UrbanFlowLiteProcessor {
     return { metrics, anomalies };
   }
 }
+

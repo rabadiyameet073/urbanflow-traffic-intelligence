@@ -19,3 +19,4 @@ Adopt option (a). Controllers and EVP managers emit non-binding `ControlAction` 
 
 ## Evidence
 `docs/SAFETY_CASE.md` and `packages/core/test/core.test.ts` invariant tests.
+

@@ -15,6 +15,7 @@ import {
   DEFAULT_SHARE_STATE,
   createDebugBundle,
   validateDebugBundle,
+  splitRng,
   TIMING,
   LANES,
 } from '../src/index.js';
@@ -167,6 +168,9 @@ describe('Observability & Debug Bundle (Module 16)', () => {
       seed: 42,
       scenarioId: 'morning_commute',
       stateHash: 'a1b2c3d4e5f60718',
+      // Supplied by the IO shell: core may not read the clock or navigator (ADR-001).
+      exportedAt: '2026-10-31T09:00:00.000Z',
+      userAgent: 'Mozilla/5.0 (test harness)',
       consoleLogs: ['[INFO] Booting', '[WARN] EVP delay noticed'],
       kernelCounters: { 'kernel.conflicts': 0 },
       degradationLevel: 'Full',
@@ -231,5 +235,35 @@ describe('Performance & Capacity Budgets (Module 15)', () => {
 
     // Gate requirement: >= 100x real time (600s in < 6.0s)
     expect(speedup).toBeGreaterThanOrEqual(100);
+  });
+});
+
+describe('Deterministic chaos (Rule 07)', () => {
+  it('perception noise replays identically from a seed', () => {
+    // `injectPerceptionNoise` used to call Math.random(), so the robustness curve
+    // it produces could not be reproduced from any seed and no number from it
+    // could honestly be quoted (Rule 00). It now takes an injected stream.
+    const sim = new SimEngine({ seed: 31 });
+    const kernel = new SafetyKernel();
+    const ctrl = new FixedTimeController();
+    for (let t = 0; t < 300; t++) {
+      const obs = sim.observe();
+      sim.step(kernel.step(ctrl.decide(obs), null, TIMING.SIM_DT_S));
+    }
+
+    const obs = sim.observe();
+    const raw = LANES.map((lane) => obs.lanes[lane].vehicleCount);
+    // Guard: if the junction were empty the comparison below would be vacuous.
+    expect(raw.some((count) => count > 0)).toBe(true);
+
+    const first = ChaosEngine.injectPerceptionNoise(obs, 0.3, 0.2, splitRng(5, 'chaos-noise'));
+    const second = ChaosEngine.injectPerceptionNoise(obs, 0.3, 0.2, splitRng(5, 'chaos-noise'));
+    expect(LANES.map((lane) => first.lanes[lane].vehicleCount)).toEqual(
+      LANES.map((lane) => second.lanes[lane].vehicleCount),
+    );
+
+    // And the noise must actually do something, or the determinism is trivial.
+    const perturbed = LANES.map((lane) => first.lanes[lane].vehicleCount);
+    expect(perturbed).not.toEqual(raw);
   });
 });

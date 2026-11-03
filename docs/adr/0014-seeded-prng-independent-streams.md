@@ -19,3 +19,4 @@ Adopt option (a). Each lane maintains dedicated, isolated PRNG streams derived d
 
 ## Evidence
 `packages/core/test/core.test.ts` fair arrivals test validates 100% arrival match.
+

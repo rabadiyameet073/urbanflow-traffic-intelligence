@@ -19,3 +19,4 @@ Adopt option (a). Implement `G_MIN_EFFICIENT_S` hold duration, switching thresho
 
 ## Evidence
 `packages/bench/out/results.json` shows adaptive controller beats fixed-time across held-out seeds.
+

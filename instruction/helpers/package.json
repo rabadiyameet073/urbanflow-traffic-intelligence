@@ -1,0 +1,6 @@
+{
+  "name": "urbanflow-pack-helpers",
+  "private": true,
+  "type": "module",
+  "description": "Reference helpers and pack tooling. Not published."
+}

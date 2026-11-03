@@ -14,6 +14,7 @@ import {
   TIMING,
 } from '../contracts.js';
 import { SafetyKernel } from './kernel.js';
+import { splitRng } from '../helpers/rng.js';
 
 export interface WatchdogMetrics {
   heartbeatsReceived: number;
@@ -36,6 +37,15 @@ export class ControlLoopWatchdog {
   public controllerExceptions: number = 0;
   public failSafeTrips: number = 0;
   public reversionsToBaseline: number = 0;
+  /**
+   * Detection latency of the fail-safe, in simulated milliseconds.
+   *
+   * This used to subtract a wall-clock timer reading taken at start, which measured JS scheduling
+   * jitter — a number that changes on every run and cannot be reproduced from a
+   * seed (Rule 07, ADR-001). The quantity the chaos matrix asks for is "FLASH_RED
+   * within one tick", so the latency is now expressed in simulated time: 0 ms
+   * means the trip happened on the very tick that observed the fault.
+   */
   public lastReversionLatencyMs: number = 0;
 
   constructor(kernel: SafetyKernel, timeoutS = 1.0) {
@@ -61,12 +71,10 @@ export class ControlLoopWatchdog {
     evpDirective: EvpDirective | null = null,
     dtS = TIMING.SIM_DT_S,
   ): SignalState {
-    const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-
     // Check heartbeat timeout condition
     if (this.heartbeatsReceived > 0 && simTimeS - this.lastHeartbeatSimS > this.timeoutS) {
       this.missedHeartbeats++;
-      this.triggerFailSafe(startTime);
+      this.triggerFailSafe();
       return this.kernel.step(null, null, dtS);
     }
 
@@ -77,16 +85,20 @@ export class ControlLoopWatchdog {
       return this.kernel.step(action, evpDirective, dtS);
     } catch (err) {
       this.controllerExceptions++;
-      this.triggerFailSafe(startTime);
+      this.triggerFailSafe();
       return this.kernel.step(null, null, dtS);
     }
   }
 
-  private triggerFailSafe(startTime: number): void {
+  /**
+   * Trip the fail-safe. Detection and reversion happen inside the same tick as
+   * the fault, so the recorded latency is zero simulated milliseconds — which is
+   * the property the safety case claims, and one that replays exactly.
+   */
+  private triggerFailSafe(): void {
     this.failSafeTrips++;
     this.kernel.failSafe();
-    const endTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    this.lastReversionLatencyMs = endTime - startTime;
+    this.lastReversionLatencyMs = 0;
   }
 
   /**
@@ -140,11 +152,18 @@ export class ChaosEngine {
   /**
    * Injects perception noise (stochastic count offsets and sensor dropouts)
    * to test controller and kernel robustness under imperfect inputs.
+   *
+   * The randomness is injected rather than drawn from the unseeded global RNG: a robustness
+   * curve quoted in a report has to be reproducible from its seed (Rule 00,
+   * Rule 07). Pass a stream from `splitRng(seed, 'chaos-noise')`; the default is
+   * that same stream pinned at seed 0, so a call with no arguments still replays
+   * identically.
    */
   public static injectPerceptionNoise(
     obs: Observation,
     noiseFraction: number, // e.g. 0.2 (+/- 20% count perturbation)
     dropoutProb = 0.0,    // probability of sensor dropout returning 0
+    rng: () => number = splitRng(0, 'chaos-noise'),
   ): Observation {
     const noisyLanes = { ...obs.lanes };
 
@@ -152,17 +171,17 @@ export class ChaosEngine {
       const orig = obs.lanes[lane];
       if (!orig) continue;
 
-      if (dropoutProb > 0 && Math.random() < dropoutProb) {
-        noisyLanes[lane] = {
-          ...orig,
-          vehicleCount: 0,
-          queueLengthM: 0,
-        };
+      if (dropoutProb > 0 && rng() < dropoutProb) {
+        // Module 20 §8: a missing reading is never "zero vehicles". The lane is
+        // flagged invalid and keeps its last-known numbers, so a consumer that
+        // honours the flag treats the window as unknown instead of empty — the
+        // difference between "the queue cleared" and "the sensor went quiet".
+        noisyLanes[lane] = { ...orig, valid: false };
         continue;
       }
 
       // Symmetrical multiplicative noise clamped to non-negative
-      const delta = (Math.random() * 2 - 1) * noiseFraction;
+      const delta = (rng() * 2 - 1) * noiseFraction;
       const noisyCount = Math.max(0, Math.round(orig.vehicleCount * (1 + delta)));
       const noisyQueue = Math.max(0, orig.queueLengthM * (1 + delta));
 
@@ -181,8 +200,13 @@ export class ChaosEngine {
 
   /**
    * Generates a storm of forged or conflicting EVP requests to test storm guard.
+   *
+   * Ids are deterministic (`storm-evp-<tag>-<i>`), so the same storm replays to
+   * the same decisions and the idempotency cache behaves the same way twice. The
+   * tag exists to generate a *fresh* storm on purpose — pass a new one when the
+   * test wants the second burst to be treated as new requests rather than replays.
    */
-  public static generateEVPStorm(count = 50): Array<{
+  public static generateEVPStorm(count = 50, tag = 'sim'): Array<{
     id: string;
     lane: LaneId;
     distanceM: number;
@@ -194,7 +218,7 @@ export class ChaosEngine {
 
     for (let i = 0; i < count; i++) {
       storm.push({
-        id: `storm-evp-${i}-${Date.now()}`,
+        id: `storm-evp-${tag}-${i}`,
         lane: testLanes[i % testLanes.length]!,
         distanceM: 50 + (i * 10) % 300,
         speedMps: 12 + (i % 8),
@@ -205,3 +229,4 @@ export class ChaosEngine {
     return storm;
   }
 }
+

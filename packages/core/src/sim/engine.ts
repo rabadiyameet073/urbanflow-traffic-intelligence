@@ -325,7 +325,13 @@ export class SimEngine {
    * injection returns an empty array; the id is what binds a vehicle to an EVP
    * plan, and nothing outside the preemption path needs one.
    */
-  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM?: number): string[] {
+  public spawnVehicle(
+    lane: LaneId,
+    type: VehicleType,
+    count = 1,
+    distanceM?: number,
+    speedMps?: number,
+  ): string[] {
     const simLane = this.lanes[lane];
     if (!simLane) return [];
 
@@ -335,26 +341,52 @@ export class SimEngine {
     const stamp = Math.floor(this.simTimeS * 10);
     const emsIds: string[] = [];
 
-    const lastPos = simLane.count > 0 ? (simLane.pos[simLane.order[simLane.count - 1] as number] ?? 0) : 0;
     const reqDist = distanceM !== undefined ? distanceM : 45;
-    const baseDist = Math.max(reqDist, lastPos > 0 ? lastPos + spacingM : reqDist);
+    let candPos = Math.max(12, Math.min(this.config.laneLengthM - 10, reqDist));
+
+    // Entry speed: the operator's override when given (clamped to this class's
+    // physical max), else the usual EMS-cruise / approach default. RNG-free, so
+    // both twins and any replay stay bit-identical.
+    const defaultSpeed = isEms
+      ? TIMING.EMS_CRUISE_MPS
+      : Math.min(spec.maxSpeedMps, this.config.speedLimitMps * 0.8);
+    const initSpeed =
+      speedMps !== undefined ? Math.max(0, Math.min(spec.maxSpeedMps, speedMps)) : defaultSpeed;
 
     for (let i = 0; i < count; i++) {
-      // `pos` grows upstream, so member `i` sits *behind* member `i - 1`.
-      const pos = Math.min(this.config.laneLengthM - 2, baseDist + i * spacingM);
+      // Find a collision-free spot near candPos that never overlaps any existing vehicle
+      let placedPos = candPos;
+      let collision = true;
+      let attempts = 0;
+
+      while (collision && attempts < 25) {
+        attempts++;
+        collision = false;
+        for (let j = 0; j < simLane.count; j++) {
+          const slot = simLane.order[j] as number;
+          const otherPos = simLane.pos[slot] as number;
+          const otherLen = VEHICLE_SPECS[simLane.getVehicleType(slot)].lengthM;
+          const safeDist = Math.max(spacingM, otherLen + spec.minGapS0 + 1.5);
+
+          if (Math.abs(placedPos - otherPos) < safeDist) {
+            // Overlaps existing vehicle at otherPos. Nudge placedPos upstream of it.
+            placedPos = otherPos + safeDist;
+            collision = true;
+            break;
+          }
+        }
+      }
+
+      const insideLane = placedPos <= this.config.laneLengthM - 3;
       const emsId = isEms ? `ems-${lane}-${stamp}-${i}` : undefined;
       if (emsId) emsIds.push(emsId);
-
-      const insideLane = pos <= this.config.laneLengthM;
 
       if (insideLane) {
         const slot = simLane.insertOrdered(
           type,
-          pos,
-          // An ambulance arrives doing cruise speed; other vehicles enter with approach speed
-          isEms
-            ? TIMING.EMS_CRUISE_MPS
-            : Math.min(spec.maxSpeedMps, this.config.speedLimitMps * 0.8),
+          placedPos,
+          // Operator-set entry speed when given, else cruise/approach default.
+          initSpeed,
           this.simTimeS,
           isEms,
           emsId,
@@ -378,6 +410,9 @@ export class SimEngine {
           milestone: 'spawned',
         });
       }
+
+      // Next vehicle in pack starts upstream of placedPos with proper headway
+      candPos = placedPos + spacingM;
     }
 
     return emsIds;

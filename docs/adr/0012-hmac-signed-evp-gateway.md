@@ -20,3 +20,4 @@ Adopt option (a). All incoming EVP requests require HMAC-SHA256 signatures over 
 
 ## Evidence
 `packages/edge/test/edge.test.ts` rejects forged signatures, replayed nonces, and expired timestamps.
+

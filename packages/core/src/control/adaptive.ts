@@ -9,22 +9,30 @@ import {
   Observation,
   PhaseId,
   PHASES,
-  PHASE_LANES,
   AdaptiveParams,
   DEFAULT_ADAPTIVE_PARAMS,
+  DEFAULT_SIM_CONFIG,
   TIMING,
 } from '../contracts.js';
+import { phasePressures, phaseVehicleCount } from './pressure.js';
 
 export class AdaptiveController implements Controller {
   public readonly id = 'adaptive';
   public params: AdaptiveParams;
 
+  /** Approach storage length used to normalise queue-spillback pressure. */
+  private readonly laneLengthM: number;
+
   private emptyElapsedS: number = 0;
   private lastReplanTimeS: number = -1;
   private cachedPressures: Record<PhaseId, number>;
 
-  constructor(params: Partial<AdaptiveParams> = {}) {
+  constructor(
+    params: Partial<AdaptiveParams> = {},
+    laneLengthM: number = DEFAULT_SIM_CONFIG.laneLengthM,
+  ) {
     this.params = { ...DEFAULT_ADAPTIVE_PARAMS, ...params };
+    this.laneLengthM = laneLengthM > 0 ? laneLengthM : DEFAULT_SIM_CONFIG.laneLengthM;
     this.cachedPressures = {
       P1_NS_LEFT: 0,
       P2_NS_THRU: 0,
@@ -44,35 +52,9 @@ export class AdaptiveController implements Controller {
     };
   }
 
+  /** Module 02 §1.5 pressure for every phase (delegated to the shared formula). */
   public calculatePressures(obs: Observation): Record<PhaseId, number> {
-    const pressures: Record<PhaseId, number> = {
-      P1_NS_LEFT: 0,
-      P2_NS_THRU: 0,
-      P3_EW_LEFT: 0,
-      P4_EW_THRU: 0,
-    };
-
-    const laneLengthM = 300.0; // standard lane length
-
-    for (const phase of PHASES) {
-      const [lane1, lane2] = PHASE_LANES[phase];
-      const obs1 = obs.lanes[lane1];
-      const obs2 = obs.lanes[lane2];
-
-      const p1 =
-        this.params.alpha * (obs1?.vehicleCount ?? 0) +
-        this.params.beta * ((obs1?.sumWeightedWaitS ?? 0) / 10.0) +
-        this.params.gamma * (10.0 * (obs1?.queueLengthM ?? 0) / laneLengthM);
-
-      const p2 =
-        this.params.alpha * (obs2?.vehicleCount ?? 0) +
-        this.params.beta * ((obs2?.sumWeightedWaitS ?? 0) / 10.0) +
-        this.params.gamma * (10.0 * (obs2?.queueLengthM ?? 0) / laneLengthM);
-
-      pressures[phase] = Math.max(0, p1 + p2);
-    }
-
-    return pressures;
+    return phasePressures(obs, this.params, this.laneLengthM);
   }
 
   public decide(obs: Observation): ControlAction {
@@ -115,8 +97,7 @@ export class AdaptiveController implements Controller {
     for (const phase of PHASES) {
       if (phase !== currentPhase) {
         const p = pressures[phase] ?? 0;
-        const [l1, l2] = PHASE_LANES[phase];
-        const count = (obs.lanes[l1]?.vehicleCount ?? 0) + (obs.lanes[l2]?.vehicleCount ?? 0);
+        const count = phaseVehicleCount(obs, phase);
         if (count > 0 && p > maxPressure) {
           maxPressure = p;
           bestPhase = phase;
@@ -125,8 +106,7 @@ export class AdaptiveController implements Controller {
     }
 
     // 5. Track gap-out (current phase empty)
-    const [curL1, curL2] = PHASE_LANES[currentPhase];
-    const currentCount = (obs.lanes[curL1]?.vehicleCount ?? 0) + (obs.lanes[curL2]?.vehicleCount ?? 0);
+    const currentCount = phaseVehicleCount(obs, currentPhase);
 
     if (currentCount === 0) {
       this.emptyElapsedS += TIMING.SIM_DT_S;
@@ -188,3 +168,4 @@ export class AdaptiveController implements Controller {
     };
   }
 }
+

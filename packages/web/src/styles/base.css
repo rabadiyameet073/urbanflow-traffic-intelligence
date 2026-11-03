@@ -11,6 +11,9 @@
 html, body {
   width: 100%;
   height: 100%;
+  /* Module 51 §3.3: declare supported schemes so native controls (scrollbars,
+     form widgets, `<dialog>`) render in the matching theme. */
+  color-scheme: dark light;
   background-color: var(--color-canvas);
   color: var(--color-text);
   font-family: var(--font-ui);
@@ -31,16 +34,89 @@ html, body {
   }
 }
 
+/*
+ * Module 42 §2: "A user setting 'Reduce motion' in the app mirrors the OS
+ * preference (and can force it on)." CSS cannot observe a stored preference, so
+ * the store sets `data-reduce-motion="on"` on `<html>` and this block applies
+ * the same treatment the media query would, for users whose OS setting is off
+ * but who still want motion suppressed in this app.
+ */
+:root[data-reduce-motion="on"] *,
+:root[data-reduce-motion="on"] *::before,
+:root[data-reduce-motion="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* Inviolable Focus Ring (Module 40 line 119) */
 :focus-visible {
   outline: 2px solid var(--color-focus) !important;
   outline-offset: 2px !important;
 }
 
-/* Tabular figures for numbers */
+/* Module 33 §1 rule 5 / Module 32 §4: skip link — visually hidden until it
+   receives keyboard focus, then it is the first thing on screen. */
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: -48px;
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  text-decoration: none;
+  transition: top var(--dur-fast) var(--ease-out-quint);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Tabular figures for numbers (Module 40 §3) */
 .mono, .tabular {
   font-family: var(--font-mono);
-  font-feature-settings: "tnum" 1, "zero" 1;
+  /* JetBrains Mono row: tabular figures so values never jitter. */
+  font-variant-numeric: tabular-nums;
+  /* Inter numeric-UI row, applied verbatim; unknown features are ignored. */
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+
+/*
+ * Module 40 §2.4 / Module 51 §2: inline SVG icons replace every pictographic
+ * emoji in the chrome. One sizing rule for the whole family: they scale with
+ * the surrounding text (`1.15em`), never shrink in a flex row (`flex: none`),
+ * and inherit `currentColor` from the control so state is carried by the label,
+ * not the glyph. `vertical-align` optically centres a standalone icon in running
+ * text (e.g. the KPI warning marker); inside a flex container it is ignored.
+ */
+.icon {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  display: inline-block;
+  vertical-align: -0.18em;
+}
+
+/*
+ * Module 51 §3.1 / §6: `.visually-hidden` — content kept in the accessibility
+ * tree and findable by screen readers, hidden visually. Preferred over
+ * `display:none`, which erases the content from assistive technology. Do not
+ * apply to focusable elements: it removes them from the tab order.
+ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 button {
@@ -54,4 +130,156 @@ button {
 input, select {
   font-family: inherit;
   font-size: inherit;
+}
+
+/* Module 30 §1.4 / §6 / §7: degraded states — unsupported browser and
+   surfaced notices. Token-driven so they honor theme and reduced motion. */
+.boot-unsupported {
+  max-width: 44rem;
+  margin: var(--space-8) auto;
+  padding: 0 var(--space-5);
+  text-align: center;
+  color: var(--color-text);
+}
+
+.boot-unsupported h1 {
+  font-size: 1.35rem;
+  margin-bottom: var(--space-4);
+}
+
+.boot-unsupported p {
+  color: var(--color-text-2);
+  margin-bottom: var(--space-3);
+}
+
+.boot-unsupported__note {
+  font-size: 0.9rem;
+  color: var(--color-text-3);
+}
+
+.boot-notice {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translate(-50%, var(--space-4));
+  max-width: min(90vw, 40rem);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  box-shadow: var(--shadow-dialog);
+  font-size: 0.85rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--dur-base) var(--ease-out-quint), transform var(--dur-base) var(--ease-out-quint);
+}
+
+.boot-notice--visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+/* Module 30 §2: static shell noscript fallback (index.html) */
+.noscript-fallback {
+  max-width: 40rem;
+  margin: var(--space-8) auto;
+  padding: 0 var(--space-5);
+  text-align: center;
+}
+
+/*
+ * Module 51 §3.3 performance: `dashboard-panels` can stack below the fold on
+ * small viewports — `content-visibility: auto` lets the browser skip layout
+ * and paint of the offscreen range while keeping it in the a11y tree and
+ * scrollable normally. */
+.dashboard-panels {
+  content-visibility: auto;
+}
+
+/*
+ * Module 51 §3.3 print: minimal print stylesheet for the Results content —
+ * KPI tiles, the honesty disclaimer, the lane table and the explanatory
+ * panels print; the live canvas, every control, the dialogs and the chrome
+ * do not. Light-on-dark tokens would wash out on paper, so colours are
+ * forced to black on white for the duration of the print. Named colours (not
+ * hex, not theme tokens) are used on purpose: print wants absolute ink/paper
+ * regardless of the dark/light token palette (Module 40 forbids raw hex here).
+ */
+@media print {
+  html, body {
+    background: white;
+    color: black;
+  }
+
+  .skip-link,
+  .app-header,
+  .header-controls,
+  .btn,
+  canvas,
+  .canvas-viewport,
+  .app-footer,
+  .boot-notice,
+  dialog {
+    display: none !important;
+  }
+
+  .app-container {
+    max-width: none;
+    padding: 0;
+  }
+
+  /* `content-visibility: auto` can leave blank regions on paper; force the
+     panels to render fully for the print pass. */
+  .dashboard-panels {
+    content-visibility: visible;
+  }
+
+  .stat-tile,
+  .panel-card {
+    break-inside: avoid;
+    border: 1px solid black;
+    background: white;
+    color: black;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: black;
+  }
+}
+
+/*
+ * Module 32 §1 / §6: forced-colours (Windows High Contrast, `forced-colors:
+ * active`). The OS replaces our token palette with system colours; the risk is
+ * that a component whose only separator was a coloured background or a custom
+ * border disappears or loses its edge. These rules are not about re-theming —
+ * they keep the boundaries and the focus indicator in the system colour the OS
+ * picks, so the layout stays legible without us fighting the mode.
+ */
+@media (forced-colors: active) {
+  .badge,
+  .btn,
+  .lane-data-table,
+  .boot-notice {
+    /* A visible system border, so a control that leaned on a coloured fill or
+       an elevation shadow still has an edge in high-contrast mode. Colours and
+       backgrounds are left to the OS (forced-color-adjust stays on). */
+    border: 1px solid CanvasText;
+  }
+
+  /* The canvas signal plate and glyphs are drawn, not styled, so the element
+     keeps a system border to stay distinguishable from the road. */
+  canvas {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+
+  /* Guarantee the focus ring survives the palette swap (never `outline: none`). */
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
 }

@@ -51,6 +51,9 @@ export class SimLane {
   public totalArrivals: number = 0;
   public totalExited: number = 0;
 
+  /** Slot -> EMS request id, populated only for emergency vehicles (never a typed array). */
+  private readonly emsIdBySlot = new Map<number, string>();
+
   constructor(laneId: LaneId, capacity = 512) {
     this.laneId = laneId;
     this.capacity = capacity;
@@ -93,6 +96,7 @@ export class SimLane {
     this.dischargeRing.fill(0);
     this.ringHead = 0;
     this.entryBuffer.length = 0;
+    this.emsIdBySlot.clear();
     this.deniedCount = 0;
     this.totalArrivals = 0;
     this.totalExited = 0;
@@ -105,6 +109,7 @@ export class SimLane {
     vel: number,
     simTimeS: number,
     isEms = false,
+    emsId?: string,
   ): number {
     if (this.freeTop <= 0 || this.count >= this.capacity) {
       return -1; // lane full
@@ -119,10 +124,42 @@ export class SimLane {
     this.stops[slot] = 0;
     this.t0[slot] = simTimeS;
     this.flags[slot] = isEms ? FLAG_EMS : 0;
+    if (isEms && emsId) {
+      this.emsIdBySlot.set(slot, emsId);
+    }
 
     this.order[this.count] = slot;
     this.count++;
     this.totalArrivals++;
+    return slot;
+  }
+
+  /**
+   * Insert a vehicle at an explicit position, keeping `order` sorted ascending by
+   * position (front of the queue first). `insertBack` is only valid at the
+   * upstream boundary; a vehicle injected mid-lane must be spliced in ahead of
+   * every queued vehicle that sits further upstream, otherwise the leader lookup
+   * reads a follower as its own leader and the lane jams.
+   */
+  public insertOrdered(
+    type: VehicleType,
+    pos: number,
+    vel: number,
+    simTimeS: number,
+    isEms = false,
+    emsId?: string,
+  ): number {
+    const slot = this.insertBack(type, pos, vel, simTimeS, isEms, emsId);
+    if (slot === -1) return -1;
+
+    let idx = this.count - 1;
+    while (idx > 0) {
+      const prevSlot = this.order[idx - 1] as number;
+      if ((this.pos[prevSlot] as number) <= pos) break;
+      this.order[idx] = prevSlot;
+      idx--;
+    }
+    this.order[idx] = slot;
     return slot;
   }
 
@@ -150,9 +187,39 @@ export class SimLane {
     return INDEX_TO_TYPE[idx] ?? 'CAR';
   }
 
+  /** Read and clear the EMS request id bound to a slot (call before `removeFront`). */
+  public takeEmsId(slot: number): string | null {
+    const id = this.emsIdBySlot.get(slot);
+    if (id === undefined) return null;
+    this.emsIdBySlot.delete(slot);
+    return id;
+  }
+
+  /**
+   * Id of the EMS nearest the stop line in this lane, or null. Mirrors the
+   * `nearestEmsDistanceM` scan in `SimEngine.observe` (same `order` walk, same
+   * `pos > 0` and `FLAG_EMS` tests) so the auto-preempt binds to the ambulance
+   * that is already present instead of spawning a duplicate of it.
+   */
+  public nearestEmsId(): string | null {
+    let bestPos = Number.POSITIVE_INFINITY;
+    let bestId: string | null = null;
+    for (let i = 0; i < this.count; i++) {
+      const slot = this.order[i] as number;
+      if ((this.flags[slot]! & FLAG_EMS) === 0) continue;
+      const pos = this.pos[slot] as number;
+      if (pos > 0 && pos < bestPos) {
+        bestPos = pos;
+        bestId = this.emsIdBySlot.get(slot) ?? null;
+      }
+    }
+    return bestId;
+  }
+
   public getBoxDistance(): number {
     return this.laneId.endsWith('-L')
       ? TIMING.BOX_CROSSING_LEFT_M
       : TIMING.BOX_CROSSING_THRU_M;
   }
 }
+

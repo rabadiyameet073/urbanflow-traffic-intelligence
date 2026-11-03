@@ -1,0 +1,22 @@
+{
+  "$comment": [
+    "Module 25 §5.2: the frozen tuned AdaptiveParams the published results were",
+    "measured with. `packages/core/src/contracts.ts` (DEFAULT_ADAPTIVE_PARAMS)",
+    "stays the single source of truth — scripts/test parity (core/test/params_tuned",
+    "parity) fails if this file and the contract diverge, so the record cannot rot.",
+    "Tuning used train seeds 1-100 only (ADR-016); publication uses held-out",
+    "1001+ and `params` is embedded in results.json on every run.",
+    "commit is null until a release run stamps the real hash — never a guessed one."
+  ],
+  "commit": null,
+  "frozenAt": "2026-10-31",
+  "params": {
+    "G_MIN_EFFICIENT_S": 25.0,
+    "RATIO": 3.0,
+    "FLOOR": 8.0,
+    "GAP_S": 3.0,
+    "alpha": 1.0,
+    "beta": 1.0,
+    "gamma": 1.0
+  }
+}

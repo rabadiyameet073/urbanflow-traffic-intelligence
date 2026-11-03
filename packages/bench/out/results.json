@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 2,
+  "commit": "local-dev",
+  "createdAt": "2026-10-31T13:00:05.211Z",
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32"
+  },
+  "seeds": {
+    "heldOut": [
+      1001,
+      1005
+    ],
+    "all": [
+      1001,
+      1002,
+      1003,
+      1004,
+      1005
+    ]
+  },
+  "scenarioDurationS": 600,
+  "scenarios": [
+    {
+      "id": "balanced-parity",
+      "name": "Balanced Parity",
+      "expectation": "parity",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 98.5,
+          "adaptive": 79.38,
+          "diff": 19.12,
+          "diffCI95": [
+            -2.16,
+            40.41
+          ],
+          "relPct": 18.9,
+          "relCI95": [
+            -1.5,
+            39.2
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 113.2,
+          "adaptive": 76.88
+        },
+        "throughputVph": {
+          "fixed": 1028,
+          "adaptive": 1753
+        },
+        "exited": {
+          "fixed": 857,
+          "adaptive": 1461
+        }
+      },
+      "integrity": {
+        "deniedPct": 0.05,
+        "deniedPctFixed": 11.64,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "balanced-high",
+      "name": "Balanced High Traffic",
+      "expectation": "parity",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 128.6,
+          "adaptive": 117.05,
+          "diff": 11.55,
+          "diffCI95": [
+            -0.42,
+            23.53
+          ],
+          "relPct": 9,
+          "relCI95": [
+            0.4,
+            17.7
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 139.29,
+          "adaptive": 112.97
+        },
+        "throughputVph": {
+          "fixed": 1105,
+          "adaptive": 2008
+        },
+        "exited": {
+          "fixed": 921,
+          "adaptive": 1673
+        }
+      },
+      "integrity": {
+        "deniedPct": 12.3,
+        "deniedPctFixed": 30.8,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "near-saturation",
+      "name": "Near Saturation",
+      "expectation": "adaptive-gte-parity",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 141.13,
+          "adaptive": 145.55,
+          "diff": -4.41,
+          "diffCI95": [
+            -23.69,
+            14.17
+          ],
+          "relPct": -4.8,
+          "relCI95": [
+            -19.9,
+            8.8
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 143.54,
+          "adaptive": 140.47
+        },
+        "throughputVph": {
+          "fixed": 1268,
+          "adaptive": 2233
+        },
+        "exited": {
+          "fixed": 1057,
+          "adaptive": 1861
+        }
+      },
+      "integrity": {
+        "deniedPct": 29.43,
+        "deniedPctFixed": 43.94,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "light-night",
+      "name": "Light Night Traffic",
+      "expectation": "adaptive-wins",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 59.14,
+          "adaptive": 40.07,
+          "diff": 19.08,
+          "diffCI95": [
+            2.14,
+            41.02
+          ],
+          "relPct": 24.8,
+          "relCI95": [
+            4.2,
+            48.9
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 74.98,
+          "adaptive": 41.71
+        },
+        "throughputVph": {
+          "fixed": 666,
+          "adaptive": 877
+        },
+        "exited": {
+          "fixed": 555,
+          "adaptive": 731
+        }
+      },
+      "integrity": {
+        "deniedPct": 0,
+        "deniedPctFixed": 0,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "ns-heavy-tide",
+      "name": "North-South Heavy Tide",
+      "expectation": "adaptive-wins",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 106.7,
+          "adaptive": 80.28,
+          "diff": 26.41,
+          "diffCI95": [
+            19.17,
+            33.88
+          ],
+          "relPct": 24.8,
+          "relCI95": [
+            18,
+            31.6
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 112.85,
+          "adaptive": 85.79
+        },
+        "throughputVph": {
+          "fixed": 1157,
+          "adaptive": 1661
+        },
+        "exited": {
+          "fixed": 964,
+          "adaptive": 1384
+        }
+      },
+      "integrity": {
+        "deniedPct": 4.74,
+        "deniedPctFixed": 19.55,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "stadium-dump",
+      "name": "Stadium Surge Dump",
+      "expectation": "adaptive-wins",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 86.69,
+          "adaptive": 92.7,
+          "diff": -6,
+          "diffCI95": [
+            -21.98,
+            7.5
+          ],
+          "relPct": -12.3,
+          "relCI95": [
+            -36.7,
+            7.2
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 99.92,
+          "adaptive": 94.9
+        },
+        "throughputVph": {
+          "fixed": 896,
+          "adaptive": 1672
+        },
+        "exited": {
+          "fixed": 747,
+          "adaptive": 1393
+        }
+      },
+      "integrity": {
+        "deniedPct": 23.57,
+        "deniedPctFixed": 39.47,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "mixed-uneven",
+      "name": "Mixed Uneven",
+      "expectation": "adaptive-wins",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 101.24,
+          "adaptive": 91.21,
+          "diff": 10.03,
+          "diffCI95": [
+            -1.7,
+            21.76
+          ],
+          "relPct": 9,
+          "relCI95": [
+            -2.3,
+            20.3
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 114.52,
+          "adaptive": 89.59
+        },
+        "throughputVph": {
+          "fixed": 998,
+          "adaptive": 1626
+        },
+        "exited": {
+          "fixed": 832,
+          "adaptive": 1355
+        }
+      },
+      "integrity": {
+        "deniedPct": 7.81,
+        "deniedPctFixed": 21.45,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    },
+    {
+      "id": "blocked-lane-incident",
+      "name": "Blocked Lane Incident",
+      "expectation": "adaptive-gte-parity",
+      "metrics": {
+        "personDelayS": {
+          "fixed": 107.43,
+          "adaptive": 84.1,
+          "diff": 23.34,
+          "diffCI95": [
+            1.31,
+            45.36
+          ],
+          "relPct": 20.7,
+          "relCI95": [
+            2,
+            39.3
+          ]
+        },
+        "avgDelayS": {
+          "fixed": 120.58,
+          "adaptive": 85.68
+        },
+        "throughputVph": {
+          "fixed": 1032,
+          "adaptive": 1794
+        },
+        "exited": {
+          "fixed": 860,
+          "adaptive": 1495
+        }
+      },
+      "integrity": {
+        "deniedPct": 0.77,
+        "deniedPctFixed": 14.66,
+        "conservationOk": true,
+        "kernelConflicts": 0
+      }
+    }
+  ]
+}

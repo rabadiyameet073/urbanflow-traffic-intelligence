@@ -69,3 +69,4 @@ export function pairedBootstrapCi(
 export function excludesZero(r: Pick<BootstrapResult, 'lo' | 'hi'>): boolean {
   return r.lo > 0 || r.hi < 0;
 }
+

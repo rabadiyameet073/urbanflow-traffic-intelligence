@@ -8,6 +8,7 @@
  * - ascPhaseStatusGroupReds (OID 1.3.6.1.4.1.1206.4.2.1.1.3)
  */
 import { SignalState, PhaseId, PHASES } from '../contracts.js';
+import { simWallClockIso } from '../helpers/sim-clock.js';
 
 export interface Ntcip1202PhaseStatus {
   /** 8-bit bitmask where bit 0 is Phase 1, bit 1 is Phase 2, etc. */
@@ -18,7 +19,7 @@ export interface Ntcip1202PhaseStatus {
   activePhaseNumber: number | null;
   /** NTCIP cycle length seconds */
   cycleLengthSeconds: number;
-  /** ISO timestamp */
+  /** ISO timestamp of the simulated instant this status describes. */
   timestamp: string;
 }
 
@@ -31,8 +32,16 @@ const PHASE_TO_NTCIP_NUMBER: Record<PhaseId, number> = {
 
 /**
  * Converts internal SignalState to NTCIP-1202 standardized status group bitmasks.
+ *
+ * @param simTimeS Simulated instant the status describes. The field is a status
+ *   report, so it must carry the time of the state it reports, not the time the
+ *   function happened to run — otherwise two replays of one seed disagree.
  */
-export function toNtcip1202Status(signal: SignalState, cycleLengthS = 90.0): Ntcip1202PhaseStatus {
+export function toNtcip1202Status(
+  signal: SignalState,
+  cycleLengthS = 90.0,
+  simTimeS = 0,
+): Ntcip1202PhaseStatus {
   let greens = 0;
   let yellows = 0;
   let reds = 0b00001111; // default all 4 phases red
@@ -58,6 +67,6 @@ export function toNtcip1202Status(signal: SignalState, cycleLengthS = 90.0): Ntc
     ascPhaseStatusGroupReds: reds,
     activePhaseNumber: activeNum,
     cycleLengthSeconds: cycleLengthS,
-    timestamp: new Date().toISOString(),
+    timestamp: simWallClockIso(simTimeS),
   };
 }

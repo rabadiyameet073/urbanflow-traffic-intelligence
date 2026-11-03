@@ -16,7 +16,7 @@ export const ROOT_CAUSES = [
 
 export const HypothesisSchema = z.object({
   cause: z.enum(ROOT_CAUSES),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().finite().min(0).max(1),
   evidence: z.array(z.string()).max(4),
 });
 
@@ -31,7 +31,7 @@ export const DiagnosisV1Schema = z.object({
   rootCauseHypotheses: z.array(HypothesisSchema).min(1).max(3),
   spillbackRisk: z.object({
     upstream: z.boolean(),
-    minutesToSpillback: z.number().nullable(),
+    minutesToSpillback: z.number().finite().nullable(),
   }),
   recommendedActions: z.array(RecommendedActionSchema),
   advisoryText: z.string().max(280),
@@ -71,3 +71,4 @@ export function verifySemanticNumbers(diagnosis: DiagnosisV1, rawInput: string):
   }
   return true;
 }
+

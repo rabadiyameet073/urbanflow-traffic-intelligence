@@ -1,8 +1,15 @@
 """
 Unit tests for Pure EWMA and Anomaly Detection Rules (Module 23).
+
+§4 also pins the statistical floors: 1 000 normal windows must false-alarm at
+under 1 %, and the West update must match a reference implementation. Both run
+without Spark; the PRNG is seeded, so a failure here is reproducible (module
+02 §7: seeded streams, never a bare random call).
 """
+import random
 import unittest
 from urbanflow.anomalies import Ewma, ewma_update, zscore, detect_anomalies
+from urbanflow.constants import EWMA_ALPHA
 
 class TestAnomalyDetection(unittest.TestCase):
     def test_ewma_update_and_zscore(self):
@@ -80,5 +87,52 @@ class TestAnomalyDetection(unittest.TestCase):
         types = [a["type"] for a in anomalies]
         self.assertIn("EMS_DELAYED", types)
 
+    def test_false_alarm_rate_below_one_percent_on_normal_traffic(self):
+        # Module 23 §4: 1 000 normal windows, seeded so any failure replays.
+        rng = random.Random(1403)
+        state = None
+        surges = 0
+        for i in range(1000):
+            count = max(0, round(rng.gauss(5.0, 0.8)))
+            window = {
+                "approach_lane": "NB-TR",
+                "vehicle_count": count,
+                "discharge_count": count,  # flowing: no BLOCKAGE by construction
+                "max_queue_m": 20.0,
+                "run_id": "run-normal",
+                "window_start": "2026-10-27T10:00:00Z",
+                "window_end": "2026-10-27T10:00:10Z",
+            }
+            anomalies, state = detect_anomalies(
+                window, state, signal_indication="G", window_index=i
+            )
+            surges += sum(1 for a in anomalies if a["type"] == "DEMAND_SURGE")
+        self.assertLess(surges / 1000.0, 0.01)
+
+    def test_ewma_matches_numpy_reference(self):
+        # Module 23 §4: numerical correctness against a reference implementation.
+        import numpy as np
+
+        rng = random.Random(42)
+        series = [float(rng.randint(0, 12)) for _ in range(200)]
+
+        mine = Ewma(mean=0.0, var=0.0, n=0)
+        for x in series:
+            mine = ewma_update(mine, x, alpha=EWMA_ALPHA)
+
+        # Same recurrence, evaluated in numpy float64 as the reference.
+        mean = np.float64(series[0])
+        var = np.float64(0.0)
+        alpha = np.float64(EWMA_ALPHA)
+        for x in series[1:]:
+            d = np.float64(x) - mean
+            mean = mean + alpha * d
+            var = (np.float64(1.0) - alpha) * (var + alpha * d * d)
+
+        self.assertAlmostEqual(mine.mean, float(mean), places=10)
+        self.assertAlmostEqual(mine.var, float(var), places=10)
+        self.assertEqual(mine.n, len(series))
+
 if __name__ == "__main__":
     unittest.main()
+

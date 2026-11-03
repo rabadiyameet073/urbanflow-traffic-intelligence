@@ -140,6 +140,25 @@ export const ICONS = {
       { d: 'M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3' },
       { d: 'M3 6c0 1.66 4.03 3 9 3s9-1.34 9-3' },
     ]),
+  /** Circular arrow — refresh / re-sync. */
+  refresh: (): SVGSVGElement =>
+    render([
+      { d: 'M20 11a8 8 0 1 0-2.3 6.3' },
+      { d: 'M20 4v7h-7' },
+    ]),
+  /** Down-arrow into a tray — save / persist. */
+  save: (): SVGSVGElement =>
+    render([
+      { d: 'M12 4v9' },
+      { d: 'M8 10l4 4 4-4' },
+      { d: 'M5 19h14' },
+    ]),
+  /** Steering-wheel gauge — speed / kinematics. */
+  gauge: (): SVGSVGElement =>
+    render([
+      { d: 'M12 13l4-4' },
+      { d: 'M4 18a9 9 0 1 1 16 0' },
+    ]),
 } as const;
 
 /** Convenience: wrap an icon builder with an accessible label. */

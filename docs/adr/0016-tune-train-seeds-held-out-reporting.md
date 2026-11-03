@@ -19,3 +19,4 @@ Adopt option (a). All controller hyper-parameters are tuned on training seeds. B
 
 ## Evidence
 `packages/bench/out/results.json` reports held-out seeds 1001-1020 with paired delta analysis.
+

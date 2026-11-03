@@ -19,6 +19,18 @@ import {
   conflictsWith,
 } from '../contracts.js';
 import { simWallClockIso } from '../helpers/sim-clock.js';
+import type { EvpTimelineEntry } from '../worker/protocol.js';
+
+/**
+ * The EVP lifecycle event shape (T22) lives in `worker/protocol.ts` so the
+ * wire type and the recorder cannot drift; entries are keyed by *simulated*
+ * time, never wall time: two replays of one seed produce the identical
+ * timeline, which is what makes the log worth shipping inside a debug bundle
+ * (Rule 07).
+ */
+
+/** Bound so a long run with a hostile gateway cannot grow the log unbounded. */
+const EVP_TIMELINE_LIMIT = 100;
 
 interface ManagedEms {
   request: EvpRequest;
@@ -56,6 +68,9 @@ export class EvpManager {
   private readonly requestHistory10s: number[] = [];
   private stormGuardUntilS: number = 0;
 
+  // T22: timestamped event log, oldest first, capped at EVP_TIMELINE_LIMIT.
+  private readonly timeline: EvpTimelineEntry[] = [];
+
   // Module 16 §4.1 counters. They outlive a plan on purpose: `getStatus()` is
   // null once a preemption ends, but "how many requests did this run accept and
   // reject, and why" is exactly what an operator needs after the fact.
@@ -77,6 +92,7 @@ export class EvpManager {
     this.rejectedCount = 0;
     this.rejectedByReason.clear();
     this.shortfallsS.length = 0;
+    this.timeline.length = 0;
   }
 
   /**
@@ -101,9 +117,28 @@ export class EvpManager {
   }
 
   /**
+   * T22: the recorded lifecycle, oldest first. Rebuilt deterministically from
+   * simulated time, so it is safe to show to a judge and safe to bundle.
+   */
+  public getTimeline(): EvpTimelineEntry[] {
+    return [...this.timeline];
+  }
+
+  private log(action: EvpTimelineEntry['action'], detail: string, tSimS: number): void {
+    this.timeline.push({ tSimS, action, detail });
+    if (this.timeline.length > EVP_TIMELINE_LIMIT) this.timeline.shift();
+  }
+
+  /**
    * Validate incoming EVP request against strict physical and security rules.
    */
   public submitRequest(req: EvpRequest, simTimeS: number): EvpDecisionResponse {
+    this.log(
+      'requested',
+      `${req.lane} at ${req.distanceM.toFixed(0)} m, ${req.speedMps.toFixed(1)} m/s assumed, src ${req.source}`,
+      simTimeS,
+    );
+
     // 1. Idempotency by request ID
     if (this.processedIds.has(req.id)) {
       return this.processedIds.get(req.id)!;
@@ -167,6 +202,7 @@ export class EvpManager {
       };
       this.processedIds.set(req.id, shared);
       this.acceptedCount++;
+      this.log('accepted', `${req.lane} · shares active plan for ${this.activeEms.request.id}`, simTimeS);
       return shared;
     }
 
@@ -224,6 +260,11 @@ export class EvpManager {
     this.processedIds.set(req.id, res);
     this.acceptedCount++;
     this.shortfallsS.push(shortfallS);
+    this.log(
+      'accepted',
+      `${req.lane} · plan ${planStatus}${shortfallS > 0 ? ` · shortfall ${shortfallS.toFixed(1)} s` : ''} · ${req.id}`,
+      simTimeS,
+    );
     return res;
   }
 
@@ -236,7 +277,7 @@ export class EvpManager {
    * `RECOVERY` window instead, which is what keeps the interrupted phases honest
    * — the directive stops forcing anything from that point either way.
    */
-  public cancelRequest(id: string): boolean {
+  public cancelRequest(id: string, simTimeS?: number): boolean {
     if (this.activeEms === null || this.activeEms.request.id !== id) return false;
 
     if (this.stage === 'PRECLEAR') {
@@ -246,12 +287,14 @@ export class EvpManager {
       this.stage = 'RECOVERY';
     }
     this.stageTimeS = 0;
+    if (simTimeS !== undefined) this.log('cancelled', `${id} → ${this.stage}`, simTimeS);
     return true;
   }
 
   private reject(id: string, reason: EvpDecisionReason, simTimeS: number): EvpDecisionResponse {
     this.rejectedCount++;
     this.rejectedByReason.set(reason, (this.rejectedByReason.get(reason) ?? 0) + 1);
+    this.log('rejected', `${id} · ${reason}`, simTimeS);
     const res: EvpDecisionResponse = {
       id,
       decision: 'rejected',
@@ -288,21 +331,35 @@ export class EvpManager {
       if (currentSignal.indication === 'GREEN' && currentSignal.phase === ems.phase) {
         this.stage = 'EMS_GREEN';
         this.stageTimeS = 0;
+        this.log('green_granted', `${ems.phase} green for ${ems.request.id}`, obs.simTimeS);
       }
     } else if (this.stage === 'EMS_GREEN') {
       if (laneObs?.nearestEmsDistanceM !== null && laneObs?.nearestEmsDistanceM !== undefined) {
-        ems.hasReachedStopLine = true;
+        if (!ems.hasReachedStopLine) {
+          ems.hasReachedStopLine = true;
+          this.log(
+            'stop_line_reached',
+            `${ems.request.id} at stop line (${laneObs.nearestEmsDistanceM.toFixed(0)} m)`,
+            obs.simTimeS,
+          );
+        }
       }
       // Vehicle passes stop line or exits box (minimum 2.5s green dwell to clear)
       const isPastStopLine = ems.hasReachedStopLine && (laneObs?.nearestEmsDistanceM === null || laneObs?.nearestEmsDistanceM === undefined);
       if ((isPastStopLine && this.stageTimeS >= 2.5) || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
         this.stage = 'RECOVERY';
         this.stageTimeS = 0;
+        this.log(
+          'recovery_started',
+          isPastStopLine ? `${ems.request.id} cleared the box` : `hold cap ${TIMING.EVP_HOLD_MAX_S} s reached`,
+          obs.simTimeS,
+        );
       }
     } else if (this.stage === 'RECOVERY') {
       // Responsive recovery window: returns quickly to IDLE so subsequent preemption can run immediately
       if (this.stageTimeS >= 2.0) {
         this.stage = 'IDLE';
+        this.log('recovery_complete', 'normal control resumed', obs.simTimeS);
         this.activeEms = null;
         this.stageTimeS = 0;
         return null;

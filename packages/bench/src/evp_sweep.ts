@@ -1,6 +1,21 @@
 /**
  * Module 03 & Module 25: Emergency Vehicle Preemption Detection-Distance Sweep
- * Sweeps detection distances 150m, 300m, 500m across seeds to prove why 150m cannot work safely.
+ *
+ * Sweeps detection distances 150 m, 300 m and 500 m across paired seeds to test
+ * whether late detection can be rescued by the controller.
+ *
+ * Design notes that matter for reading the numbers:
+ *
+ *  - The emergency vehicle is spawned at its *physical* detection distance via
+ *    `SimEngine.spawnEmsAt`, so a 150 m run really starts 150 m from the stop
+ *    line. The lane is lengthened to `distance + 60 m` so the vehicle fits.
+ *    Lengthening the approach also adds storage, which is a real confound; the
+ *    background demand is identical across points and `laneLengthM` is reported
+ *    in every row so the confound is visible rather than hidden.
+ *  - `planStatus` and `shortfallS` are read from the `EvpDirective` the EVP
+ *    manager actually emits, not recomputed from `distance / speed`.
+ *  - A seed that never produces a `boxExited` milestone is counted as
+ *    unobserved and excluded from the mean. No fallback number is invented.
  */
 import {
   SimEngine,
@@ -8,23 +23,81 @@ import {
   AdaptiveController,
   SafetyKernel,
   EvpManager,
+  DEFAULT_SIM_CONFIG,
   pairedBootstrapCi,
   TIMING,
 } from '@urbanflow/core';
 
+export interface EvpDelayStats {
+  /** Mean EMS travel-and-wait delay in seconds over the observed seeds. */
+  mean: number;
+  ci95: [number, number];
+  /** Seeds that contributed a measurement. */
+  n: number;
+  /** Seeds where the EMS never cleared the box inside the run window. */
+  unobservedSeeds: number;
+}
+
+export interface EvpPairedDelta {
+  /** Mean of per-seed differences `fixed - adaptive`; positive means Adaptive was quicker. */
+  mean: number;
+  ci95: [number, number];
+  /** True when the 95% bootstrap interval excludes zero. */
+  excludesZero: boolean;
+  n: number;
+}
+
 export interface EvpSweepPoint {
   distanceM: number;
-  fixedEmsDelayS: { mean: number; ci95: [number, number] };
-  adaptiveEmsDelayS: { mean: number; ci95: [number, number] };
+  /** Approach length used for this point (`distanceM + 60`, never below default). */
+  laneLengthM: number;
+  fixedEmsDelayS: EvpDelayStats;
+  adaptiveEmsDelayS: EvpDelayStats;
+  /** Paired per-seed comparison, which is the statistic Module 25 asks for. */
+  deltaVsFixedS: EvpPairedDelta;
+  /** Share of runs where the EVP manager classified the plan as TIGHT. */
   tightPlansPct: number;
   meanShortfallS: number;
+  planStatusCounts: { OK: number; TIGHT: number };
+  /** Derived from the measured plan statuses and paired CI, never hard-coded per distance. */
   verdict: string;
 }
 
 export interface EvpSweepResults {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  seeds: number[];
+  warmupS: number;
+  scenarioDurationS: number;
   distances: EvpSweepPoint[];
+  modelNote: string;
   narrative: string;
+}
+
+const REQUIRED_APPROACH_MARGIN_M = 60;
+/** Traffic is warmed up before the call arrives, so the EMS meets a real queue. */
+const WARMUP_STEPS = 600;
+/**
+ * Measurement window. A 500 m approach at roughly 11 m/s consumes 45 s on its own,
+ * so the window must be long enough for the slowest swept point to clear the box;
+ * a short window silently reports "unobserved" for the case under test.
+ */
+const RUN_STEPS = 1800;
+
+function round2(n: number): number {
+  return parseFloat(n.toFixed(2));
+}
+
+function stats(values: number[], unobservedSeeds: number): EvpDelayStats {
+  if (values.length === 0) {
+    return { mean: 0, ci95: [0, 0], n: 0, unobservedSeeds };
+  }
+  const ci = pairedBootstrapCi(values, 42, 1000);
+  return {
+    mean: round2(ci.mean),
+    ci95: [round2(ci.lo), round2(ci.hi)],
+    n: values.length,
+    unobservedSeeds,
+  };
 }
 
 export function runEvpSweep(seeds = [42, 43, 44, 45, 46]): EvpSweepResults {
@@ -32,102 +105,204 @@ export function runEvpSweep(seeds = [42, 43, 44, 45, 46]): EvpSweepResults {
   const points: EvpSweepPoint[] = [];
 
   for (const dist of distances) {
+    const laneLengthM = Math.max(
+      DEFAULT_SIM_CONFIG.laneLengthM,
+      dist + REQUIRED_APPROACH_MARGIN_M,
+    );
+    const config = { laneLengthM };
+
     const fixedDelays: number[] = [];
     const adaptiveDelays: number[] = [];
-    let tightCount = 0;
+    // Keyed by seed so the paired difference never compares mismatched runs.
+    const fixedBySeed = new Map<number, number>();
+    const adaptiveBySeed = new Map<number, number>();
+    let fixedUnobserved = 0;
+    let adaptiveUnobserved = 0;
+    let planOkCount = 0;
+    let planTightCount = 0;
     let totalShortfall = 0;
 
     for (const seed of seeds) {
-      // 1. Run Fixed without preemption
-      const simFixed = new SimEngine({ seed, emsDetectDistanceM: dist });
+      // 1. Fixed-time control, no preemption: the EMS queues like everyone else.
+      const simFixed = new SimEngine({ ...config, seed });
       const kernelFixed = new SafetyKernel();
       const ctrlFixed = new FixedTimeController();
 
-      const emsIdFixed = simFixed.spawnEms('NB-TR');
-      let emsExitDelayFixed = 18.0;
+      for (let t = 0; t < WARMUP_STEPS; t++) {
+        const signal = kernelFixed.step(ctrlFixed.decide(simFixed.observe()), null, TIMING.SIM_DT_S);
+        simFixed.step(signal);
+      }
+      simFixed.drainEvents();
 
-      for (let t = 0; t < 600; t++) {
-        const obs = simFixed.observe();
-        const action = ctrlFixed.decide(obs);
-        const signal = kernelFixed.step(action, null, TIMING.SIM_DT_S);
+      simFixed.spawnEmsAt('NB-TR', dist);
+      let fixedDelay: number | null = null;
+
+      for (let t = 0; t < RUN_STEPS && fixedDelay === null; t++) {
+        const signal = kernelFixed.step(ctrlFixed.decide(simFixed.observe()), null, TIMING.SIM_DT_S);
         simFixed.step(signal);
 
         for (const ev of simFixed.drainEvents()) {
-          if (ev.kind === 'emsMilestone' && ev.milestone === 'boxExited' && ev.delayS !== undefined) {
-            emsExitDelayFixed = ev.delayS;
+          if (
+            ev.kind === 'emsMilestone' &&
+            ev.milestone === 'boxExited' &&
+            ev.delayS !== undefined
+          ) {
+            fixedDelay = ev.delayS;
+            break;
           }
         }
       }
-      fixedDelays.push(emsExitDelayFixed);
+      if (fixedDelay === null) fixedUnobserved++;
+      else {
+        fixedDelays.push(fixedDelay);
+        fixedBySeed.set(seed, fixedDelay);
+      }
 
-      // 2. Run Adaptive with EVP Preemption
-      const simAdaptive = new SimEngine({ seed, emsDetectDistanceM: dist });
+      // 2. Adaptive control with EVP preemption over the same seed and geometry.
+      const simAdaptive = new SimEngine({ ...config, seed });
       const kernelAdaptive = new SafetyKernel();
       const ctrlAdaptive = new AdaptiveController();
       const evpManager = new EvpManager();
 
-      const emsIdAdaptive = simAdaptive.spawnEms('NB-TR');
-      let emsExitDelayAdaptive = dist === 150 ? 9.5 : 2.5;
+      for (let t = 0; t < WARMUP_STEPS; t++) {
+        const signal = kernelAdaptive.step(
+          ctrlAdaptive.decide(simAdaptive.observe()),
+          null,
+          TIMING.SIM_DT_S,
+        );
+        simAdaptive.step(signal);
+      }
+      simAdaptive.drainEvents();
+
+      simAdaptive.spawnEmsAt('NB-TR', dist);
+      const dispatchedAtS = simAdaptive.simTimeS;
+      let adaptiveDelay: number | null = null;
 
       const evpReq = {
         id: `evp-${dist}-${seed}`,
         lane: 'NB-TR' as const,
         distanceM: dist,
         speedMps: 15.0,
-        tRequestS: 0,
+        tRequestS: dispatchedAtS,
         nonce: `nonce-${dist}-${seed}`,
         source: 'amb-unit-1',
       };
-      const evpDecision = evpManager.submitRequest(evpReq, 0);
+      evpManager.submitRequest(evpReq, dispatchedAtS);
 
-      // Check lead time vs ETA: ETA = dist / 15. Required = 3.5(yellow) + 2.0(all-red) + 8.0(preclear) = 13.5s
-      const eta = dist / 15.0;
-      const requiredLead = 13.5;
-      if (eta < requiredLead) {
-        tightCount++;
-        totalShortfall += (requiredLead - eta);
-      }
+      // Plan quality is whatever the manager reports while the request is live.
+      let sawDirective = false;
+      let directiveStatus: 'OK' | 'TIGHT' | null = null;
+      let directiveShortfall = 0;
 
-      for (let t = 0; t < 600; t++) {
+      for (let t = 0; t < RUN_STEPS && adaptiveDelay === null; t++) {
         const obs = simAdaptive.observe();
         const directive = evpManager.step(obs, TIMING.SIM_DT_S);
         const action = ctrlAdaptive.decide(obs);
         const signal = kernelAdaptive.step(action, directive, TIMING.SIM_DT_S);
         simAdaptive.step(signal);
 
+        if (!sawDirective && directive !== null) {
+          sawDirective = true;
+          directiveStatus = directive.planStatus;
+          directiveShortfall = directive.shortfallS;
+        }
+
         for (const ev of simAdaptive.drainEvents()) {
-          if (ev.kind === 'emsMilestone' && ev.milestone === 'boxExited' && ev.delayS !== undefined) {
-            emsExitDelayAdaptive = ev.delayS;
+          if (
+            ev.kind === 'emsMilestone' &&
+            ev.milestone === 'boxExited' &&
+            ev.delayS !== undefined
+          ) {
+            adaptiveDelay = ev.delayS;
+            break;
           }
         }
       }
-      adaptiveDelays.push(emsExitDelayAdaptive);
+      if (adaptiveDelay === null) adaptiveUnobserved++;
+      else {
+        adaptiveDelays.push(adaptiveDelay);
+        adaptiveBySeed.set(seed, adaptiveDelay);
+      }
+
+      if (directiveStatus === 'OK') planOkCount++;
+      else if (directiveStatus === 'TIGHT') {
+        planTightCount++;
+        totalShortfall += directiveShortfall;
+      }
     }
 
-    const ciFixed = pairedBootstrapCi(fixedDelays, 42, 1000);
-    const ciAdaptive = pairedBootstrapCi(adaptiveDelays, 42, 1000);
+    const plannedRuns = planOkCount + planTightCount;
+    const tightPlansPct = plannedRuns === 0 ? 0 : (planTightCount / plannedRuns) * 100;
+    const meanShortfallS = planTightCount === 0 ? 0 : totalShortfall / planTightCount;
+
+    const fixedStats = stats(fixedDelays, fixedUnobserved);
+    const adaptiveStats = stats(adaptiveDelays, adaptiveUnobserved);
+
+    // Module 25: compare paired per-seed differences, not the ratio of two means.
+    const pairedDiffs: number[] = [];
+    for (const seed of seeds) {
+      const f = fixedBySeed.get(seed);
+      const a = adaptiveBySeed.get(seed);
+      if (f !== undefined && a !== undefined) pairedDiffs.push(f - a);
+    }
+    let deltaStats: EvpPairedDelta;
+    if (pairedDiffs.length === 0) {
+      deltaStats = { mean: 0, ci95: [0, 0], excludesZero: false, n: 0 };
+    } else {
+      const ci = pairedBootstrapCi(pairedDiffs, 42, 1000);
+      deltaStats = {
+        mean: round2(ci.mean),
+        ci95: [round2(ci.lo), round2(ci.hi)],
+        excludesZero: ci.lo > 0 || ci.hi < 0,
+        n: pairedDiffs.length,
+      };
+    }
+
+    let verdict: string;
+    if (planTightCount === plannedRuns && plannedRuns > 0) {
+      verdict = `TIGHT: every run needs ${round2(meanShortfallS)} s more lead time than the clearance interval allows.`;
+    } else if (planTightCount === 0 && plannedRuns > 0) {
+      verdict = 'OK: every run is planned with lead time to spare.';
+    } else {
+      verdict = `MIXED: ${planTightCount}/${plannedRuns} runs are TIGHT.`;
+    }
+    if (deltaStats.n === 0) {
+      verdict += ' Delay comparison unavailable: no measured EMS exit in this sweep point.';
+    } else if (!deltaStats.excludesZero) {
+      verdict += ` EMS delay difference ${deltaStats.mean} s is inside the noise floor (95% CI [${deltaStats.ci95[0]}, ${deltaStats.ci95[1]}] includes zero), so this point does not establish a winner.`;
+    } else if (deltaStats.mean > 0) {
+      verdict += ` EMS delay is ${deltaStats.mean} s lower under preemption (95% CI [${deltaStats.ci95[0]}, ${deltaStats.ci95[1]}], excludes zero).`;
+    } else {
+      verdict += ` EMS delay is ${Math.abs(deltaStats.mean)} s higher under preemption (95% CI [${deltaStats.ci95[0]}, ${deltaStats.ci95[1]}], excludes zero).`;
+    }
 
     points.push({
       distanceM: dist,
-      fixedEmsDelayS: {
-        mean: parseFloat(ciFixed.mean.toFixed(2)),
-        ci95: [parseFloat(ciFixed.lo.toFixed(2)), parseFloat(ciFixed.hi.toFixed(2))],
-      },
-      adaptiveEmsDelayS: {
-        mean: parseFloat(ciAdaptive.mean.toFixed(2)),
-        ci95: [parseFloat(ciAdaptive.lo.toFixed(2)), parseFloat(ciAdaptive.hi.toFixed(2))],
-      },
-      tightPlansPct: (tightCount / seeds.length) * 100,
-      meanShortfallS: parseFloat((totalShortfall / seeds.length).toFixed(2)),
-      verdict: dist === 150
-        ? 'TIGHT: ETA (10.0s) < Required clearance lead (~13.5s). Yellow and all-red cannot be shortened.'
-        : 'OPTIMAL: Ample lead time ensures zero-delay arrival at green.',
+      laneLengthM,
+      fixedEmsDelayS: fixedStats,
+      adaptiveEmsDelayS: adaptiveStats,
+      deltaVsFixedS: deltaStats,
+      tightPlansPct: round2(tightPlansPct),
+      meanShortfallS: round2(meanShortfallS),
+      planStatusCounts: { OK: planOkCount, TIGHT: planTightCount },
+      verdict,
     });
   }
 
+  const tightDistances = points.filter((p) => p.tightPlansPct > 0).map((p) => p.distanceM);
+  const narrative =
+    tightDistances.length === 0
+      ? 'No swept detection distance produced a TIGHT plan: at 15 m/s every ETA clears the yellow + all-red + preclearance interval, so preemption could be planned before the emergency vehicle arrives.'
+      : `Detection at ${tightDistances.join(', ')} m produced TIGHT plans. Yellow (3.5 s) and all-red (2.0 s) are fixed by Safety Kernel invariants I2 and I5, so the only recourse is to accept the shortfall and record it; the controller may not shorten clearance to buy the missing seconds. Longer detection distances produce OK plans because the ETA covers the full required lead time.`;
+
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    seeds,
+    warmupS: WARMUP_STEPS * TIMING.SIM_DT_S,
+    scenarioDurationS: RUN_STEPS * TIMING.SIM_DT_S,
     distances: points,
-    narrative: 'At 150m detection distance, the ambulance ETA (10s at 15m/s) is strictly less than the safety-mandated yellow (3.5s) + all-red (2.0s) + preclearance (8.0s) interval of 13.5s. Because Safety Kernel Invariants I2 and I5 forbid truncating clearance intervals, the plan is classified as TIGHT. At 300m and 500m, preclearance clears queues in advance, eliminating intersection delay.',
+    modelNote:
+      'The emergency vehicle is spawned at its physical detection distance through SimEngine.spawnEmsAt, and the approach is lengthened to distance + 60 m so the vehicle fits. Lengthening the approach also adds storage; background demand is identical across points and laneLengthM is reported per row so that confound is auditable. Delay is measured from the emsMilestone/boxExited event; seeds with no observed exit are counted in unobservedSeeds and excluded from the mean rather than replaced with a placeholder.',
+    narrative,
   };
 }

@@ -9,6 +9,7 @@
   --color-canvas: #0B0F14;
   --color-surface: #121820;
   --color-surface-elevated: #1A2330;
+  --color-road: #10151C;
   --color-hairline: rgba(255, 255, 255, 0.10);
   --color-border-strong: #66778C;
   --color-text: #E8EEF4;
@@ -20,6 +21,15 @@
   --color-stop: #FF8A4C;
   --color-focus: #F0E442;
 
+  /* Modal scrim (Module 40 §2.5: blur limited to the active dialog overlay). */
+  --color-scrim: rgba(0, 0, 0, 0.7);
+
+  /* Elevation (Module 40 §4): a two-step surface lift for cards and the dialog.
+     Flat fills only — no gradients. Shadows are subtle so the palette stays the
+     single source of colour truth. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+
   --shadow-dialog: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
@@ -28,6 +38,7 @@
   --color-canvas: #F6F8FA;
   --color-surface: #FFFFFF;
   --color-surface-elevated: #FFFFFF;
+  --color-road: #E2E7ED;
   --color-hairline: rgba(11, 21, 32, 0.12);
   --color-border-strong: #6B7A8C;
   --color-text: #0B1520;
@@ -38,6 +49,12 @@
   --color-caution: #7A6A00;
   --color-stop: #B33C00;
   --color-focus: #005F96;
+
+  --color-scrim: rgba(11, 21, 32, 0.45);
+
+  /* Elevation: lighter ink on paper so the same tokens read calm in light mode. */
+  --shadow-sm: 0 1px 2px rgba(11, 21, 32, 0.08);
+  --shadow-md: 0 6px 20px rgba(11, 21, 32, 0.12);
 
   --shadow-dialog: 0 8px 24px rgba(0, 0, 0, 0.15);
 }

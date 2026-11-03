@@ -4,7 +4,10 @@
  * Converts SAM 3.1 segmentation masks to lane polygons, estimates queue lengths,
  * and executes perception-noise degradation experiments.
  */
-import { LaneId, LANES, SimEngine, AdaptiveController, SafetyKernel, TIMING } from '../index.js';
+import { LaneId, LANES, TIMING } from '../contracts.js';
+import { SimEngine } from '../sim/engine.js';
+import { AdaptiveController } from '../control/adaptive.js';
+import { SafetyKernel } from '../control/kernel.js';
 
 export interface BoundingBox {
   xMin: number;
@@ -72,8 +75,24 @@ export function estimateQueuesFromMasks(
 }
 
 /**
+ * Triangle wave in [-1, 1], one period every 200 ticks (20 s at `SIM_DT_S`).
+ *
+ * Module 20 §3.1 rule 4 allows only `+ − × ÷ sqrt abs min max floor ceil fround`
+ * in the simulation, because `Math.sin` is implementation-approximated by the
+ * ECMAScript spec and can differ in the last bit between engines. A robustness
+ * curve quoted from this function has to be the same curve everywhere.
+ */
+function triangleWave(tick: number): number {
+  const period = 200;
+  const phase = tick % period;
+  const half = phase < period / 2 ? phase : period - phase;
+  return (half * 4) / period - 1;
+}
+
+/**
  * Task 13 / Module 04: Perception Noise Robustness Experiment
- * Injects Gaussian-style count noise into observations and measures controller performance.
+ * Applies a deterministic triangle-wave count perturbation and measures how the
+ * controller performs under it.
  */
 export function runPerceptionNoiseTest(
   noiseFraction: number, // 0.0 to 0.5 (0% to 50% sensor noise)
@@ -100,7 +119,7 @@ export function runPerceptionNoiseTest(
     for (const lane of LANES) {
       const orig = rawObs.lanes[lane];
       if (orig) {
-        const noiseFactor = 1.0 + (Math.sin(t * 0.1) * noiseFraction);
+        const noiseFactor = 1.0 + triangleWave(t) * noiseFraction;
         noisyObs.lanes[lane] = {
           ...orig,
           vehicleCount: Math.max(0, Math.round(orig.vehicleCount * noiseFactor)),
@@ -125,7 +144,9 @@ export function runPerceptionNoiseTest(
 
   return {
     avgDelayS: parseFloat(avgDelayS.toFixed(2)),
-    maxQueueM: Math.max(...Object.values(sim.lanes).map((l) => l.pos[0] ?? 0)),
+    // The engine's own running maximum. Reading `pos[0]` returned one arbitrary
+    // vehicle slot, not the queue.
+    maxQueueM: parseFloat(sim.peakQueueM.toFixed(1)),
     safetyViolations: violations,
   };
 }

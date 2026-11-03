@@ -25,6 +25,7 @@ import { SimEngine } from '../sim/engine.js';
 import { vehicleWorld } from '../sim/geometry.js';
 import { LANES, TIMING, VEHICLE_SPECS } from '../contracts.js';
 import type {
+  AdaptiveParams,
   ControlAction,
   EvpDecisionResponse,
   IncidentKind,
@@ -40,7 +41,7 @@ import {
   SIGNAL_HEAD,
   VEHICLE_STRIDE,
 } from './protocol.js';
-import type { ControlEcho, FrameHeader, WorkerCommand } from './protocol.js';
+import type { ControlEcho, EvpTimelineEntry, FrameHeader, WorkerCommand } from './protocol.js';
 
 export type TwinName = 'fixed' | 'adaptive';
 
@@ -80,6 +81,16 @@ export class TwinWorld {
 
   /** Replayable edits, in application order. Never mutated by time travel (§6). */
   private inputLog: LogEntry[] = [];
+
+  /**
+   * Furthest tick ever reached, so a scrub back does not delete the future.
+   *
+   * `restoreTo` replays from the log, which is complete regardless of where
+   * the clock currently sits, so scrubbing forward again to (but never past)
+   * this high-water mark reproduces the world bit-for-bit. A hard `reset` is
+   * the only thing that forgets it.
+   */
+  private maxReachedTick = 0;
 
   /**
    * The configuration the world was launched with.
@@ -180,6 +191,8 @@ export class TwinWorld {
     );
     this.simAdaptive.step(this.signalAdaptive);
     this.metricsAdaptive.ingest(this.simAdaptive.drainEvents());
+
+    if (this.tickCount > this.maxReachedTick) this.maxReachedTick = this.tickCount;
   }
 
   // --- Edits (recorded, then applied to both twins) ---
@@ -188,6 +201,7 @@ export class TwinWorld {
   public reset(seed: number): void {
     this.buildWorlds(seed);
     this.inputLog = [];
+    this.maxReachedTick = 0;
   }
 
   public setLaneDemand(lane: LaneId, vph: number): void {
@@ -218,9 +232,15 @@ export class TwinWorld {
    * appeared on one side would stop the two columns being a comparison of
    * controllers and start being a comparison of traffic.
    */
-  public spawnVehicle(lane: LaneId, type: VehicleType, count = 1, distanceM?: number): string[] {
-    this.record({ v: 1, type: 'spawnVehicle', lane, vehicleType: type, count, distanceM });
-    return this.spawnVehicleInternal(lane, type, count, distanceM);
+  public spawnVehicle(
+    lane: LaneId,
+    type: VehicleType,
+    count = 1,
+    distanceM?: number,
+    speedMps?: number,
+  ): string[] {
+    this.record({ v: 1, type: 'spawnVehicle', lane, vehicleType: type, count, distanceM, speedMps });
+    return this.spawnVehicleInternal(lane, type, count, distanceM, speedMps);
   }
 
   /** Spawn without logging. Shared by the live path and replay. */
@@ -229,9 +249,10 @@ export class TwinWorld {
     type: VehicleType,
     count: number,
     distanceM?: number,
+    speedMps?: number,
   ): string[] {
-    this.simFixed.spawnVehicle(lane, type, count, distanceM);
-    return this.simAdaptive.spawnVehicle(lane, type, count, distanceM);
+    this.simFixed.spawnVehicle(lane, type, count, distanceM, speedMps);
+    return this.simAdaptive.spawnVehicle(lane, type, count, distanceM, speedMps);
   }
 
   private spawnEmsInternal(lane: LaneId, distanceM?: number): string {
@@ -266,6 +287,25 @@ export class TwinWorld {
     this.record({ v: 1, type: 'setParams', params: patch });
     this.simFixed.applyParams(patch);
     this.simAdaptive.applyParams(patch);
+  }
+
+  /**
+   * Apply an operator-approved adaptive-parameter patch (Module 04 §3.4).
+   *
+   * Only the adaptive controller's *proposal policy* changes: the fixed twin
+   * has no such policy, the kernel never reads these parameters, and every
+   * invariant still applies on the next tick. Logged like any other edit, so
+   * time travel and debug bundles replay the approved change, not the guess
+   * that preceded it.
+   */
+  public setAdaptiveParams(patch: Partial<AdaptiveParams>): void {
+    this.record({ v: 1, type: 'setAdaptiveParams', params: patch });
+    this.applyAdaptiveParamsInternal(patch);
+  }
+
+  /** Patch is already wire-validated (`AdaptiveParamsSchema.partial()`); merge once. */
+  private applyAdaptiveParamsInternal(patch: Partial<AdaptiveParams>): void {
+    this.ctrlAdaptive.params = { ...this.ctrlAdaptive.params, ...patch };
   }
 
   /**
@@ -327,7 +367,7 @@ export class TwinWorld {
   private cancelActiveEms(): boolean {
     const status = this.evpAdaptive.getStatus();
     if (status === null) return false;
-    return this.evpAdaptive.cancelRequest(status.activeEmsId);
+    return this.evpAdaptive.cancelRequest(status.activeEmsId, this.tSimS);
   }
 
   /**
@@ -351,9 +391,20 @@ export class TwinWorld {
    * serialise several hundred typed arrays and the closure state of sixteen RNG
    * streams. The cost is O(ticks) per scrub, which at 0.1 s ticks is one
    * millisecond of work per simulated minute.
+   *
+   * The state at tick `t` shows every edit recorded at ticks `<= t`: an edit
+   * stamped `t` was applied live right after tick `t` executed and before tick
+   * `t + 1` ran, so rebuilding to `t` applies it on arrival, not on departure.
+   * Scrubbing forward after a rewind is therefore exact — the log, not the
+   * current clock, defines what can be reproduced.
    */
   public restoreTo(tSimS: number): void {
-    const targetTick = Math.max(0, Math.min(Math.round(tSimS / TIMING.SIM_DT_S), this.tickCount));
+    // A seek beyond the high-water mark lands on the furthest world that ever
+    // existed, matching the documented "never scrubs past the furthest tick".
+    const targetTick = Math.max(
+      0,
+      Math.min(Math.round(tSimS / TIMING.SIM_DT_S), this.maxReachedTick),
+    );
 
     this.buildWorlds(this.seed);
 
@@ -366,7 +417,8 @@ export class TwinWorld {
       this.tick();
     }
 
-    // Commands recorded at exactly the target tick belong to that tick's state.
+    // Edits recorded at exactly the target tick belong to that tick's state:
+    // live, they were applied the moment the clock showed `targetTick`.
     while (logIndex < this.inputLog.length && this.inputLog[logIndex]!.tick === this.tickCount) {
       this.replay(this.inputLog[logIndex]!.command);
       logIndex++;
@@ -477,6 +529,58 @@ export class TwinWorld {
     return this.evpAdaptive.getCounters();
   }
 
+  /** T22: timestamped EVP lifecycle, oldest first. */
+  public evpTimeline(): EvpTimelineEntry[] {
+    return this.evpAdaptive.getTimeline();
+  }
+
+  /**
+   * Module 16 §6: worker-side material for a debug bundle.
+   *
+   * The input log is mapped from replay form (`{tick, command}`) to bundle form
+   * (`{t, action, payload}`) — seconds of simulated time, and the full command
+   * kept as the payload so `pnpm repro` can re-validate and replay it. Host
+   * facts (version, wall clock, user agent) are *not* invented here; the IO
+   * shell that owns the export button supplies them (ADR-001).
+   */
+  public debugBundleData(): {
+    seed: number;
+    scenarioId: string;
+    stateHash: string;
+    tSimS: number;
+    inputLog: Array<{ t: number; action: string; payload: unknown }>;
+    kernelCounters: Record<string, number>;
+    adaptiveParams: Record<string, number>;
+  } {
+    const metrics = this.kernelAdaptive.getMetrics();
+    return {
+      seed: this.seed,
+      scenarioId: this.scenarioId,
+      stateHash: this.stateHash(),
+      tSimS: this.tSimS,
+      inputLog: this.inputLog.map(({ tick, command }) => ({
+        t: tick * TIMING.SIM_DT_S,
+        action: command.type,
+        payload: command,
+      })),
+      kernelCounters: {
+        conflicts: metrics.conflicts,
+        ticks: metrics.ticks,
+        violationsPrevented: Object.values(metrics.violationsPrevented).reduce((a, b) => a + b, 0),
+      },
+      adaptiveParams: { ...this.ctrlAdaptive.params } as unknown as Record<string, number>,
+    };
+  }
+
+  /**
+   * Re-apply a command that is already in a bundle's input log, without
+   * recording it. Used by `pnpm repro` to rebuild a recorded world; the live
+   * worker never calls this.
+   */
+  public applyExternalCommand(command: WorkerCommand): void {
+    this.replay(command);
+  }
+
   public queueDepths(): { queueM: number[]; waiting: number[] } {
     const queueM: number[] = [];
     const waiting: number[] = [];
@@ -584,6 +688,7 @@ export class TwinWorld {
           command.vehicleType,
           command.count,
           command.distanceM,
+          command.speedMps,
         );
         break;
       case 'requestPreemption':
@@ -619,6 +724,9 @@ export class TwinWorld {
       case 'setParams':
         this.simFixed.applyParams(command.params);
         this.simAdaptive.applyParams(command.params);
+        break;
+      case 'setAdaptiveParams':
+        this.applyAdaptiveParamsInternal(command.params);
         break;
       default:
         // Non-replayable commands never enter the log.

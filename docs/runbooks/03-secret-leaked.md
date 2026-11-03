@@ -18,3 +18,4 @@
    - Use `git-filter-repo` or BFG to expunge sensitive strings from repository commits if committed.
 4. **Post-Incident Review:**
    - Verify all pre-commit hooks and CI gates are active. Document incident summary in `docs/INCIDENTS.md`.
+

@@ -20,3 +20,4 @@ Adopt option (a). All wire payloads use JSON validated through Zod v3 schemas in
 
 ## Evidence
 `packages/core/src/contracts.ts` and `pipeline/spark/urbanflow/schemas.py`.
+
