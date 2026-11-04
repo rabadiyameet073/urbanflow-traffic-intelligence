@@ -114,15 +114,15 @@ a.btn {
 .sys-two-col {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  gap: var(--space-5);
-  align-items: start;
+  gap: var(--space-4);
+  align-items: stretch;
 }
 
 .sys-two-col-wide-left {
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1080px) {
   .sys-two-col,
   .sys-two-col-wide-left {
     grid-template-columns: minmax(0, 1fr);
@@ -135,17 +135,24 @@ a.btn {
   background: var(--color-surface);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  padding: var(--space-3);
   box-shadow: var(--shadow-sm);
-  overflow-x: auto;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: min(640px, calc(100vh - 260px));
+  min-height: 380px;
 }
 
 .sys-diagram {
   display: block;
   width: 100%;
-  min-width: 760px;
+  max-width: 100%;
   height: auto;
+  max-height: 100%;
   font-family: var(--font-ui);
+  object-fit: contain;
 }
 
 .sys-band {
@@ -244,10 +251,12 @@ a.btn {
   background: var(--color-surface);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-4);
   box-shadow: var(--shadow-md);
   position: sticky;
   top: var(--space-4);
+  max-height: min(640px, calc(100vh - 260px));
+  overflow-y: auto;
 }
 
 .sys-detail-title {
@@ -1453,21 +1462,21 @@ a.btn {
   box-shadow: 0 2px 8px rgba(0, 95, 150, 0.15);
 }
 
-/* --- Dedicated Page Heroes -------------------------------------------------------- */
+/* --- Dedicated Page Heroes & Section Containers --------------------------------- */
 
 .sys-page-hero {
-  max-width: 1400px;
+  max-width: 1440px;
   width: 100%;
-  margin: var(--space-6) auto var(--space-4);
+  margin: var(--space-3) auto var(--space-2);
   padding: 0 var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   box-sizing: border-box;
 }
 
 .sys-page-title {
-  font-size: clamp(1.6rem, 2.5vw, 2.4rem);
+  font-size: clamp(1.25rem, 2vw, 1.85rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--color-text);
@@ -1475,19 +1484,49 @@ a.btn {
 }
 
 .sys-page-subtitle {
-  font-size: 1.05rem;
+  font-size: 0.88rem;
   color: var(--color-text-2);
-  line-height: 1.6;
-  max-width: 90ch;
+  line-height: 1.45;
+  max-width: 95ch;
   margin: 0;
 }
 
 .sys-section-header {
-  max-width: 1400px;
+  max-width: 1440px;
   width: 100%;
-  margin: var(--space-8) auto var(--space-3);
+  margin: var(--space-5) auto var(--space-2);
   padding: 0 var(--space-6);
   box-sizing: border-box;
+}
+
+.sys-architect-section,
+.sys-structure,
+.sys-components-section,
+.sys-wf-holder,
+.sys-judging-wrap {
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-6) var(--space-8);
+  box-sizing: border-box;
+}
+
+.sys-architect-section .sys-flow-bar {
+  margin-bottom: var(--space-2);
+}
+
+.sys-architect-section .sys-flow-banner {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin-bottom: var(--space-3);
+}
+
+.sys-comp-scroll {
+  min-width: 0;
+  max-height: min(640px, calc(100vh - 260px));
+  overflow-y: auto;
+  padding-right: var(--space-2);
 }
 
 #arch-app,
@@ -1639,4 +1678,122 @@ a.btn {
   font-size: 0.8rem;
   color: var(--color-text-2);
 }
+
+/* --- Global Responsive Standards Across All Pages ----------------------------- */
+
+@media (max-width: 1080px) {
+  .sys-diagram-wrap {
+    max-height: none;
+    min-height: auto;
+    overflow-x: auto;
+  }
+
+  .sys-diagram {
+    min-width: 680px;
+    max-height: none;
+  }
+
+  .sys-detail {
+    max-height: none;
+    position: static;
+  }
+
+  .sys-comp-scroll {
+    max-height: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .sys-global-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .sys-global-nav {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-1);
+    scrollbar-width: thin;
+  }
+
+  .sys-nav-pill {
+    white-space: nowrap;
+    font-size: 0.78rem;
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .sys-theme-toggle-btn {
+    margin-left: 0;
+    white-space: nowrap;
+  }
+
+  .sys-page-hero,
+  .sys-section-header,
+  .sys-architect-section,
+  .sys-structure,
+  .sys-components-section,
+  .sys-wf-holder,
+  .sys-judging-wrap,
+  .sys-main {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .sys-flow-steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sys-comp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sys-comp-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sys-pkg-filters {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: var(--space-1);
+  }
+
+  .sys-backend-live-wrap {
+    padding: var(--space-3);
+  }
+
+  .sys-backend-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .sys-backend-actions {
+    flex-direction: column;
+  }
+
+  .sys-backend-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .sys-backend-meta-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+
+  .sys-wf-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sys-wf-actions {
+    justify-content: center;
+  }
+}
+
 
