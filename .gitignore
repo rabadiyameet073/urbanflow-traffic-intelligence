@@ -27,3 +27,12 @@ data/lake/
 playwright-report/
 test-results/
 .turbo/
+
+# Private hackathon submission documents & recordings (kept local only)
+docs/hackathon/
+audios/
+recordings/
+*.mp4
+*.mkv
+*.webm
+
