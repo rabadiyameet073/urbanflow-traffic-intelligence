@@ -710,7 +710,60 @@ export class SimEngine {
         }
       }
 
-      // 5. Check front vehicle exit
+      // 5. EMS despawn at the stop line: an ambulance that has crossed the
+      // line has cleared the controlled point, so it leaves the lane right
+      // there instead of rolling on through the box. Driving the box length
+      // is what stranded ambulances in the intersection behind slower
+      // discharge and made them look like they were merging into another
+      // lane. The `boxExited` milestone still fires, so EVP recovery,
+      // metrics and the detection-distance sweep keep working.
+      for (let idx = lane.count - 1; idx >= 0; idx--) {
+        const emsSlot = lane.order[idx] as number;
+        if ((lane.flags[emsSlot]! & FLAG_EMS) === 0) continue;
+        if ((lane.pos[emsSlot] as number) > 0) continue;
+
+        const emsType = lane.getVehicleType(emsSlot);
+        const emsSpec = VEHICLE_SPECS[emsType];
+        const entryTime = lane.t0[emsSlot] as number;
+        const waitTime = lane.wait[emsSlot] as number;
+        const stops = lane.stops[emsSlot] as number;
+        const emsId = lane.takeEmsId(emsSlot);
+
+        // Free-flow reference is measured to the stop line, the point at
+        // which this class is judged, not through the box.
+        const freeFlowTransitS =
+          this.config.laneLengthM /
+          Math.min(this.config.speedLimitMps, emsSpec.maxSpeedMps);
+        const actualTransitS = this.simTimeS - entryTime;
+        const delayS = Math.max(0, actualTransitS - freeFlowTransitS);
+
+        lane.removeAt(idx);
+        this.totalExited++;
+        lane.dischargeRing[lane.ringHead] = (lane.dischargeRing[lane.ringHead] ?? 0) + 1;
+
+        this.eventQueue.push({
+          kind: 'vehicleExited',
+          simTimeS: this.simTimeS,
+          lane: laneId,
+          vehicleType: emsType,
+          delayS,
+          stops,
+          waitS: waitTime,
+          pax: emsSpec.pax,
+        });
+
+        this.eventQueue.push({
+          kind: 'emsMilestone',
+          simTimeS: this.simTimeS,
+          emsId: emsId ?? `ems-${laneId}-${Math.round(entryTime * 10)}`,
+          lane: laneId,
+          milestone: 'boxExited',
+          delayS,
+        });
+      }
+
+      // 6. Check front vehicle exit (non-EMS only: an EMS was despawned at
+      // the stop line above and can never reach the far side of the box).
       if (lane.count > 0) {
         const frontSlot = lane.order[0] as number;
         const frontPos = lane.pos[frontSlot] as number;
@@ -720,8 +773,6 @@ export class SimEngine {
           const entryTime = lane.t0[frontSlot] as number;
           const waitTime = lane.wait[frontSlot] as number;
           const stops = lane.stops[frontSlot] as number;
-          const isEms = (lane.flags[frontSlot]! & FLAG_EMS) !== 0;
-          const emsId = isEms ? lane.takeEmsId(frontSlot) : null;
 
           // Free-flow transit time = (laneLength + box) / min(speedLimit, spec.maxSpeed)
           const freeFlowTransitS =
@@ -744,17 +795,6 @@ export class SimEngine {
             waitS: waitTime,
             pax: spec.pax,
           });
-
-          if (isEms) {
-            this.eventQueue.push({
-              kind: 'emsMilestone',
-              simTimeS: this.simTimeS,
-              emsId: emsId ?? `ems-${laneId}-${Math.round(entryTime * 10)}`,
-              lane: laneId,
-              milestone: 'boxExited',
-              delayS,
-            });
-          }
         }
       }
     }

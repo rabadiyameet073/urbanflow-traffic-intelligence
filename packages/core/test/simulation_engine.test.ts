@@ -11,6 +11,7 @@ import {
   DEFAULT_SIM_CONFIG,
   LANES,
   TIMING,
+  FLAG_EMS,
   SimEngine,
   TwinWorld,
   splitRng,
@@ -200,5 +201,36 @@ describe('Module 20 §10 — physics obligations', () => {
     // Free-flow transit from 250 m at the cruise speed, which is what the EVP
     // plan's ETA is compared against.
     expect(TIMING.EMS_CRUISE_MPS).toBe(15);
+  });
+
+  it('despawns an ambulance at the stop line instead of driving it through the box', () => {
+    const sim = new SimEngine(config({ emsDetectDistanceM: 60 }));
+    const emsId = sim.spawnEms('NB-TR');
+
+    let exited = false;
+    for (let t = 0; t < 600 && !exited; t++) {
+      sim.step(signal('G', 'P2_NS_THRU'));
+
+      // The ambulance must never sit in the intersection: after every tick,
+      // any EMS still in the lane has to be upstream of the stop line.
+      const lane = sim.lanes['NB-TR'];
+      for (let i = 0; i < lane.count; i++) {
+        const slot = lane.order[i] as number;
+        if ((lane.flags[slot]! & FLAG_EMS) === 0) continue;
+        expect(lane.pos[slot] as number).toBeGreaterThan(0);
+      }
+
+      for (const ev of sim.drainEvents()) {
+        if (ev.kind === 'emsMilestone' && ev.emsId === emsId && ev.milestone === 'boxExited') {
+          exited = true;
+        }
+      }
+    }
+
+    expect(exited).toBe(true);
+    expect(sim.lanes['NB-TR'].count).toBe(0);
+    expect(sim.totalExited).toBe(1);
+    // Conservation closes: one arrival, one exit, nothing left in the system.
+    expect(sim.totalArrivals).toBe(sim.totalExited + sim.totalDenied);
   });
 });

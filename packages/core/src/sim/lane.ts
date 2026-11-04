@@ -182,6 +182,30 @@ export class SimLane {
     return slot;
   }
 
+  /**
+   * Remove the vehicle at `orderIdx` in the front-to-back `order` array.
+   * `removeFront` only serves the tail of the queue; an EMS despawned at the
+   * stop line can sit anywhere in `order` when slower vehicles ahead of it
+   * have not cleared yet, so removal must address the index directly.
+   */
+  public removeAt(orderIdx: number): number {
+    if (orderIdx < 0 || orderIdx >= this.count) return -1;
+    const slot = this.order[orderIdx] as number;
+
+    // Shift the tail of the order array left over the removed entry
+    for (let i = orderIdx; i < this.count - 1; i++) {
+      this.order[i] = this.order[i + 1] as number;
+    }
+    this.count--;
+    this.order[this.count] = -1;
+
+    // Push slot back to free list
+    this.free[this.freeTop] = slot;
+    this.freeTop++;
+    this.totalExited++;
+    return slot;
+  }
+
   public getVehicleType(slot: number): VehicleType {
     const idx = this.typ[slot] as number;
     return INDEX_TO_TYPE[idx] ?? 'CAR';
