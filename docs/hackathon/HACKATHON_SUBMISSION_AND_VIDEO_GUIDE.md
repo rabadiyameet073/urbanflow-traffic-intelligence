@@ -12,7 +12,6 @@
 1. [Pre-Submission Verification Checklist](#1-pre-submission-verification-checklist)
 2. [Exact Copy-Paste Hackathon Portal Answers](#2-exact-copy-paste-hackathon-portal-answers)
 3. [Scene-by-Scene Demo Video Recording Script (2:30)](#3-scene-by-scene-demo-video-recording-script-230)
-4. [Prompt for Claude 3.5 Sonnet: Automated Motion Video Generation](#4-prompt-for-claude-35-sonnet-automated-motion-video-generation)
 
 ---
 
@@ -219,61 +218,6 @@ For intelligent operational oversight, we integrate Meta Llama 3.3 through the M
 
 ---
 
-## 4. Prompt for Claude 3.5 Sonnet: Automated Motion Video Generation
+*All files, codes, tests, and links are verified and synchronized on GitHub branch `main`.*
 
-Copy and paste the exact prompt below into **Claude 3.5 Sonnet** to generate a complete Remotion / HTML5 Canvas / After Effects script for an animated motion graphics video:
-
-```markdown
-You are a world-class motion graphics director and creative technologist specializing in luxury editorial tech animations (using Remotion, React Motion, Three.js, and HTML5 Canvas).
-
-Create a high-impact, cinematic 2.5-minute (150-second) motion graphics video script and animation code for "UrbanFlow AI", a smart city traffic intelligence platform submitted to the Meta Global AI Developer Hackathon.
-
-### Core Style & Visual Aesthetic:
-- Ultra-modern control-room aesthetic: Deep obsidian slate backgrounds (#0B0F14, #111827), luminous cyan (#38BDF8) and electric emerald (#4ADE80) signal vectors, and sharp hazard amber (#F59E0B).
-- Typography: Monospace telemetry readouts paired with bold editorial sans-serif typography.
-- Motion principles: Fluid spring physics (stiffness: 260, damping: 20), staggered reveals, and silky smooth data packet flows.
-- Attribution banner: Prominently feature "Curated with Meta Muse • Powered by Meta Llama 3.3 & Model API" throughout the video.
-
-### Video Structure & Timeline Breakdown:
-
-#### Act 1: The Urban Mobility Crisis (0:00 – 0:30) [HIGH DRAMA & IMPACT]
-- 0:00 – 0:08: Dark, brooding satellite grid of an urban metropolis. A digital counter ticks up frantically: "$88,000,000,000 Annual Economic Loss". Overlay a red heat-map of gridlocked vehicles.
-- 0:08 – 0:18: Focus on an ambulance trapped at a red light on an empty cross-street. Pulse a clinical EKG heartbeat line across the screen with a ticking timer: "Every 60s Delay = 7–10% Drop in Cardiac Survival". The siren waveform pulses in amber and red.
-- 0:18 – 0:30: Glitch transition: "Legacy Pre-Timed Signals (1970) are Failing Our Cities." Text shatters as the camera zooms into a digital intersection junction. Title reveal: "UrbanFlow AI — Real-Time Adaptive Traffic Intelligence with a Single-Writer Safety Kernel".
-
-#### Act 2: Dual Digital Twin Simulation (0:30 – 1:05)
-- 0:30 – 0:45: Screen splits cleanly into two synchronized views: Left = "Fixed-Time Baseline (Seed 42)", Right = "UrbanFlow Adaptive Twin (Seed 42)". High-velocity vehicle glyphs (cars, buses, trucks, bikes) flow into 8 approach lanes.
-- 0:45 – 1:05: An emergency ambulance spawns on EB-TR. Show the V2X beacon radiating an authentication aura. In the Adaptive twin, the lead vehicles yield, the stop line transitions safely to green (yellow 3.5s + all-red 2.0s), and the ambulance glides across the intersection. In the Fixed-Time twin, the queue stays red and backs up.
-
-#### Act 3: Single-Writer Safety Kernel & Cyber Defense (1:05 – 1:35)
-- 1:05 – 1:20: Visual breakdown of the 6-barrier defense model:
-  1. Timestamp Skew Window (±30s)
-  2. Constant-Time HMAC-SHA256 Signature Verification
-  3. Replay Nonce Cache
-  4. Storm-Guard Rate Limiter
-  5. Single-Writer Safety Kernel (Invariants I1–I6)
-  6. Hardware Watchdog Fail-Safe
-- 1:20 – 1:35: Demonstrate the Single-Writer Kernel rule: AI proposals and operator overrides flow in as ADVISORY inputs. The Safety Kernel mathematically validates against signal exclusivity: "ZERO CONFLICTING GREENS ALLOWED". An unsafe proposal is rejected with a crisp visual deflection shield.
-
-#### Act 4: Meta AI Copilot & Semantic Provenance Guard (1:35 – 2:05)
-- 1:35 – 1:50: An anomaly (blocked lane) is injected. The Meta AI Copilot (Llama 3.3 70B & 8B via Meta Model API) activates with streaming natural language diagnosis: "Lane NB-TR spillback risk detected."
-- 1:50 – 2:05: Visual display of the "Semantic Provenance Guard (verifySemanticNumbers)": The model's proposed metrics are checked against raw sensor telemetry. If valid, proposal accepted; if hallucinated, instant fallback to deterministic template. Show the badge: "100% Provenance Gated • Zero Hallucinations".
-
-#### Act 5: Empirical Benchmarks, Cloudflare Edge & Outro (2:05 – 2:30)
-- 2:05 – 2:20: Fast-paced data cascade showing Cloudflare Worker edge deployment ($\approx 7.2\,\text{ms}$ latency) sinking to MongoDB Atlas. Live benchmark results across 5 held-out seeds appear with 95% bootstrap confidence intervals: "-24.8% Delay Reduction • -99% Approach Denial • 125/125 Tests Passing".
-- 2:20 – 2:30: Cinematic closing lockup:
-  - "UrbanFlow AI: Verifiable Intelligence for Smart Cities"
-  - "Indie Developer Track • Meta Global AI Developer Hackathon"
-  - "Created using Meta Muse • Powered by Meta Llama 3.3"
-  - GitHub Link: github.com/rabadiyameet073/urbanflow-traffic-intelligence
-
-Please generate:
-1. Complete scene-by-scene visual direction with camera movements, color hex codes, and audio sound effects cues.
-2. Full voiceover narration script aligned with exact second marks.
-3. A clean, modular React / Remotion component code skeleton implementing the 5 acts with spring animations and canvas signal heads.
-```
-
----
-
-*All files, codes, tests, and links are verified and synchronized on GitHub branch `main` at commit `0f5a04c`.*
 

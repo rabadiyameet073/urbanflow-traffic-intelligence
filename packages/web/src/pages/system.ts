@@ -1163,7 +1163,20 @@ export function buildWorkflowsView(): HTMLElement {
   return holder;
 }
 
+export function initGlobalTheme(): void {
+  try {
+    const raw = localStorage.getItem('uf_v1_theme');
+    const resolved =
+      raw === 'light' ? 'light' : raw === 'dark' ? 'dark' : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', resolved);
+  } catch {
+    // Local storage unavailable
+  }
+}
+
 export function buildGlobalNav(activePage: string): HTMLElement {
+  initGlobalTheme();
+
   const pages = [
     { id: 'sim', href: '/', label: 'Simulation Dashboard' },
     { id: 'architecture', href: '/architecture.html', label: 'Architecture & Flow' },
@@ -1173,6 +1186,47 @@ export function buildGlobalNav(activePage: string): HTMLElement {
     { id: 'presentation', href: '/presentation.html', label: 'Presentation & Script' },
     { id: 'system', href: '/system.html', label: 'All-In-One Hub' },
   ];
+
+  const getTheme = (): 'dark' | 'light' =>
+    document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+
+  const themeLabel = h('span', {
+    class: 'sys-theme-label mono',
+    text: getTheme() === 'light' ? '☀️ Light' : '🌙 Dark',
+  });
+
+  const themeToggleBtn = h(
+    'button',
+    {
+      class: 'sys-theme-toggle-btn',
+      attrs: {
+        type: 'button',
+        id: 'btn-theme-toggle-global',
+        'aria-label': 'Toggle light or dark theme',
+        title: 'Switch between Dark and Light control-room theme',
+      },
+      on: {
+        click: () => {
+          const next = getTheme() === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try {
+            localStorage.setItem('uf_v1_theme', next);
+          } catch {
+            // storage unavailable
+          }
+          themeLabel.textContent = next === 'light' ? '☀️ Light' : '🌙 Dark';
+        },
+      },
+    },
+    [themeLabel],
+  );
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'uf_v1_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
+      document.documentElement.setAttribute('data-theme', e.newValue);
+      themeLabel.textContent = e.newValue === 'light' ? '☀️ Light' : '🌙 Dark';
+    }
+  });
 
   return h('header', { class: 'sys-global-header' }, [
     h('div', { class: 'sys-global-brand' }, [
@@ -1193,6 +1247,7 @@ export function buildGlobalNav(activePage: string): HTMLElement {
           [p.label],
         ),
       ),
+      themeToggleBtn,
     ]),
   ]);
 }
