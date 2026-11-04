@@ -7,10 +7,10 @@ function mount(): void {
 
   const hero = h('section', { class: 'sys-page-hero' }, [
     h('span', { class: 'badge badge-mode', text: 'META GLOBAL AI DEVELOPER HACKATHON' }),
-    h('h1', { class: 'sys-page-title', text: 'Presentation Plan & Demo Script' }),
+    h('h1', { class: 'sys-page-title', text: 'Hackathon Rubric Alignment & Measured Proof' }),
     h('p', {
       class: 'sys-page-subtitle',
-      text: 'The hackathon evaluation criteria — Impact 30 %, Meta AI 25 %, Technical Depth 20 %, Presentation 25 % — each mapped to evidence in this repo, plus the 2.5-minute demo script and the live twin benchmark.',
+      text: 'The hackathon evaluation criteria — Social Impact 30 %, Meta AI Tooling 25 %, Technical Depth 20 %, Execution 25 % — each mapped to evidence in this repository, alongside our live core benchmark.',
     }),
   ]);
 

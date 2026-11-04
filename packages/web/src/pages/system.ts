@@ -18,7 +18,6 @@ import {
   PROJECT_TREE,
   RUBRIC,
   THEME_FIT,
-  VIDEO_DEMO_SCRIPT,
   WORKFLOWS,
 } from './system-data.js';
 import type {
@@ -1056,37 +1055,6 @@ export function buildJudgingView(onGo?: (id: string) => void): HTMLElement {
     }),
   );
 
-  const scriptCards = h(
-    'div',
-    { class: 'sys-script-grid' },
-    VIDEO_DEMO_SCRIPT.map((scene) =>
-      h('div', { class: 'sys-script-card' }, [
-        h('div', { class: 'sys-script-meta' }, [
-          h('span', { class: 'sys-script-time', text: scene.time }),
-          h('span', { class: 'sys-script-camera', text: `Camera: ${scene.camera}` }),
-        ]),
-        h('h4', { class: 'sys-script-scene-title', text: scene.title }),
-        h('p', { class: 'sys-script-speech', text: scene.speech }),
-        h('div', { class: 'sys-script-actions-list' }, [
-          h('span', { class: 'sys-rel-label', text: 'Actions:' }),
-          ...scene.actions.map((act) => h('span', { class: 'sys-script-act-pill', text: `• ${act}` })),
-        ]),
-      ]),
-    ),
-  );
-
-  const videoScriptSection = h('div', { class: 'sys-script-wrap' }, [
-    h('div', { class: 'sys-script-head' }, [
-      h('h3', { class: 'sys-script-title', text: '📹 Hackathon Video Recording Script & Camera Guide (2.5 Min)' }),
-      h('span', { class: 'badge', text: 'OPTIMIZED FOR META EVALUATION' }),
-    ]),
-    h('p', {
-      class: 'sys-hint',
-      text: 'A scene-by-scene plan for the 2.5-minute demo video: timestamps, view switches, and what to say.',
-    }),
-    scriptCards,
-  ]);
-
   return h('section', { class: 'sys-judging', label: 'Hackathon pitch' }, [
     h('p', {
       class: 'sys-hint',
@@ -1094,7 +1062,6 @@ export function buildJudgingView(onGo?: (id: string) => void): HTMLElement {
     }),
     themes,
     cards,
-    videoScriptSection,
   ]);
 }
 
@@ -1183,7 +1150,7 @@ export function buildGlobalNav(activePage: string): HTMLElement {
     { id: 'structure', href: '/structure.html', label: 'Project Structure' },
     { id: 'components', href: '/components.html', label: 'Clef Components' },
     { id: 'workflows', href: '/workflows.html', label: 'Dynamic Workflows' },
-    { id: 'presentation', href: '/presentation.html', label: 'Presentation & Script' },
+    { id: 'presentation', href: '/presentation.html', label: 'Evaluation & Rubric' },
     { id: 'system', href: '/system.html', label: 'All-In-One Hub' },
   ];
 
