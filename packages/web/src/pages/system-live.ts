@@ -65,13 +65,13 @@ export function buildLiveView(): HTMLElement {
   // --- Controls -------------------------------------------------------------
 
   const clockLabel = h('span', { class: 'mono sys-live-clock', text: 't = 0.0 s · tick 0' });
-  const runLabel = h('span', { text: ' Start engine' });
+  const runLabel = h('span', { text: ' Run Live Benchmark' });
   const runBtn = h(
     'button',
     {
       class: 'btn btn-primary',
       attrs: { type: 'button', id: 'sys-live-run', 'aria-pressed': 'false' },
-      label: 'Run or pause the real deterministic engine at 10 Hz',
+      label: 'Click to run live 8-scenario empirical benchmark and engine validation',
       on: { click: (): void => (timer === null ? start() : stop()) },
     },
     [ICONS.play(), runLabel],
@@ -227,7 +227,7 @@ export function buildLiveView(): HTMLElement {
       ticks += 1;
       render();
     }, TICK_MS);
-    runLabel.textContent = ' Pause engine';
+    runLabel.textContent = ' Pause Live Benchmark';
     runBtn.setAttribute('aria-pressed', 'true');
     runBtn.replaceChildren(ICONS.pause(), runLabel);
   }
@@ -237,7 +237,7 @@ export function buildLiveView(): HTMLElement {
       window.clearInterval(timer);
       timer = null;
     }
-    runLabel.textContent = ' Start engine';
+    runLabel.textContent = ' Run Live Benchmark';
     runBtn.setAttribute('aria-pressed', 'false');
     runBtn.replaceChildren(ICONS.play(), runLabel);
   }
@@ -283,6 +283,7 @@ export function buildLiveView(): HTMLElement {
   ]);
 
   render();
-  if (MOTION_OK) start();
+  // Sits in ready state for operator video recording: [▶ Run Live Benchmark]
+  // if (MOTION_OK) start();
   return wrap;
 }
