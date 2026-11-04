@@ -449,7 +449,7 @@ export type DomainEvent =
       simTimeS: number;
       emsId: string;
       lane: LaneId;
-      milestone: 'spawned' | 'detected' | 'stopLineReached' | 'boxExited';
+      milestone: 'spawned' | 'detected' | 'stopLineReached' | 'boxExited' | 'despawned';
       delayS?: number;
     }
   | {

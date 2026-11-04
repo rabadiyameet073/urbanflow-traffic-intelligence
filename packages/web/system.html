@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>UrbanFlow AI – System Explorer</title>
+    <meta name="description" content="Interactive architecture tour of UrbanFlow AI: browser simulation core, edge gateway, streaming pipeline and the workflows that connect them." />
+    <!-- Self-hosted flat SVG favicon (Module 33 §2): no CDN, no emoji, no gradient. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://urbanflow-ai.pages.dev/system" />
+    <meta name="theme-color" content="#0B0F14" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F6F8FA" media="(prefers-color-scheme: light)" />
+
+    <!-- Open Graph & Social Cards (Module 33 §2) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="UrbanFlow AI — System Explorer" />
+    <meta property="og:description" content="Frontend to backend, tick to terabyte: how the platform is built and why it is trustworthy." />
+    <meta property="og:url" content="https://urbanflow-ai.pages.dev/system" />
+    <meta property="og:image" content="https://urbanflow-ai.pages.dev/og.png" />
+    <meta property="og:image:alt" content="System architecture diagram of the UrbanFlow AI platform." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="UrbanFlow AI — System Explorer" />
+    <meta name="twitter:image" content="https://urbanflow-ai.pages.dev/og.png" />
+
+    <!-- Preload fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/base.css" />
+    <link rel="stylesheet" href="/src/styles/components.css" />
+    <link rel="stylesheet" href="/src/styles/system.css" />
+
+    <!-- Structured Data (JSON-LD, XSS-safe escaped) (Module 33 §3) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "UrbanFlow AI System Explorer",
+      "description": "Interactive architecture, project structure, component and workflow documentation for the UrbanFlow AI traffic intelligence platform.",
+      "author": { "@type": "Organization", "name": "UrbanFlow AI" },
+      "license": "https://opensource.org/license/mit"
+    }
+    </script>
+  </head>
+  <body class="sys-page-body">
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <div id="system-app"></div>
+    <noscript>
+      <div class="noscript-fallback">
+        <h1>UrbanFlow AI — System Explorer</h1>
+        <p>JavaScript is required for the interactive diagrams. The written architecture lives in docs/ARCHITECTURE.md.</p>
+        <p><a href="/">Open the live simulation</a></p>
+      </div>
+    </noscript>
+    <script type="module" src="/src/pages/system.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,578 @@
+/**
+ * System Explorer page styles.
+ *
+ * Module 40 design system: tokens only, flat matte fills, no gradients,
+ * two-step elevation. Layout is a control-room briefing sheet — dark by
+ * default, light via the same tokens.
+ */
+
+.sys-page-body {
+  background: var(--color-canvas);
+  color: var(--color-text);
+}
+
+.sys-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-6) var(--space-4);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.sys-brand {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sys-title {
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.sys-tagline {
+  margin: 0;
+  color: var(--color-text-2);
+  font-size: 0.95rem;
+  max-width: 60ch;
+}
+
+/* Anchor buttons (`.btn` on an <a>): kill the default underline so the
+   control reads identical to the <button> it sits beside. */
+a.btn {
+  text-decoration: none;
+}
+
+/* --- Section tabs --------------------------------------------------------- */
+
+.sys-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0 var(--space-6);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.sys-tab {
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out-quint),
+    border-color var(--dur-fast) var(--ease-out-quint);
+}
+
+.sys-tab:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.sys-tab.is-active {
+  color: var(--color-canvas);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.sys-tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.sys-main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6) var(--space-8);
+}
+
+.sys-panel {
+  display: none;
+}
+
+.sys-panel.is-active {
+  display: block;
+}
+
+/* --- Two-column shell ------------------------------------------------------- */
+
+.sys-two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.sys-two-col-wide-left {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+@media (max-width: 980px) {
+  .sys-two-col,
+  .sys-two-col-wide-left {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* --- Architecture diagram ---------------------------------------------------- */
+
+.sys-diagram-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+
+.sys-diagram {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+  font-family: var(--font-ui);
+}
+
+.sys-band {
+  fill: transparent;
+  stroke: var(--color-hairline);
+  stroke-width: 1;
+}
+
+.sys-band-label {
+  fill: var(--color-text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sys-edge {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.4;
+  opacity: 0.75;
+}
+
+.sys-edge-stream {
+  stroke-dasharray: 5 4;
+}
+
+.sys-edge-advice {
+  stroke-dasharray: 2 4;
+}
+
+.sys-edge-label {
+  fill: var(--color-text-3);
+  font-size: 10.5px;
+}
+
+.sys-packet {
+  fill: var(--color-accent);
+}
+
+.sys-node {
+  cursor: pointer;
+}
+
+.sys-node:focus-visible {
+  outline: none;
+}
+
+.sys-node:focus-visible .sys-node-box {
+  stroke: var(--color-focus);
+  stroke-width: 2;
+}
+
+.sys-node-box {
+  fill: var(--color-surface-elevated);
+  stroke: var(--color-hairline);
+  stroke-width: 1;
+  transition: stroke var(--dur-fast) var(--ease-out-quint);
+}
+
+.sys-node:hover .sys-node-box {
+  stroke: var(--color-border-strong);
+}
+
+.sys-node.is-selected .sys-node-box {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.sys-layer-browser .sys-node-box { fill: var(--color-surface-elevated); }
+.sys-layer-core .sys-node-box { fill: var(--color-surface-elevated); }
+.sys-layer-edge .sys-node-box { fill: var(--color-surface-elevated); }
+.sys-layer-data .sys-node-box { fill: var(--color-surface-elevated); }
+
+.sys-node-title {
+  fill: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sys-node-sub {
+  fill: var(--color-text-2);
+  font-size: 11px;
+}
+
+.sys-node-layer {
+  fill: var(--color-text-3);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* --- Detail panel -------------------------------------------------------------- */
+
+.sys-detail {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: var(--space-4);
+}
+
+.sys-detail-title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.sys-detail-sub {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-2);
+  font-size: 0.85rem;
+}
+
+.sys-detail-body {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.sys-detail-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-text-2);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* --- Structure tree ------------------------------------------------------------- */
+
+.sys-hint {
+  color: var(--color-text-2);
+  font-size: 0.9rem;
+  max-width: 88ch;
+  margin: 0 0 var(--space-4);
+}
+
+.sys-tree-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sys-tree {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.sys-tree summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.sys-tree summary::-webkit-details-marker {
+  display: none;
+}
+
+.sys-tree summary::before {
+  content: '+';
+  font-family: var(--font-mono);
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.sys-tree[open] > summary::before {
+  content: '\2212';
+}
+
+.sys-tree-name,
+.sys-leaf-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sys-tree-desc,
+.sys-leaf-desc {
+  color: var(--color-text-2);
+  font-size: 0.86rem;
+}
+
+.sys-tree-children {
+  margin-top: var(--space-2);
+  margin-left: var(--space-5);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--color-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.sys-leaf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-1) 0;
+}
+
+/* --- Components grid -------------------------------------------------------------- */
+
+.sys-comp-scroll {
+  min-width: 0;
+}
+
+.sys-comp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.sys-comp {
+  font: inherit;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  cursor: pointer;
+  color: var(--color-text);
+  transition: border-color var(--dur-fast) var(--ease-out-quint),
+    opacity var(--dur-fast) var(--ease-out-quint);
+}
+
+.sys-comp:hover {
+  border-color: var(--color-border-strong);
+}
+
+.sys-comp:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.sys-comp.is-selected {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+}
+
+.sys-comp.is-related {
+  border-color: var(--color-go);
+}
+
+.sys-comp.is-dim {
+  opacity: 0.45;
+}
+
+.sys-comp-title {
+  font-weight: 700;
+}
+
+.sys-comp-pkg {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--color-text-3);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  padding: 1px var(--space-2);
+}
+
+.sys-comp-role {
+  font-size: 0.82rem;
+  color: var(--color-text-2);
+  line-height: 1.5;
+}
+
+.sys-rel-label {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.sys-rel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sys-rel-chip {
+  font-size: 0.8rem;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-3);
+  color: var(--color-text);
+}
+
+.sys-rel-none {
+  font-size: 0.8rem;
+  color: var(--color-text-3);
+  font-style: italic;
+}
+
+/* --- Workflow player ---------------------------------------------------------------- */
+
+.sys-wf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 880px;
+}
+
+.sys-wf-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sys-wf-tab {
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--color-text-2);
+  background: transparent;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.sys-wf-tab.is-active {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.sys-wf-tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.sys-wf-summary {
+  color: var(--color-text-2);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 88ch;
+}
+
+.sys-wf-stage {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  min-height: 180px;
+  box-shadow: var(--shadow-sm);
+}
+
+.sys-wf-step-title {
+  margin: 0 0 var(--space-3);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.sys-wf-step-body {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--color-text-2);
+  max-width: 78ch;
+}
+
+.sys-wf-progress {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-hairline);
+  overflow: hidden;
+}
+
+.sys-wf-progress-fill {
+  height: 100%;
+  width: var(--sys-wf-progress, 0%);
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--dur-base) var(--ease-out-quint);
+}
+
+.sys-wf-dots {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sys-wf-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-hairline);
+  border: 1px solid var(--color-border-strong);
+}
+
+.sys-wf-dot.is-active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.sys-wf-controls {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* --- Footer -------------------------------------------------------------------------- */
+
+.sys-footer {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--color-hairline);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
+  color: var(--color-text-3);
+  font-size: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sys-wf-progress-fill {
+    transition: none;
+  }
+}

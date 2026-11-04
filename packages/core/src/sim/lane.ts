@@ -54,6 +54,14 @@ export class SimLane {
   /** Slot -> EMS request id, populated only for emergency vehicles (never a typed array). */
   private readonly emsIdBySlot = new Map<number, string>();
 
+  /**
+   * Slot -> sim time an EMS *continuous* stall at the entry end began, kept
+   * only while the vehicle is stopped in the stuck zone. Like `emsIdBySlot`
+   * this is derived entirely from deterministic physics — replay rebuilds it
+   * tick for tick — so it stays out of `stateHash`.
+   */
+  private readonly emsStallSinceBySlot = new Map<number, number>();
+
   constructor(laneId: LaneId, capacity = 512) {
     this.laneId = laneId;
     this.capacity = capacity;
@@ -97,6 +105,7 @@ export class SimLane {
     this.ringHead = 0;
     this.entryBuffer.length = 0;
     this.emsIdBySlot.clear();
+    this.emsStallSinceBySlot.clear();
     this.deniedCount = 0;
     this.totalArrivals = 0;
     this.totalExited = 0;
@@ -217,6 +226,26 @@ export class SimLane {
     if (id === undefined) return null;
     this.emsIdBySlot.delete(slot);
     return id;
+  }
+
+  /**
+   * Mark "stalled at the entry end" for `slot` (called every tick the vehicle
+   * is stopped in the stuck zone) and return when the current continuous
+   * stall began. Restarting the clock whenever the vehicle rolls is what makes
+   * the despawn grace period measure a *sustained* stall: an ambulance that
+   * brakes briefly behind a queue and then moves on drives the lane like any
+   * other vehicle instead of being despawned.
+   */
+  public markEmsStall(slot: number, simTimeS: number): number {
+    const since = this.emsStallSinceBySlot.get(slot);
+    if (since !== undefined) return since;
+    this.emsStallSinceBySlot.set(slot, simTimeS);
+    return simTimeS;
+  }
+
+  /** Clear the stall timer; call whenever the vehicle is not stalled in the zone. */
+  public clearEmsStall(slot: number): void {
+    this.emsStallSinceBySlot.delete(slot);
   }
 
   /**

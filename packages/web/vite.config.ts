@@ -39,6 +39,13 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
+      // Multi-page build (Module 30 §9): the live dashboard plus the
+      // System Explorer briefing page (`/system.html`). Both share the
+      // design tokens and the `core` chunk stays split out.
+      input: {
+        main: 'index.html',
+        system: 'system.html',
+      },
       output: {
         manualChunks(id: string): string | undefined {
           if (id.includes('node_modules')) return undefined;

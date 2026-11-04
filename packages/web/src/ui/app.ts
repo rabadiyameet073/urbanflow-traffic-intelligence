@@ -243,6 +243,18 @@ function buildHeader(): HTMLElement {
       ),
       motionButton,
       soundButton,
+      // System Explorer: the static, video-ready architecture briefing page.
+      // `/system.html` works under `vite dev` and Vercel `cleanUrls` (which
+      // redirects it to the canonical `/system`).
+      h(
+        'a',
+        {
+          class: 'btn btn-secondary',
+          attrs: { id: 'link-system-explorer', href: '/system.html' },
+          label: STRINGS.header.systemExplorerHelp,
+        },
+        [STRINGS.header.systemExplorer],
+      ),
     ]),
   ]);
 }

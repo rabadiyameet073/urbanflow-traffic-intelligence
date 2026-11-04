@@ -29,7 +29,7 @@ import { splitRng, detLn } from '../helpers/rng.js';
 import { hashState } from '../helpers/hash.js';
 import { emptyIdleSecondsByClass } from '../metrics/metrics.js';
 import { SimLane } from './lane.js';
-import { FLAG_BRAKING, FLAG_EMS, FLAG_IN_BOX, FLAG_FILTERING, ActiveIncident, QueuedArrival } from './types.js';
+import { FLAG_BRAKING, FLAG_EMS, FLAG_IN_BOX, FLAG_FILTERING, EMS_STUCK_ZONE_M, EMS_STALL_MPS, EMS_STALL_GRACE_S, ActiveIncident, QueuedArrival } from './types.js';
 
 export class SimEngine {
   public readonly config: SimConfig;
@@ -223,7 +223,11 @@ export class SimEngine {
    * if the reported distance is also the vehicle's actual physical position, so
    * this variant writes straight into the lane instead of the entry buffer.
    * The lane must therefore be long enough to contain `distanceM`; requests
-   * beyond `laneLengthM` are clamped and fall back to the boundary spawn.
+   * beyond `laneLengthM` are clamped to the entry end, where an ambulance
+   * that stays stopped for the full `EMS_STALL_GRACE_S` is despawned, while
+   * one that gets moving drives the lane normally (see the EMS despawn in
+   * `step`). A lane that cannot accept the insertion at all despawns the
+   * request on the spot.
    */
   public spawnEmsAt(lane: LaneId, distanceM: number): string {
     const emsId = `ems-${lane}-${Math.floor(this.simTimeS * 10)}`;
@@ -231,7 +235,7 @@ export class SimEngine {
     if (!simLane) return emsId;
 
     const spawnPos = Math.min(distanceM, this.config.laneLengthM);
-    const slot = simLane.insertOrdered(
+    let slot = simLane.insertOrdered(
       'AMBULANCE',
       spawnPos,
       TIMING.EMS_CRUISE_MPS,
@@ -240,7 +244,27 @@ export class SimEngine {
       emsId,
     );
     if (slot === -1) {
-      return this.enqueueEms(lane, emsId);
+      slot = simLane.insertOrdered(
+        'AMBULANCE',
+        Math.max(10, spawnPos - 5),
+        TIMING.EMS_CRUISE_MPS,
+        this.simTimeS,
+        true,
+        emsId,
+      );
+    }
+    if (slot === -1) {
+      slot = simLane.insertOrdered(
+        'AMBULANCE',
+        Math.min(this.config.laneLengthM - 2, spawnPos + 5),
+        TIMING.EMS_CRUISE_MPS,
+        this.simTimeS,
+        true,
+        emsId,
+      );
+    }
+    if (slot === -1) {
+      return this.despawnEmsAtSpawn(lane, emsId);
     }
     // Operator-injected vehicles are arrivals too, so the conservation law closes.
     this.totalArrivals++;
@@ -274,27 +298,19 @@ export class SimEngine {
     return this.lanes[lane]?.nearestEmsId() ?? null;
   }
 
-  /** Boundary fallback for a full lane: queue the EMS at the entry point. */
-  private enqueueEms(lane: LaneId, emsId: string): string {
-    const simLane = this.lanes[lane];
-    if (!simLane) return emsId;
-
-    simLane.entryBuffer.unshift({
-      type: 'AMBULANCE',
-      tArrivalS: this.simTimeS,
-      tQueuedS: 0,
-      isEms: true,
-      emsId,
-    });
-    // Operator-injected vehicles are arrivals too, so the conservation law closes.
-    this.totalArrivals++;
-
+  /**
+   * A spawn that cannot place the ambulance in the lane despawns it on the
+   * spot: no entry-buffer wait, no arrival counted (so the conservation law
+   * still closes), and the request id is still returned so an EVP plan bound
+   * to it resolves through its ordinary recovery paths instead of hanging.
+   */
+  private despawnEmsAtSpawn(lane: LaneId, emsId: string): string {
     this.eventQueue.push({
       kind: 'emsMilestone',
       simTimeS: this.simTimeS,
       emsId,
       lane,
-      milestone: 'spawned',
+      milestone: 'despawned',
     });
 
     return emsId;
@@ -314,8 +330,9 @@ export class SimEngine {
    *   upstream of the stop line and the rest are spaced behind it by
    *   `lengthM + minGapS0 + 2`. This is how a mid-approach obstruction or a
    *   late-appearing ambulance is tested. A placement beyond `laneLengthM`, or
-   *   into a full lane, falls back to the entry gate rather than stacking
-   *   vehicles on top of each other.
+   *   into a full lane, falls back to the entry gate for ordinary classes
+   *   rather than stacking vehicles on top of each other; an ambulance is
+   *   despawned on the spot instead of queueing to get in.
    *
    * Injection draws from no RNG stream — the same property that lets the
    * detection-distance sweep replay bit-exactly — so an injected burst logged
@@ -381,6 +398,9 @@ export class SimEngine {
       const emsId = isEms ? `ems-${lane}-${stamp}-${i}` : undefined;
       if (emsId) emsIds.push(emsId);
 
+      // An ambulance that cannot be placed inside the lane is despawned on
+      // the spot; only non-EMS injections fall back to the entry gate.
+      let despawned = false;
       if (insideLane) {
         const slot = simLane.insertOrdered(
           type,
@@ -392,13 +412,16 @@ export class SimEngine {
           emsId,
         );
         if (slot === -1) {
-          this.enqueueAtBoundary(lane, type, isEms, emsId);
+          if (isEms) despawned = true;
+          else this.enqueueAtBoundary(lane, type, false, undefined);
         } else {
           // Operator-injected vehicles are arrivals too, so the conservation law closes.
           this.totalArrivals++;
         }
+      } else if (isEms) {
+        despawned = true;
       } else {
-        this.enqueueAtBoundary(lane, type, isEms, emsId);
+        this.enqueueAtBoundary(lane, type, false, undefined);
       }
 
       if (emsId) {
@@ -407,7 +430,7 @@ export class SimEngine {
           simTimeS: this.simTimeS,
           emsId,
           lane,
-          milestone: 'spawned',
+          milestone: despawned ? 'despawned' : 'spawned',
         });
       }
 
@@ -597,6 +620,18 @@ export class SimEngine {
         }
       }
 
+      // Pre-scan: check if an emergency vehicle is approaching in this lane
+      let laneHasEms = false;
+      let emsApproachPos = Number.POSITIVE_INFINITY;
+      for (let s = 0; s < lane.count; s++) {
+        const slot = lane.order[s] as number;
+        if ((lane.flags[slot]! & FLAG_EMS) !== 0) {
+          laneHasEms = true;
+          emsApproachPos = lane.pos[slot] as number;
+          break;
+        }
+      }
+
       // Iterate over vehicles in lane from front to back
       for (let idx = 0; idx < lane.count; idx++) {
         const slot = lane.order[idx] as number;
@@ -605,9 +640,14 @@ export class SimEngine {
         const typ = lane.getVehicleType(slot);
         const spec = VEHICLE_SPECS[typ];
         const isEms = (lane.flags[slot]! & FLAG_EMS) !== 0;
+        const hasEmsBehind = !isEms && laneHasEms && pos < emsApproachPos;
 
         // Effective desired speed v0
-        const v0 = Math.min(this.config.speedLimitMps, spec.maxSpeedMps) * capacityDrop;
+        let effectiveV0 = Math.min(this.config.speedLimitMps, spec.maxSpeedMps) * capacityDrop;
+        if (hasEmsBehind && signalIndication === 'G') {
+          // Normal vehicles ahead of an emergency vehicle yield and clear the intersection rapidly
+          effectiveV0 = Math.max(effectiveV0, spec.maxSpeedMps);
+        }
 
         // Leader kinematics
         let leaderDist = Number.POSITIVE_INFINITY;
@@ -652,14 +692,19 @@ export class SimEngine {
           }
         }
 
-        // EMS shoulder filtering logic
+        // EMS shoulder filtering and emergency cruise logic
         let effectiveGap = leaderDist;
-        let effectiveV0 = v0;
-        if (isEms && this.config.emsFiltering && pos > 0) {
-          lane.flags[slot] = lane.flags[slot]! | FLAG_FILTERING;
-          effectiveV0 = Math.min(v0, TIMING.EMS_YIELD_MPS); // shoulder cap (§6)
-          if (signalIndication === 'G') {
-            effectiveGap = Math.max(leaderDist, 20.0);
+        if (isEms) {
+          effectiveV0 = Math.max(effectiveV0, TIMING.EMS_CRUISE_MPS);
+          if (this.config.emsFiltering && pos > 0) {
+            lane.flags[slot] = lane.flags[slot]! | FLAG_FILTERING;
+            if (signalIndication === 'G') {
+              // Open path through clearing queue when green
+              effectiveGap = Math.max(leaderDist, 25.0);
+            }
+          } else if (pos <= 0) {
+            // Inside the intersection box: clear right-of-way to exit
+            effectiveGap = Math.max(leaderDist, 30.0);
           }
         }
 
@@ -678,6 +723,9 @@ export class SimEngine {
         const ratioS2 = ratioS * ratioS;
 
         let aIdm = spec.maxAccel * (1 - ratioV4 - ratioS2);
+        if (hasEmsBehind && signalIndication === 'G' && aIdm > 0) {
+          aIdm = Math.min(spec.maxAccel * 1.5, aIdm * 1.4);
+        }
         if (aIdm < -9.0) aIdm = -9.0; // clamp physical braking limit
 
         // Explicit Euler / ballistic update
@@ -710,18 +758,30 @@ export class SimEngine {
         }
       }
 
-      // 5. EMS despawn at the stop line: an ambulance that has crossed the
-      // line has cleared the controlled point, so it leaves the lane right
-      // there instead of rolling on through the box. Driving the box length
-      // is what stranded ambulances in the intersection behind slower
-      // discharge and made them look like they were merging into another
-      // lane. The `boxExited` milestone still fires, so EVP recovery,
-      // metrics and the detection-distance sweep keep working.
+      // 5. Check sustained stall at entry boundary (only if jammed at entry and cannot enter)
       for (let idx = lane.count - 1; idx >= 0; idx--) {
         const emsSlot = lane.order[idx] as number;
         if ((lane.flags[emsSlot]! & FLAG_EMS) === 0) continue;
-        if ((lane.pos[emsSlot] as number) > 0) continue;
+        const emsPos = lane.pos[emsSlot] as number;
 
+        // An ambulance that is rolling, or that has made progress downstream
+        // away from the entry boundary, is not stalled.
+        if (emsPos < this.config.laneLengthM - EMS_STUCK_ZONE_M) {
+          lane.clearEmsStall(emsSlot);
+          continue;
+        }
+
+        const stalledNow = (lane.vel[emsSlot] as number) < EMS_STALL_MPS;
+        if (!stalledNow) {
+          lane.clearEmsStall(emsSlot);
+          continue;
+        }
+
+        if (this.simTimeS - lane.markEmsStall(emsSlot, this.simTimeS) < EMS_STALL_GRACE_S) {
+          continue;
+        }
+
+        // Genuine sustained stall at the entry end: despawn and report
         const emsType = lane.getVehicleType(emsSlot);
         const emsSpec = VEHICLE_SPECS[emsType];
         const entryTime = lane.t0[emsSlot] as number;
@@ -729,24 +789,16 @@ export class SimEngine {
         const stops = lane.stops[emsSlot] as number;
         const emsId = lane.takeEmsId(emsSlot);
 
-        // Free-flow reference is measured to the stop line, the point at
-        // which this class is judged, not through the box.
-        const freeFlowTransitS =
-          this.config.laneLengthM /
-          Math.min(this.config.speedLimitMps, emsSpec.maxSpeedMps);
-        const actualTransitS = this.simTimeS - entryTime;
-        const delayS = Math.max(0, actualTransitS - freeFlowTransitS);
-
         lane.removeAt(idx);
+        lane.clearEmsStall(emsSlot);
         this.totalExited++;
-        lane.dischargeRing[lane.ringHead] = (lane.dischargeRing[lane.ringHead] ?? 0) + 1;
 
         this.eventQueue.push({
           kind: 'vehicleExited',
           simTimeS: this.simTimeS,
           lane: laneId,
           vehicleType: emsType,
-          delayS,
+          delayS: 0,
           stops,
           waitS: waitTime,
           pax: emsSpec.pax,
@@ -757,14 +809,12 @@ export class SimEngine {
           simTimeS: this.simTimeS,
           emsId: emsId ?? `ems-${laneId}-${Math.round(entryTime * 10)}`,
           lane: laneId,
-          milestone: 'boxExited',
-          delayS,
+          milestone: 'despawned',
         });
       }
 
-      // 6. Check front vehicle exit (non-EMS only: an EMS was despawned at
-      // the stop line above and can never reach the far side of the box).
-      if (lane.count > 0) {
+      // 6. Check front vehicle exit across the far edge of the intersection box
+      while (lane.count > 0) {
         const frontSlot = lane.order[0] as number;
         const frontPos = lane.pos[frontSlot] as number;
         if (frontPos <= -boxDistance) {
@@ -773,6 +823,8 @@ export class SimEngine {
           const entryTime = lane.t0[frontSlot] as number;
           const waitTime = lane.wait[frontSlot] as number;
           const stops = lane.stops[frontSlot] as number;
+          const isFrontEms = (lane.flags[frontSlot]! & FLAG_EMS) !== 0;
+          const emsId = isFrontEms ? lane.takeEmsId(frontSlot) : null;
 
           // Free-flow transit time = (laneLength + box) / min(speedLimit, spec.maxSpeed)
           const freeFlowTransitS =
@@ -782,6 +834,7 @@ export class SimEngine {
           const delayS = Math.max(0, actualTransitS - freeFlowTransitS);
 
           lane.removeFront();
+          lane.clearEmsStall(frontSlot);
           this.totalExited++;
           lane.dischargeRing[lane.ringHead] = (lane.dischargeRing[lane.ringHead] ?? 0) + 1;
 
@@ -795,6 +848,19 @@ export class SimEngine {
             waitS: waitTime,
             pax: spec.pax,
           });
+
+          if (isFrontEms) {
+            this.eventQueue.push({
+              kind: 'emsMilestone',
+              simTimeS: this.simTimeS,
+              emsId: emsId ?? `ems-${laneId}-${Math.round(entryTime * 10)}`,
+              lane: laneId,
+              milestone: 'boxExited',
+              delayS,
+            });
+          }
+        } else {
+          break;
         }
       }
     }
