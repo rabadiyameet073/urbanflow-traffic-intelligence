@@ -115,3 +115,4 @@
 | **Fail-Safe & Recovery Hook** | [kernel.ts#L95-L118](https://github.com/rabadiyameet073/urbanflow-traffic-intelligence/blob/main/packages/core/src/control/kernel.ts#L95-L118) | `FLASH_RED` + mandatory `ALL_RED` recovery |
 | **MongoDB Operations Lake** | [mongo.ts#L20-L95](https://github.com/rabadiyameet073/urbanflow-traffic-intelligence/blob/main/packages/edge/src/db/mongo.ts#L20-L95) | 4 auto-provisioned indexed collections |
 | **Provenance Verification Gate** | [copilot.ts#L90-L120](https://github.com/rabadiyameet073/urbanflow-traffic-intelligence/blob/main/packages/edge/src/copilot/index.ts#L90-L120) | Hallucination drop via `verifySemanticNumbers` |
+

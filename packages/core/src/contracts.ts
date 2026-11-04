@@ -298,6 +298,8 @@ export interface LaneObservation {
   occupancyPct: number;
   nearestEmsDistanceM: number | null;
   nearestEmsId?: string | null;
+  hasEms?: boolean;
+  emsInBox?: boolean;
   valid: boolean;
 }
 

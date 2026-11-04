@@ -1,21 +1,36 @@
 /**
  * System Explorer — the dedicated, video-ready "how it works" page (`/system`).
  *
- * Module 30/51 rules apply unchanged: no framework, no `innerHTML`, styling
- * through classes and tokens only, SVG icons, WCAG AA contrast, and full
- * keyboard operation. The page is static-content driven (`system-data.ts`)
- * so a demo can deep-link any section via the URL hash.
+ * Module 30/51 rules apply unchanged: vanilla TypeScript, no framework, no `innerHTML`,
+ * styling through CSS tokens only, flat matte SVG icons, WCAG AA contrast, and full
+ * keyboard accessibility. Deep-links any section via URL hash.
  */
 import { h, setClass } from '../ui/dom.js';
 import {
+  ABOUT_ACHIEVEMENTS,
+  ABOUT_BLOCKS,
+  ABOUT_INNOVATIONS,
   ARCH_EDGES,
   ARCH_LAYERS,
   ARCH_NODES,
   COMPONENTS,
+  FLOW_PRESETS,
   PROJECT_TREE,
+  RUBRIC,
+  THEME_FIT,
+  VIDEO_DEMO_SCRIPT,
   WORKFLOWS,
 } from './system-data.js';
-import type { ArchNode, ComponentCard, TreeNode, Workflow } from './system-data.js';
+import type {
+  ArchNode,
+  ArchEdge,
+  ComponentCard,
+  FlowPreset,
+  TreeNode,
+  Workflow,
+  WorkflowStep,
+} from './system-data.js';
+import { buildLiveView } from './system-live.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -53,7 +68,6 @@ function nodeY(n: ArchNode): number {
   return PAD_TOP + (n.row - 1) * ROW_GAP;
 }
 
-/** Band top for a layer row, shared by the rect and its label. */
 function bandY(row: number): number {
   return PAD_TOP + (row - 1) * ROW_GAP;
 }
@@ -61,7 +75,6 @@ function bandY(row: number): number {
 const DIAGRAM_W = PAD_X * 2 + 3 * COL_GAP - (COL_GAP - NODE_W);
 const DIAGRAM_H = PAD_TOP + 4 * ROW_GAP - (ROW_GAP - NODE_H) + 28;
 
-/** Anchor between two nodes: same row → sides; different rows → top/bottom. */
 function edgePath(from: ArchNode, to: ArchNode): string {
   const fx = nodeX(from) + NODE_W / 2;
   const fy = nodeY(from) + NODE_H / 2;
@@ -80,15 +93,24 @@ function edgePath(from: ArchNode, to: ArchNode): string {
   return `M ${fx} ${y1} C ${fx} ${mid}, ${tx} ${mid}, ${tx} ${y2}`;
 }
 
-// --- Architecture view -------------------------------------------------------------
+// --- Architecture View with Flow Presets & Step Breakdown -----------------------
 
 function buildArchitectView(): HTMLElement {
+  let activeFlowId = 'full';
+  let activePreset = FLOW_PRESETS.find((f) => f.id === activeFlowId) ?? FLOW_PRESETS[0]!;
+
   const detail = h('div', {
     class: 'sys-detail',
     attrs: { id: 'arch-detail', role: 'status', 'aria-live': 'polite' },
   });
 
+  const flowBanner = h('div', { class: 'sys-flow-banner', text: activePreset.description });
+  const flowStepsHolder = h('div', { class: 'sys-flow-steps-wrap' });
+
   const renderDetail = (node: ArchNode): void => {
+    const inbound = ARCH_EDGES.filter((e) => e.to === node.id);
+    const outbound = ARCH_EDGES.filter((e) => e.from === node.id);
+
     detail.replaceChildren(
       h('h3', { class: 'sys-detail-title', text: node.title }),
       h('p', { class: 'sys-detail-sub', text: node.subtitle }),
@@ -98,9 +120,44 @@ function buildArchitectView(): HTMLElement {
         { class: 'sys-detail-list' },
         node.bullets.map((b) => h('li', { text: b })),
       ),
+      h('p', { class: 'sys-rel-label', text: 'Inbound Data Flows' }),
+      h(
+        'div',
+        { class: 'sys-rel-chips' },
+        inbound.length > 0
+          ? inbound.map((e) => h('span', { class: 'sys-rel-chip', text: `← ${e.label} (from ${e.from})` }))
+          : [h('span', { class: 'sys-rel-none', text: 'Ingress root' })],
+      ),
+      h('p', { class: 'sys-rel-label', text: 'Outbound Data Flows' }),
+      h(
+        'div',
+        { class: 'sys-rel-chips' },
+        outbound.length > 0
+          ? outbound.map((e) => h('span', { class: 'sys-rel-chip', text: `→ ${e.label} (to ${e.to})` }))
+          : [h('span', { class: 'sys-rel-none', text: 'Terminal sink' })],
+      ),
     );
   };
-  renderDetail(ARCH_NODES[0]!);
+
+  const renderFlowSteps = (preset: FlowPreset): void => {
+    flowStepsHolder.replaceChildren(
+      h('h4', { class: 'sys-flow-steps-head', text: `Active Flow Steps: ${preset.title}` }),
+      h(
+        'div',
+        { class: 'sys-flow-steps-grid' },
+        preset.steps.map((st) =>
+          h('div', { class: 'sys-flow-step-card' }, [
+            h('div', { class: 'sys-flow-step-top' }, [
+              h('span', { class: 'sys-flow-step-num', text: `Step ${st.step}` }),
+              h('span', { class: 'sys-flow-step-proto', text: st.protocol }),
+            ]),
+            h('h5', { class: 'sys-flow-step-title', text: st.title }),
+            h('p', { class: 'sys-flow-step-detail', text: st.detail }),
+          ]),
+        ),
+      ),
+    );
+  };
 
   const svg = s('svg', {
     class: 'sys-diagram',
@@ -132,13 +189,17 @@ function buildArchitectView(): HTMLElement {
     svg.append(label);
   }
 
-  // Edges first (under nodes).
+  const edgeElements: { edge: ArchEdge; path: SVGElement }[] = [];
+
+  // Edges under nodes.
   for (const edge of ARCH_EDGES) {
     const from = ARCH_NODES.find((n) => n.id === edge.from);
     const to = ARCH_NODES.find((n) => n.id === edge.to);
     if (!from || !to) continue;
     const d = edgePath(from, to);
-    svg.append(s('path', { class: `sys-edge sys-edge-${edge.kind}`, d }));
+    const pathEl = s('path', { class: `sys-edge sys-edge-${edge.kind}`, d });
+    svg.append(pathEl);
+    edgeElements.push({ edge, path: pathEl });
 
     const lx = nodeX(from) + NODE_W / 2 + (nodeX(to) + NODE_W / 2 - nodeX(from) - NODE_W / 2) / 2;
     const ly = nodeY(from) + NODE_H / 2 + (nodeY(to) + NODE_H / 2 - nodeY(from) - NODE_H / 2) / 2;
@@ -153,6 +214,8 @@ function buildArchitectView(): HTMLElement {
       svg.append(packet);
     }
   }
+
+  const nodeMap = new Map<string, SVGGElement>();
 
   // Nodes.
   for (const node of ARCH_NODES) {
@@ -192,57 +255,211 @@ function buildArchitectView(): HTMLElement {
         select();
       }
     });
+    nodeMap.set(node.id, g);
     svg.append(g);
   }
 
-  const first = svg.querySelector('.sys-node');
-  if (first) setClass(first, 'is-selected', true);
+  const applyFlowPreset = (preset: FlowPreset): void => {
+    activeFlowId = preset.id;
+    activePreset = preset;
+    flowBanner.textContent = preset.description;
+    renderFlowSteps(preset);
 
-  return h('div', { class: 'sys-two-col' }, [
-    h('div', { class: 'sys-diagram-wrap' }, [svg]),
-    detail,
+    const activeNodes = new Set(preset.nodeIds);
+    for (const [id, el] of nodeMap) {
+      setClass(el, 'is-flow-active', activeNodes.has(id));
+    }
+
+    for (const { edge, path } of edgeElements) {
+      const isEdgeActive = activeNodes.has(edge.from) && activeNodes.has(edge.to);
+      setClass(path, 'is-flow-active', isEdgeActive);
+    }
+  };
+
+  const flowButtons = FLOW_PRESETS.map((preset) =>
+    h(
+      'button',
+      {
+        class: `sys-flow-btn${preset.id === activeFlowId ? ' is-active' : ''}`,
+        attrs: { type: 'button' },
+        on: {
+          click: (e) => {
+            document.querySelectorAll('.sys-flow-btn').forEach((b) => setClass(b, 'is-active', b === e.currentTarget));
+            applyFlowPreset(preset);
+          },
+        },
+        text: preset.shortLabel,
+      },
+    ),
+  );
+
+  const flowBar = h('div', { class: 'sys-flow-bar' }, [
+    h('span', { class: 'sys-flow-label', text: 'Flow Simulator:' }),
+    ...flowButtons,
+  ]);
+
+  // Initial selection.
+  renderDetail(ARCH_NODES[0]!);
+  applyFlowPreset(activePreset);
+  const firstNode = nodeMap.get(ARCH_NODES[0]!.id);
+  if (firstNode) setClass(firstNode, 'is-selected', true);
+
+  return h('div', { class: 'sys-architect-section' }, [
+    flowBar,
+    flowBanner,
+    h('div', { class: 'sys-two-col' }, [
+      h('div', { class: 'sys-diagram-wrap' }, [svg]),
+      detail,
+    ]),
+    flowStepsHolder,
   ]);
 }
 
-// --- Structure view ----------------------------------------------------------------
+// --- Project Structure View with Live Search -------------------------------------
 
-function buildTree(node: TreeNode, depth: number): HTMLElement {
+function buildTree(node: TreeNode, depth: number, filter: string, parentPath = ''): HTMLElement | null {
+  const matchesSelf = filter === '' || node.name.toLowerCase().includes(filter) || node.desc.toLowerCase().includes(filter);
+  const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+
+  let matchingChildren: HTMLElement[] = [];
+  if (node.children) {
+    for (const child of node.children) {
+      const renderedChild = buildTree(child, depth + 1, filter, currentPath);
+      if (renderedChild) matchingChildren.push(renderedChild);
+    }
+  }
+
+  if (!matchesSelf && matchingChildren.length === 0) return null;
+
   if (!node.children || node.children.length === 0) {
     return h('div', { class: 'sys-leaf' }, [
-      h('span', { class: 'mono sys-leaf-name', text: node.name }),
+      h(
+        'a',
+        {
+          class: 'mono sys-leaf-name sys-tree-link',
+          attrs: {
+            href: `https://github.com/rabadiyameet073/urbanflow-traffic-intelligence/blob/main/${currentPath}`,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            title: `Open ${currentPath} on GitHub`,
+          },
+        },
+        [node.name, ' ↗'],
+      ),
+      node.badge ? h('span', { class: 'sys-tree-badge', text: node.badge }) : null,
       h('span', { class: 'sys-leaf-desc', text: node.desc }),
     ]);
   }
-  return h('details', { class: 'sys-tree', attrs: { open: depth < 1 ? '' : null } }, [
+
+  const shouldOpen = filter !== '' || depth < 1;
+
+  return h('details', { class: 'sys-tree', attrs: { open: shouldOpen ? '' : null } }, [
     h('summary', { class: 'sys-tree-summary' }, [
-      h('span', { class: 'mono sys-tree-name', text: node.name }),
+      h(
+        'a',
+        {
+          class: 'mono sys-tree-name sys-tree-link',
+          attrs: {
+            href: `https://github.com/rabadiyameet073/urbanflow-traffic-intelligence/tree/main/${currentPath}`,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            title: `Browse ${currentPath} on GitHub`,
+          },
+          on: {
+            click: (e) => e.stopPropagation(),
+          },
+        },
+        [node.name, ' ↗'],
+      ),
+      node.badge ? h('span', { class: 'sys-tree-badge', text: node.badge }) : null,
       h('span', { class: 'sys-tree-desc', text: node.desc }),
     ]),
-    h(
-      'div',
-      { class: 'sys-tree-children' },
-      node.children.map((c) => buildTree(c, depth + 1)),
-    ),
+    h('div', { class: 'sys-tree-children' }, matchingChildren),
   ]);
 }
 
 function buildStructureView(): HTMLElement {
+  let searchFilter = '';
+  const treeRoot = h('div', { class: 'sys-tree-root' });
+
+  const renderTree = (): void => {
+    treeRoot.replaceChildren();
+    const elements: HTMLElement[] = [];
+    for (const n of PROJECT_TREE) {
+      const el = buildTree(n, 0, searchFilter.toLowerCase().trim());
+      if (el) elements.push(el);
+    }
+    if (elements.length === 0) {
+      treeRoot.append(h('p', { class: 'sys-rel-none', text: 'No files match your search filter.' }));
+    } else {
+      treeRoot.append(...elements);
+    }
+  };
+
+  const searchInput = h('input', {
+    class: 'sys-search-input',
+    attrs: {
+      type: 'search',
+      placeholder: 'Search files & directories (e.g. kernel, hmac, evp, mongo)...',
+      'aria-label': 'Search project files',
+    },
+    on: {
+      input: (e) => {
+        searchFilter = (e.target as HTMLInputElement).value;
+        renderTree();
+      },
+    },
+  });
+
+  const expandAllBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { type: 'button' },
+      on: {
+        click: () => {
+          treeRoot.querySelectorAll('details').forEach((d) => (d.open = true));
+        },
+      },
+    },
+    ['Expand All'],
+  );
+
+  const collapseAllBtn = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { type: 'button' },
+      on: {
+        click: () => {
+          treeRoot.querySelectorAll('details').forEach((d) => (d.open = false));
+        },
+      },
+    },
+    ['Collapse All'],
+  );
+
+  const searchBar = h('div', { class: 'sys-search-bar' }, [
+    searchInput,
+    h('div', { class: 'sys-search-actions' }, [expandAllBtn, collapseAllBtn]),
+  ]);
+
+  renderTree();
+
   return h('section', { class: 'sys-structure', label: 'Project structure' }, [
     h('p', {
       class: 'sys-hint',
-      text: 'Expand any directory to see what lives there and why. The dependency rule holds everywhere: core imports nothing but zod, and nothing depends on web.',
+      text: 'Hierarchical view of the monorepo structure. The dependency rule holds universally: core imports nothing but zod, and nothing depends on web. Every directory serves a distinct, audited purpose.',
     }),
-    h(
-      'div',
-      { class: 'sys-tree-root' },
-      PROJECT_TREE.map((n) => buildTree(n, 0)),
-    ),
+    searchBar,
+    treeRoot,
   ]);
 }
 
-// --- Components view -----------------------------------------------------------------
+// --- Clef Model Components View with Dependency Graph Highlighting --------------
 
 function buildComponentsView(): HTMLElement {
+  let activePackage = 'all';
   const detail = h('div', {
     class: 'sys-detail',
     attrs: { id: 'component-detail', role: 'status', 'aria-live': 'polite' },
@@ -251,41 +468,90 @@ function buildComponentsView(): HTMLElement {
 
   const titleOf = (id: string): string => COMPONENTS.find((c) => c.id === id)?.title ?? id;
 
-  const renderDetail = (card: ComponentCard): void => {
+  const select = (card: ComponentCard): void => {
+    const deps = new Set(card.dependsOn);
+    const users = new Set(card.usedBy);
+
+    for (const [id, el] of cards) {
+      setClass(el, 'is-selected', id === card.id);
+      setClass(el, 'is-dep', deps.has(id));
+      setClass(el, 'is-user', users.has(id));
+      setClass(el, 'is-dim', !deps.has(id) && !users.has(id) && id !== card.id);
+    }
+
     detail.replaceChildren(
       h('h3', { class: 'sys-detail-title', text: card.title }),
-      h('span', { class: 'badge', text: card.pkg }),
+      h('span', { class: 'badge', text: card.pkg.toUpperCase() }),
       h('p', { class: 'sys-detail-body', text: card.role }),
-      h('p', { class: 'sys-rel-label', text: 'Depends on' }),
+      h('p', { class: 'sys-rel-label', text: 'Invariants Enforced' }),
+      h('p', { class: 'sys-detail-body mono', text: card.invariants }),
+      h('p', { class: 'sys-rel-label', text: 'Direct Source Code Hyperlink' }),
+      h('div', { class: 'sys-file-link-row' }, [
+        h(
+          'a',
+          {
+            class: 'sys-code-link',
+            attrs: {
+              href: `https://github.com/rabadiyameet073/urbanflow-traffic-intelligence/blob/main/${card.filePath}`,
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              title: `Open ${card.filePath} on GitHub`,
+            },
+          },
+          [`🔗 ${card.filePath} ↗`],
+        ),
+      ]),
+      h('p', { class: 'sys-rel-label', text: 'Depends On (Imports)' }),
       h(
         'div',
         { class: 'sys-rel-chips' },
         card.dependsOn.length > 0
-          ? card.dependsOn.map((d) => h('span', { class: 'sys-rel-chip', text: titleOf(d) }))
-          : [h('span', { class: 'sys-rel-none', text: 'nothing in this graph' })],
+          ? card.dependsOn.map((d) =>
+              h(
+                'button',
+                {
+                  class: 'sys-rel-chip sys-rel-chip-link',
+                  attrs: { type: 'button' },
+                  on: {
+                    click: () => {
+                      const target = COMPONENTS.find((c) => c.id === d);
+                      if (target) select(target);
+                    },
+                  },
+                  text: titleOf(d),
+                },
+              ),
+            )
+          : [h('span', { class: 'sys-rel-none', text: 'Root module (no internal dependencies)' })],
       ),
-      h('p', { class: 'sys-rel-label', text: 'Used by' }),
+      h('p', { class: 'sys-rel-label', text: 'Used By (Consumers)' }),
       h(
         'div',
         { class: 'sys-rel-chips' },
         card.usedBy.length > 0
-          ? card.usedBy.map((u) => h('span', { class: 'sys-rel-chip', text: titleOf(u) }))
-          : [h('span', { class: 'sys-rel-none', text: 'top of the graph — a leaf consumer' })],
+          ? card.usedBy.map((u) =>
+              h(
+                'button',
+                {
+                  class: 'sys-rel-chip sys-rel-chip-link',
+                  attrs: { type: 'button' },
+                  on: {
+                    click: () => {
+                      const target = COMPONENTS.find((c) => c.id === u);
+                      if (target) select(target);
+                    },
+                  },
+                  text: titleOf(u),
+                },
+              ),
+            )
+          : [h('span', { class: 'sys-rel-none', text: 'Top consumer (dashboard / harness endpoint)' })],
       ),
     );
   };
 
-  const select = (card: ComponentCard): void => {
-    const related = new Set([...card.dependsOn, ...card.usedBy]);
-    for (const [id, el] of cards) {
-      setClass(el, 'is-selected', id === card.id);
-      setClass(el, 'is-related', related.has(id));
-      setClass(el, 'is-dim', !related.has(id) && id !== card.id);
-    }
-    renderDetail(card);
-  };
-
   const grid = h('div', { class: 'sys-comp-grid' });
+
   for (const card of COMPONENTS) {
     const el = h(
       'button',
@@ -304,20 +570,143 @@ function buildComponentsView(): HTMLElement {
     grid.append(el);
   }
 
+  const filterCards = (pkg: string): void => {
+    activePackage = pkg;
+    for (const card of COMPONENTS) {
+      const el = cards.get(card.id);
+      if (!el) continue;
+      const visible = pkg === 'all' || card.pkg === pkg;
+      el.style.display = visible ? 'flex' : 'none';
+    }
+  };
+
+  const pkgFilters = ['all', 'core', 'web', 'edge', 'pipeline', 'db', 'bench'].map((pkg) =>
+    h(
+      'button',
+      {
+        class: `sys-pkg-btn${pkg === activePackage ? ' is-active' : ''}`,
+        attrs: { type: 'button' },
+        on: {
+          click: (e) => {
+            document.querySelectorAll('.sys-pkg-btn').forEach((b) => setClass(b, 'is-active', b === e.currentTarget));
+            filterCards(pkg);
+          },
+        },
+        text: pkg.toUpperCase(),
+      },
+    ),
+  );
+
+  const filterBar = h('div', { class: 'sys-pkg-filters' }, [
+    h('span', { class: 'sys-flow-label', text: 'Filter by Package:' }),
+    ...pkgFilters,
+  ]);
+
   select(COMPONENTS[0]!);
 
-  return h('div', { class: 'sys-two-col sys-two-col-wide-left' }, [
-    h('div', { class: 'sys-comp-scroll' }, [grid]),
-    detail,
+  return h('section', { class: 'sys-components-section' }, [
+    h('p', {
+      class: 'sys-hint',
+      text: 'Interactive dependency relationship model. Click any component to highlight its direct dependencies (green) and dependents (blue). Click dependency chips in the side panel to navigate the architecture graph.',
+    }),
+    filterBar,
+    h('div', { class: 'sys-two-col sys-two-col-wide-left' }, [
+      h('div', { class: 'sys-comp-scroll' }, [grid]),
+      detail,
+    ]),
   ]);
 }
 
-// --- Workflows view ------------------------------------------------------------------
+// --- Dynamic Interactive Workflow SVG Visualizer -------------------------------
+
+function renderWorkflowSvg(workflowId: string, currentStep: number): SVGElement {
+  const svg = s('svg', {
+    class: 'sys-wf-svg',
+    viewBox: '0 0 860 140',
+    role: 'img',
+    'aria-label': `Interactive workflow visualization for ${workflowId}, step ${currentStep + 1}`,
+  });
+
+  const wf = WORKFLOWS.find((w) => w.id === workflowId) ?? WORKFLOWS[0]!;
+  const n = wf.steps.length;
+  const startX = 50;
+  const spacing = Math.min(130, (860 - 100) / Math.max(1, n - 1));
+  const centerY = 70;
+
+  // Connecting path between steps
+  let pathD = `M ${startX} ${centerY}`;
+  for (let i = 1; i < n; i++) {
+    pathD += ` L ${startX + i * spacing} ${centerY}`;
+  }
+  svg.append(s('path', { class: 'sys-edge sys-edge-command', d: pathD }));
+
+  // Animated packet moving towards current active step
+  if (!reducedMotion) {
+    const activeX = startX + currentStep * spacing;
+    const packet = s('circle', { class: 'sys-packet', cx: activeX, cy: centerY, r: 6 });
+    svg.append(packet);
+  }
+
+  // Draw stage nodes
+  for (let i = 0; i < n; i++) {
+    const step = wf.steps[i]!;
+    const cx = startX + i * spacing;
+    const isActive = i === currentStep;
+    const isPast = i < currentStep;
+
+    const g = s('g', {
+      class: `sys-wf-stage-node${isActive ? ' is-active' : ''}${isPast ? ' is-past' : ''}`,
+      transform: `translate(${cx - 48}, ${centerY - 32})`,
+    });
+
+    g.append(
+      s('rect', {
+        x: 0,
+        y: 0,
+        width: 96,
+        height: 64,
+        rx: 8,
+      }),
+    );
+
+    const stepNum = s('text', {
+      x: 48,
+      y: 20,
+      'text-anchor': 'middle',
+      class: 'sys-wf-stage-code',
+    });
+    text(stepNum, step.stageCode ?? `STEP ${i + 1}`);
+
+    const label = s('text', {
+      x: 48,
+      y: 38,
+      'text-anchor': 'middle',
+    });
+    const shortTitle = step.title.length > 14 ? step.title.slice(0, 12) + '…' : step.title;
+    text(label, shortTitle);
+
+    const stateTag = s('text', {
+      x: 48,
+      y: 52,
+      'text-anchor': 'middle',
+      class: 'sys-wf-stage-code',
+    });
+    text(stateTag, isActive ? '● ACTIVE' : isPast ? '✓ DONE' : '○ QUEUED');
+
+    g.append(stepNum, label, stateTag);
+    svg.append(g);
+  }
+
+  return svg;
+}
+
+// --- Dynamic Workflow View ------------------------------------------------------
 
 function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): HTMLElement {
   let index = 0;
   let timer: number | null = null;
 
+  const svgWrap = h('div', { class: 'sys-wf-svg-wrap' });
   const titleEl = h('h3', { class: 'sys-wf-step-title' });
   const bodyEl = h('p', { class: 'sys-wf-step-body' });
   const dotsEl = h('div', { class: 'sys-wf-dots', attrs: { role: 'list' } });
@@ -332,7 +721,7 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
       attrs: { type: 'button' },
       on: { click: () => togglePlay() },
     },
-    [h('span', { text: 'Play' })],
+    [h('span', { text: 'Play Auto-Tour' })],
   );
   const prevBtn = h(
     'button',
@@ -355,6 +744,7 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
 
   const render = (): void => {
     const step = workflow.steps[index]!;
+    svgWrap.replaceChildren(renderWorkflowSvg(workflow.id, index));
     titleEl.textContent = `${index + 1}. ${step.title}`;
     bodyEl.textContent = step.text;
     fillEl.style.setProperty('--sys-wf-progress', `${((index + 1) / workflow.steps.length) * 100}%`);
@@ -381,7 +771,7 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
       window.clearInterval(timer);
       timer = null;
     }
-    playBtn.replaceChildren(h('span', { text: 'Play' }));
+    playBtn.replaceChildren(h('span', { text: 'Play Auto-Tour' }));
   };
 
   const togglePlay = (): void => {
@@ -390,7 +780,7 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
       return;
     }
     if (index >= workflow.steps.length - 1) go(0);
-    playBtn.replaceChildren(h('span', { text: 'Pause' }));
+    playBtn.replaceChildren(h('span', { text: 'Pause Tour' }));
     timer = window.setInterval(() => {
       if (index >= workflow.steps.length - 1) stop();
       else go(index + 1);
@@ -406,7 +796,12 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
       h('button', {
         class: `sys-wf-tab${w.id === workflow.id ? ' is-active' : ''}`,
         attrs: { type: 'button', role: 'tab', 'aria-selected': String(w.id === workflow.id) },
-        on: { click: () => onSwitch(w.id) },
+        on: {
+          click: () => {
+            stop();
+            onSwitch(w.id);
+          },
+        },
         text: w.title,
       }),
     ),
@@ -415,6 +810,7 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
   return h('div', { class: 'sys-wf' }, [
     picker,
     h('p', { class: 'sys-wf-summary', text: workflow.summary }),
+    svgWrap,
     h('div', { class: 'sys-wf-stage' }, [titleEl, bodyEl]),
     barEl,
     dotsEl,
@@ -422,7 +818,154 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
   ]);
 }
 
-// --- Page shell ----------------------------------------------------------------------
+// --- Judging Rubric & Hackathon Video Demo Script --------------------------------
+
+function buildJudgingView(onGo: (id: string) => void): HTMLElement {
+  const themes = h(
+    'div',
+    { class: 'sys-theme-grid' },
+    THEME_FIT.map((t) =>
+      h('div', { class: 'sys-theme' }, [
+        h('h3', { class: 'sys-theme-name', text: t.name }),
+        h('p', { class: 'sys-theme-verdict', text: t.verdict }),
+      ]),
+    ),
+  );
+
+  const cards = h(
+    'div',
+    { class: 'sys-rubric-grid' },
+    RUBRIC.map((r) => {
+      const fill = h('div', { class: 'sys-rubric-weight-fill' });
+      fill.style.setProperty('--sys-rubric-weight', `${r.weight}%`);
+      return h('article', { class: 'sys-rubric' }, [
+        h('header', { class: 'sys-rubric-head' }, [
+          h('h3', { class: 'sys-rubric-title', text: r.criterion }),
+          h('span', { class: 'sys-rubric-pct mono', text: `${r.weight}%` }),
+        ]),
+        h(
+          'div',
+          {
+            class: 'sys-rubric-weight',
+            attrs: {
+              role: 'progressbar',
+              'aria-label': r.criterion,
+              'aria-valuenow': String(r.weight),
+              'aria-valuemin': '0',
+              'aria-valuemax': '100',
+            },
+          },
+          [fill],
+        ),
+        h('p', { class: 'sys-rubric-look', text: `What Judges Look For: ${r.judgesLookFor}` }),
+        h('p', { class: 'sys-rubric-answer', text: r.ourAnswer }),
+        h('p', { class: 'sys-rel-label', text: 'Show in Video Demo' }),
+        h(
+          'div',
+          { class: 'sys-rel-chips' },
+          r.show.map((link) =>
+            h('button', {
+              class: 'sys-rel-chip sys-rel-chip-link',
+              attrs: { type: 'button' },
+              on: { click: () => onGo(link.section) },
+              text: link.label,
+            }),
+          ),
+        ),
+      ]);
+    }),
+  );
+
+  const scriptCards = h(
+    'div',
+    { class: 'sys-script-grid' },
+    VIDEO_DEMO_SCRIPT.map((scene) =>
+      h('div', { class: 'sys-script-card' }, [
+        h('div', { class: 'sys-script-meta' }, [
+          h('span', { class: 'sys-script-time', text: scene.time }),
+          h('span', { class: 'sys-script-camera', text: `Camera: ${scene.camera}` }),
+        ]),
+        h('h4', { class: 'sys-script-scene-title', text: scene.title }),
+        h('p', { class: 'sys-script-speech', text: scene.speech }),
+        h('div', { class: 'sys-script-actions-list' }, [
+          h('span', { class: 'sys-rel-label', text: 'Actions:' }),
+          ...scene.actions.map((act) => h('span', { class: 'sys-script-act-pill', text: `• ${act}` })),
+        ]),
+      ]),
+    ),
+  );
+
+  const videoScriptSection = h('div', { class: 'sys-script-wrap' }, [
+    h('div', { class: 'sys-script-head' }, [
+      h('h3', { class: 'sys-script-title', text: '📹 Hackathon Video Recording Script & Camera Guide (2.5 Min)' }),
+      h('span', { class: 'badge', text: 'OPTIMIZED FOR META EVALUATION' }),
+    ]),
+    h('p', {
+      class: 'sys-hint',
+      text: 'Step-by-step video presentation blueprint. Follow these timestamps, camera view switches, and spoken cues to record an impactful 2.5-minute video demonstration.',
+    }),
+    scriptCards,
+  ]);
+
+  return h('section', { class: 'sys-judging', label: 'Hackathon pitch' }, [
+    h('p', {
+      class: 'sys-hint',
+      text: 'Official evaluation criteria from META_GLOBAL_AI_DEVELOPER_HACKATHON_DETAILS.md answered with concrete code evidence. Click any chip to navigate to that architecture section.',
+    }),
+    themes,
+    cards,
+    videoScriptSection,
+  ]);
+}
+
+// --- Overview view -----------------------------------------------------------------
+
+function buildAboutView(): HTMLElement {
+  const blocks = h(
+    'div',
+    { class: 'sys-about-blocks' },
+    ABOUT_BLOCKS.map((b) =>
+      h('article', { class: 'sys-about-block' }, [
+        h('h3', { class: 'sys-detail-title', text: b.heading }),
+        h('p', { class: 'sys-detail-body', text: b.body }),
+      ]),
+    ),
+  );
+
+  const stats = h(
+    'div',
+    { class: 'sys-stat-grid', attrs: { role: 'list' } },
+    ABOUT_ACHIEVEMENTS.map((a) =>
+      h('div', { class: 'sys-stat', attrs: { role: 'listitem' } }, [
+        h('span', { class: 'sys-stat-num mono', text: a.stat }),
+        h('span', { class: 'sys-stat-label', text: a.label }),
+      ]),
+    ),
+  );
+
+  const innovations = h(
+    'div',
+    { class: 'sys-about-innov-grid' },
+    ABOUT_INNOVATIONS.map((i) =>
+      h('article', { class: 'sys-about-innov' }, [
+        h('h3', { class: 'sys-about-innov-title', text: i.title }),
+        h('p', { class: 'sys-detail-body', text: i.body }),
+      ]),
+    ),
+  );
+
+  return h('section', { class: 'sys-about', label: 'Project overview' }, [
+    h('p', {
+      class: 'sys-hint',
+      text: 'Start here on camera: the problem, the architecture in one paragraph, what is genuinely new, and what has been measured rather than claimed. Every stat below is provable elsewhere on this page or in the test suite.',
+    }),
+    blocks,
+    stats,
+    innovations,
+  ]);
+}
+
+// --- Page Shell ------------------------------------------------------------------
 
 interface Section {
   id: string;
@@ -435,10 +978,13 @@ function buildPage(): void {
   if (!root) return;
 
   const sections: readonly Section[] = [
-    { id: 'architecture', label: 'Architecture & data flow', build: buildArchitectView },
-    { id: 'structure', label: 'Project structure', build: buildStructureView },
-    { id: 'components', label: 'Components & relationships', build: buildComponentsView },
-    { id: 'workflows', label: 'Workflows', build: () => buildWorkflows() },
+    { id: 'architecture', label: 'Architecture & Data Flow', build: buildArchitectView },
+    { id: 'about', label: 'Overview', build: buildAboutView },
+    { id: 'structure', label: 'Project Structure', build: buildStructureView },
+    { id: 'components', label: 'Components & Relationships', build: buildComponentsView },
+    { id: 'workflows', label: 'Dynamic Workflows', build: () => buildWorkflows() },
+    { id: 'live', label: 'Live core', build: buildLiveView },
+    { id: 'judging', label: 'Hackathon Rubric & Video Script', build: () => buildJudgingView(activate) },
   ];
 
   const panels = new Map<string, HTMLElement>();
@@ -495,33 +1041,81 @@ function buildPage(): void {
     return holder;
   }
 
+  // --- Guided Demo Tour ---
+  const TOUR_STEP_MS = 11000;
+  let tourTimer: number | null = null;
+  let tourIndex = 0;
+  const tourLabel = h('span', { text: 'Play Guided Tour' });
+  const tourBtn = h(
+    'button',
+    {
+      class: 'btn btn-primary',
+      attrs: { id: 'sys-tour-btn', type: 'button', 'aria-pressed': 'false' },
+      label: 'Cycle through every section automatically for video recording',
+      on: {
+        click: () => {
+          if (tourTimer !== null) {
+            window.clearInterval(tourTimer);
+            tourTimer = null;
+            tourLabel.textContent = 'Play Guided Tour';
+            tourBtn.setAttribute('aria-pressed', 'false');
+            return;
+          }
+          tourIndex = sections.findIndex((x) => x.id === current);
+          tourLabel.textContent = 'Stop Tour';
+          tourBtn.setAttribute('aria-pressed', 'true');
+          tourTimer = window.setInterval(() => {
+            tourIndex += 1;
+            if (tourIndex >= sections.length) {
+              window.clearInterval(tourTimer as number);
+              tourTimer = null;
+              tourLabel.textContent = 'Play Guided Tour';
+              tourBtn.setAttribute('aria-pressed', 'false');
+              return;
+            }
+            activate(sections[tourIndex]!.id);
+          }, TOUR_STEP_MS);
+        },
+      },
+    },
+    [tourLabel],
+  );
+
   const header = h('header', { class: 'sys-header' }, [
     h('div', { class: 'sys-brand' }, [
-      h('span', { class: 'badge badge-mode', text: 'SIMULATION-ONLY PROTOTYPE' }),
-      h('h1', { class: 'sys-title', text: 'UrbanFlow AI — System Explorer' }),
+      h('span', { class: 'badge badge-mode', text: 'META GLOBAL AI DEVELOPER HACKATHON' }),
+      h('h1', { class: 'sys-title', text: 'UrbanFlow AI — Clef System Explorer' }),
       h('p', {
         class: 'sys-tagline',
-        text: 'Frontend to backend, tick to terabyte: how the platform is built and why it is trustworthy.',
+        text: 'Frontend to backend, tick to terabyte: complete interactive showcase of architecture, data flow, safety invariants, and Meta AI provenance.',
       }),
     ]),
-    h('a', {
-      class: 'btn btn-secondary',
-      attrs: { href: '/', id: 'sys-back-link' },
-      text: 'Open live simulation',
-    }),
+    h('div', { class: 'sys-header-actions' }, [
+      tourBtn,
+      h('a', {
+        class: 'btn btn-secondary',
+        attrs: { href: '/', id: 'sys-back-link' },
+        text: 'Open Live Simulation',
+      }),
+    ]),
   ]);
 
   const nav = h('nav', { class: 'sys-tabs', attrs: { role: 'tablist', 'aria-label': 'System explorer sections' } }, tabs);
   const main = h('main', { class: 'sys-main', attrs: { id: 'main' } }, [...panels.values()]);
   const footer = h('footer', { class: 'sys-footer' }, [
-    h('span', { class: 'mono', text: 'packages/web · system.html — deterministic content, vanilla TS, no framework' }),
-    h('span', { text: 'Every number shown in the live app is measured; every claim here is transcribed from the repository.' }),
+    h('span', { class: 'mono', text: 'packages/web · system.html — deterministic, vanilla TypeScript, zero framework' }),
+    h('span', { text: 'Every metric shown in the live dashboard is measured; every architectural invariant is proven in test suites.' }),
   ]);
 
   root.append(header, nav, main, footer);
 
   const fromHash = window.location.hash.replace('#', '');
   activate(sections.some((x) => x.id === fromHash) ? fromHash : 'architecture');
+
+  window.addEventListener('hashchange', () => {
+    const id = window.location.hash.replace('#', '');
+    if (sections.some((x) => x.id === id)) activate(id);
+  });
 }
 
 buildPage();

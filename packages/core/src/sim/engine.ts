@@ -12,6 +12,7 @@ import {
   LANES,
   LaneId,
   VehicleType,
+  VehicleSpec,
   VEHICLE_TYPES,
   VEHICLE_SPECS,
   TIMING,
@@ -222,50 +223,33 @@ export class SimEngine {
    * detection cannot be rescued by the controller. That sweep is only meaningful
    * if the reported distance is also the vehicle's actual physical position, so
    * this variant writes straight into the lane instead of the entry buffer.
-   * The lane must therefore be long enough to contain `distanceM`; requests
-   * beyond `laneLengthM` are clamped to the entry end, where an ambulance
-   * that stays stopped for the full `EMS_STALL_GRACE_S` is despawned, while
-   * one that gets moving drives the lane normally (see the EMS despawn in
-   * `step`). A lane that cannot accept the insertion at all despawns the
-   * request on the spot.
+   * The lane must therefore be long enough to contain `distanceM`; the request
+   * is clamped into the lane and, when the exact spot is occupied, moved to
+   * the nearest collision-free gap — an ambulance is never materialised on top
+   * of a queued car, which is what previously left it stranded at the entry
+   * end. A lane with no open gap anywhere despawns the request on the spot.
+   * An ambulance that *is* placed but then stays stopped at the entry end for
+   * the full `EMS_STALL_GRACE_S` is released by the far-end stall rule in
+   * `step`; one that gets moving drives the lane normally.
    */
   public spawnEmsAt(lane: LaneId, distanceM: number): string {
     const emsId = `ems-${lane}-${Math.floor(this.simTimeS * 10)}`;
     const simLane = this.lanes[lane];
     if (!simLane) return emsId;
 
-    const spawnPos = Math.min(distanceM, this.config.laneLengthM);
-    let slot = simLane.insertOrdered(
+    const spawnPos = Math.min(Math.max(distanceM, 12), this.config.laneLengthM - 3);
+    const gapPos = this.nearestFreeGapM(simLane, spawnPos, VEHICLE_SPECS.AMBULANCE);
+    if (gapPos === null) return this.despawnEmsAtSpawn(lane, emsId);
+
+    const slot = simLane.insertOrdered(
       'AMBULANCE',
-      spawnPos,
+      gapPos,
       TIMING.EMS_CRUISE_MPS,
       this.simTimeS,
       true,
       emsId,
     );
-    if (slot === -1) {
-      slot = simLane.insertOrdered(
-        'AMBULANCE',
-        Math.max(10, spawnPos - 5),
-        TIMING.EMS_CRUISE_MPS,
-        this.simTimeS,
-        true,
-        emsId,
-      );
-    }
-    if (slot === -1) {
-      slot = simLane.insertOrdered(
-        'AMBULANCE',
-        Math.min(this.config.laneLengthM - 2, spawnPos + 5),
-        TIMING.EMS_CRUISE_MPS,
-        this.simTimeS,
-        true,
-        emsId,
-      );
-    }
-    if (slot === -1) {
-      return this.despawnEmsAtSpawn(lane, emsId);
-    }
+    if (slot === -1) return this.despawnEmsAtSpawn(lane, emsId); // lane at capacity
     // Operator-injected vehicles are arrivals too, so the conservation law closes.
     this.totalArrivals++;
 
@@ -317,6 +301,46 @@ export class SimEngine {
   }
 
   /**
+   * Nearest collision-free position to `candPos` between the stop-line area
+   * and the entry end, or `null` when the lane has no physical room for this
+   * vehicle class anywhere. `order` is position-ascending, so the open space
+   * is the intervals between consecutive vehicles plus the two ends; the
+   * wanted position is clamped into the closest interval — downstream gaps
+   * count exactly as much as upstream ones. Pure scan: no RNG, no clock, so
+   * injections stay bit-deterministic (Module 20 §3.2).
+   */
+  private nearestFreeGapM(lane: SimLane, candPos: number, spec: VehicleSpec): number | null {
+    const spacingM = spec.lengthM + spec.minGapS0 + 2;
+    const minPos = 12;
+    const maxPos = this.config.laneLengthM - 3;
+
+    let best: number | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    const consider = (lo: number, hi: number): void => {
+      if (hi < lo) return;
+      const at = Math.min(Math.max(candPos, lo), hi);
+      const dist = Math.abs(at - candPos);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = at;
+      }
+    };
+
+    let lo = minPos;
+    for (let j = 0; j < lane.count; j++) {
+      const slot = lane.order[j] as number;
+      const otherPos = lane.pos[slot] as number;
+      const other = VEHICLE_SPECS[lane.getVehicleType(slot)];
+      const safe = Math.max(spacingM, other.lengthM + spec.minGapS0 + 1.5);
+      consider(lo, otherPos - safe);
+      lo = Math.max(lo, otherPos + safe);
+    }
+    consider(lo, maxPos);
+
+    return best;
+  }
+
+  /**
    * Operator injection of *any* vehicle class, for the lane sandbox
    * (Module 31 §4 lane controls). `spawnEms` above is the ambulance-only case;
    * this is the general one behind it.
@@ -327,12 +351,13 @@ export class SimEngine {
    *   admitted through the same 8 m gate scheduled arrivals use, so a burst of
    *   twenty queues realistically instead of materialising as one pile-up.
    * - **With `distanceM`** — the lead vehicle is written into the lane that far
-   *   upstream of the stop line and the rest are spaced behind it by
-   *   `lengthM + minGapS0 + 2`. This is how a mid-approach obstruction or a
-   *   late-appearing ambulance is tested. A placement beyond `laneLengthM`, or
-   *   into a full lane, falls back to the entry gate for ordinary classes
-   *   rather than stacking vehicles on top of each other; an ambulance is
-   *   despawned on the spot instead of queueing to get in.
+   *   upstream of the stop line and, when that exact spot is occupied, moved
+   *   to the nearest collision-free gap (see `nearestFreeGapM`); the rest are
+   *   spaced behind it by `lengthM + minGapS0 + 2`. This is how a mid-approach
+   *   obstruction or a late-appearing ambulance is tested. A lane with no open
+   *   gap anywhere falls back to the entry gate for ordinary classes rather
+   *   than stacking vehicles on top of each other; an ambulance is despawned
+   *   on the spot instead of queueing to get in.
    *
    * Injection draws from no RNG stream — the same property that lets the
    * detection-distance sweep replay bit-exactly — so an injected burst logged
@@ -371,37 +396,18 @@ export class SimEngine {
       speedMps !== undefined ? Math.max(0, Math.min(spec.maxSpeedMps, speedMps)) : defaultSpeed;
 
     for (let i = 0; i < count; i++) {
-      // Find a collision-free spot near candPos that never overlaps any existing vehicle
-      let placedPos = candPos;
-      let collision = true;
-      let attempts = 0;
-
-      while (collision && attempts < 25) {
-        attempts++;
-        collision = false;
-        for (let j = 0; j < simLane.count; j++) {
-          const slot = simLane.order[j] as number;
-          const otherPos = simLane.pos[slot] as number;
-          const otherLen = VEHICLE_SPECS[simLane.getVehicleType(slot)].lengthM;
-          const safeDist = Math.max(spacingM, otherLen + spec.minGapS0 + 1.5);
-
-          if (Math.abs(placedPos - otherPos) < safeDist) {
-            // Overlaps existing vehicle at otherPos. Nudge placedPos upstream of it.
-            placedPos = otherPos + safeDist;
-            collision = true;
-            break;
-          }
-        }
-      }
-
-      const insideLane = placedPos <= this.config.laneLengthM - 3;
+      // Nearest collision-free spot to the requested distance — downstream
+      // gaps count as well as upstream ones, so an injection whose exact spot
+      // is occupied lands in real space instead of being nudged out of the
+      // lane and despawned for no physical reason.
+      const placedPos = this.nearestFreeGapM(simLane, candPos, spec);
       const emsId = isEms ? `ems-${lane}-${stamp}-${i}` : undefined;
       if (emsId) emsIds.push(emsId);
 
       // An ambulance that cannot be placed inside the lane is despawned on
       // the spot; only non-EMS injections fall back to the entry gate.
       let despawned = false;
-      if (insideLane) {
+      if (placedPos !== null) {
         const slot = simLane.insertOrdered(
           type,
           placedPos,
@@ -435,7 +441,7 @@ export class SimEngine {
       }
 
       // Next vehicle in pack starts upstream of placedPos with proper headway
-      candPos = placedPos + spacingM;
+      if (placedPos !== null) candPos = placedPos + spacingM;
     }
 
     return emsIds;
@@ -723,8 +729,11 @@ export class SimEngine {
         const ratioS2 = ratioS * ratioS;
 
         let aIdm = spec.maxAccel * (1 - ratioV4 - ratioS2);
-        if (hasEmsBehind && signalIndication === 'G' && aIdm > 0) {
-          aIdm = Math.min(spec.maxAccel * 1.5, aIdm * 1.4);
+        if (hasEmsBehind && signalIndication === 'G') {
+          effectiveV0 = Math.max(effectiveV0, spec.maxSpeedMps);
+          if (aIdm > 0) {
+            aIdm = Math.min(spec.maxAccel * 1.5, aIdm * 1.4);
+          }
         }
         if (aIdm < -9.0) aIdm = -9.0; // clamp physical braking limit
 
@@ -892,6 +901,10 @@ export class SimEngine {
         if (pos > queueLengthM) queueLengthM = pos;
       }
 
+      let hasEms = false;
+      let emsInBox = false;
+      const boxDist = lane.getBoxDistance();
+
       // Scan vehicles in lane
       for (let i = 0; i < lane.count; i++) {
         const slot = lane.order[i] as number;
@@ -907,9 +920,14 @@ export class SimEngine {
         if (wait > maxWaitS) maxWaitS = wait;
         sumWeightedWaitS += spec.priorityWeight * wait;
 
-        if (isEms && pos > 0) {
-          if (nearestEmsDist === null || pos < nearestEmsDist) {
-            nearestEmsDist = pos;
+        if (isEms) {
+          hasEms = true;
+          if (pos <= 0 && pos > -boxDist) {
+            emsInBox = true;
+          } else if (pos > 0) {
+            if (nearestEmsDist === null || pos < nearestEmsDist) {
+              nearestEmsDist = pos;
+            }
           }
         }
       }
@@ -937,6 +955,8 @@ export class SimEngine {
         occupancyPct: Math.min(100, (occupiedLengthM / this.config.laneLengthM) * 100),
         nearestEmsDistanceM: nearestEmsDist,
         nearestEmsId: lane.nearestEmsId(),
+        hasEms,
+        emsInBox,
         valid: true,
       };
     }

@@ -334,24 +334,32 @@ export class EvpManager {
         this.log('green_granted', `${ems.phase} green for ${ems.request.id}`, obs.simTimeS);
       }
     } else if (this.stage === 'EMS_GREEN') {
-      if (laneObs?.nearestEmsDistanceM !== null && laneObs?.nearestEmsDistanceM !== undefined) {
+      const emsApproaching = laneObs?.nearestEmsDistanceM !== null && laneObs?.nearestEmsDistanceM !== undefined;
+      const emsInBox = Boolean(laneObs?.emsInBox);
+      const emsPresentInLane = Boolean(laneObs?.hasEms ?? (emsApproaching || emsInBox));
+
+      if (emsApproaching && (laneObs?.nearestEmsDistanceM as number) <= 3.0) {
         if (!ems.hasReachedStopLine) {
           ems.hasReachedStopLine = true;
           this.log(
             'stop_line_reached',
-            `${ems.request.id} at stop line (${laneObs.nearestEmsDistanceM.toFixed(0)} m)`,
+            `${ems.request.id} reached stop line (${(laneObs?.nearestEmsDistanceM as number).toFixed(1)} m)`,
             obs.simTimeS,
           );
         }
+      } else if (emsInBox) {
+        ems.hasReachedStopLine = true;
       }
-      // Vehicle passes stop line or exits box (minimum 2.5s green dwell to clear)
-      const isPastStopLine = ems.hasReachedStopLine && (laneObs?.nearestEmsDistanceM === null || laneObs?.nearestEmsDistanceM === undefined);
-      if ((isPastStopLine && this.stageTimeS >= 2.5) || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
+
+      // Preemption ends only when EMS has reached the stop line AND completely exited the lane and box
+      // (or when emergency hold cap TIMING.EVP_HOLD_MAX_S is reached as a fail-safe)
+      const hasCleared = ems.hasReachedStopLine && !emsPresentInLane;
+      if ((hasCleared && this.stageTimeS >= 2.0) || this.stageTimeS >= TIMING.EVP_HOLD_MAX_S) {
         this.stage = 'RECOVERY';
         this.stageTimeS = 0;
         this.log(
           'recovery_started',
-          isPastStopLine ? `${ems.request.id} cleared the box` : `hold cap ${TIMING.EVP_HOLD_MAX_S} s reached`,
+          hasCleared ? `${ems.request.id} cleared the intersection box` : `hold cap ${TIMING.EVP_HOLD_MAX_S} s reached`,
           obs.simTimeS,
         );
       }

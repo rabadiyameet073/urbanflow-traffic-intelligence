@@ -170,9 +170,10 @@ export class TwinWorld {
     if (this.evpAdaptive.getStatus() === null || this.evpAdaptive.getStatus()?.stage === 'RECOVERY') {
       for (const lane of LANES) {
         const laneObs = obsAdaptive.lanes[lane];
-        if (laneObs && laneObs.nearestEmsDistanceM !== null && laneObs.nearestEmsDistanceM !== undefined) {
+        if (laneObs && (laneObs.nearestEmsDistanceM !== null || laneObs.emsInBox || laneObs.hasEms)) {
           const existingEmsId = this.simAdaptive.nearestEmsId(lane);
-          this.submitPreemption(lane, laneObs.nearestEmsDistanceM, existingEmsId ?? undefined);
+          const distM = laneObs.nearestEmsDistanceM ?? 20;
+          this.submitPreemption(lane, distM, existingEmsId ?? undefined, existingEmsId ?? 'v2x-radio');
           break;
         }
       }
@@ -317,7 +318,7 @@ export class TwinWorld {
    */
   public requestPreemption(lane: LaneId, distanceM?: number): EvpDecisionResponse {
     this.record({ v: 1, type: 'requestPreemption', lane, distanceM });
-    return this.submitPreemption(lane, distanceM);
+    return this.submitPreemption(lane, distanceM, undefined, 'operator-console');
   }
 
   /** Spawn + request, without logging. Shared by the live path and replay. */
@@ -325,6 +326,7 @@ export class TwinWorld {
     lane: LaneId,
     targetDistanceM?: number,
     existingEmsId?: string,
+    source = 'operator-console',
   ): EvpDecisionResponse {
     const simTimeS = this.simAdaptive.simTimeS;
     // If vehicle is already spawned in the twins, reuse its emsId rather than duplicating
@@ -346,7 +348,7 @@ export class TwinWorld {
         speedMps: 12.5,
         tRequestS: simTimeS,
         nonce: `${emsId}:${Math.round(simTimeS * 10)}`,
-        source: 'operator-console',
+        source,
       },
       simTimeS,
     );

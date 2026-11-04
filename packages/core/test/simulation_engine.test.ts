@@ -247,31 +247,41 @@ describe('Module 20 §10 — physics obligations', () => {
     const backSlot = lane.order[lane.count - 1] as number;
     expect(lane.pos[backSlot] as number).toBeGreaterThanOrEqual(240);
 
-    // The default detection distance equals the approach length, so the clamp
-    // writes the ambulance at the entry end — into the standing queue.
+    // The default detection distance equals the approach length, so the
+    // request asks for the entry end. Physically there are only two honest
+    // outcomes now: the engine finds real open space near the entry (the
+    // grace period then applies before any stall despawn), or the standing
+    // queue leaves no gap and the ambulance is despawned on the spot rather
+    // than materialised inside other vehicles. Stacking is neither.
     const emsId = sim.spawnEms('NB-TR');
-
-    // The grace period: three seconds after injection the ambulance is still
-    // there. An instant despawn would delete vehicles that merely braked
-    // behind a queue about to move.
-    for (let t = 0; t < 30; t++) sim.step(signal('R', 'P1_NS_LEFT'));
-    let stillPresent = false;
-    for (let i = 0; i < lane.count; i++) {
-      if ((lane.flags[lane.order[i] as number]! & FLAG_EMS) !== 0) stillPresent = true;
-    }
-    expect(stillPresent).toBe(true);
-
     let despawned = false;
-    for (let t = 0; t < 400 && !despawned; t++) {
-      sim.step(signal('R', 'P1_NS_LEFT'));
+    const collect = (): void => {
       for (const ev of sim.drainEvents()) {
         if (ev.kind === 'emsMilestone' && ev.emsId === emsId && ev.milestone === 'despawned') {
           despawned = true;
         }
       }
+    };
+    collect();
+
+    if (!despawned) {
+      // The grace period: three seconds after placement the ambulance is
+      // still there. An instant despawn would delete vehicles that merely
+      // braked behind a queue about to move.
+      for (let t = 0; t < 30; t++) sim.step(signal('R', 'P1_NS_LEFT'));
+      let stillPresent = false;
+      for (let i = 0; i < lane.count; i++) {
+        if ((lane.flags[lane.order[i] as number]! & FLAG_EMS) !== 0) stillPresent = true;
+      }
+      expect(stillPresent).toBe(true);
+
+      for (let t = 0; t < 400 && !despawned; t++) {
+        sim.step(signal('R', 'P1_NS_LEFT'));
+        collect();
+      }
+      expect(despawned).toBe(true);
     }
 
-    expect(despawned).toBe(true);
     // No ambulance is left in the lane, and no queued car was mistaken for
     // one: nothing EMS-flagged remains anywhere on the approach.
     for (let i = 0; i < lane.count; i++) {
@@ -308,18 +318,53 @@ describe('Module 20 §10 — physics obligations', () => {
     expect(sim.lanes['NB-TR'].count).toBe(0);
   });
 
-  it('despawns an ambulance injected into a blocked entry end instead of queueing it at the gate', () => {
+  it('places an ambulance in the nearest empty gap when the asked-for spot is occupied', () => {
     const sim = new SimEngine(config());
     // A car parked at the clamped maximum injection point (laneLengthM - 10).
     sim.spawnVehicle('NB-TR', 'CAR', 1, 400);
-    // An ambulance asked for at the same spot cannot fit: nudging upstream
-    // would leave the approach, so it must despawn on the spot.
+    // An ambulance asked for at the same spot lands in the nearest open gap —
+    // downstream here — instead of being nudged out of the lane and despawned.
     const [emsId] = sim.spawnVehicle('NB-TR', 'AMBULANCE', 1, 400);
 
     const lane = sim.lanes['NB-TR'];
-    expect(lane.count).toBe(1);
-    expect(lane.entryBuffer.length).toBe(0);
+    expect(lane.count).toBe(2);
+    const evs = sim.drainEvents();
+    expect(
+      evs.some((e) => e.kind === 'emsMilestone' && e.emsId === emsId && e.milestone === 'spawned'),
+    ).toBe(true);
 
+    // And it drives out normally: gap-placed vehicles are traffic, not debris.
+    let boxExited = false;
+    let despawned = false;
+    for (let t = 0; t < 900 && !boxExited && !despawned; t++) {
+      sim.step(signal('G', 'P2_NS_THRU'));
+      for (const ev of sim.drainEvents()) {
+        if (ev.kind === 'emsMilestone' && ev.emsId === emsId) {
+          if (ev.milestone === 'boxExited') boxExited = true;
+          if (ev.milestone === 'despawned') despawned = true;
+        }
+      }
+    }
+    expect(boxExited).toBe(true);
+    expect(despawned).toBe(false);
+    expect(sim.totalArrivals).toBe(2);
+    // The ambulance despawns at the stop line while the slower lead car is
+    // still in the box; given green, the lane ends empty — nothing stranded.
+    for (let t = 0; t < 300 && sim.lanes['NB-TR'].count > 0; t++) {
+      sim.step(signal('G', 'P2_NS_THRU'));
+    }
+    expect(sim.lanes['NB-TR'].count).toBe(0);
+  });
+
+  it('refuses to materialise an ambulance inside a fully packed lane', () => {
+    const sim = new SimEngine(config());
+    const lane = sim.lanes['NB-TR'];
+    // Bumper-to-bumper every 9 m: more than a standing car needs (6.5 m),
+    // less than the 10.5 m an ambulance needs to fit anywhere.
+    for (let p = 12; p <= 300; p += 9) lane.insertBack('CAR', p, 0, 0);
+    const arrivalsBefore = sim.totalArrivals;
+
+    const emsId = sim.spawnEms('NB-TR');
     const evs = sim.drainEvents();
     expect(
       evs.some((e) => e.kind === 'emsMilestone' && e.emsId === emsId && e.milestone === 'despawned'),
@@ -327,7 +372,42 @@ describe('Module 20 §10 — physics obligations', () => {
     expect(
       evs.some((e) => e.kind === 'emsMilestone' && e.emsId === emsId && e.milestone === 'spawned'),
     ).toBe(false);
-    // The despawn never entered the arrival count, so conservation is intact.
-    expect(sim.totalArrivals).toBe(1);
+    for (let i = 0; i < lane.count; i++) {
+      expect(lane.flags[lane.order[i] as number]! & FLAG_EMS).toBe(0);
+    }
+    // No arrival was counted for a vehicle that never entered the lane.
+    expect(sim.totalArrivals).toBe(arrivalsBefore);
+  });
+
+  it('releases an entry-end stall only after the full grace period', () => {
+    const sim = new SimEngine(config());
+    const lane = sim.lanes['NB-TR'];
+    // A standing queue at exact rest spacing (6.5 m) from the stop line to
+    // the entry end — under red nothing in it has any reason to move. The
+    // ambulance sits at the very tail, fully inside the stall zone. The
+    // far-end rule must wait out a continuous `EMS_STALL_GRACE_S` of stop
+    // before releasing it — never delete a vehicle that merely braked.
+    for (let p = 6.5; p <= 292.5; p += 6.5) lane.insertBack('CAR', p, 0, 0);
+    const emsId = 'ems-manual-grace';
+    expect(lane.insertBack('AMBULANCE', 299, 0, 0, true, emsId)).toBeGreaterThanOrEqual(0);
+
+    // 3 s in: the stall is under way but the grace has not run out.
+    for (let t = 0; t < 30; t++) sim.step(signal('R', 'P1_NS_LEFT'));
+    let stillPresent = false;
+    for (let i = 0; i < lane.count; i++) {
+      if ((lane.flags[lane.order[i] as number]! & FLAG_EMS) !== 0) stillPresent = true;
+    }
+    expect(stillPresent).toBe(true);
+
+    let despawned = false;
+    for (let t = 0; t < 400 && !despawned; t++) {
+      sim.step(signal('R', 'P1_NS_LEFT'));
+      for (const ev of sim.drainEvents()) {
+        if (ev.kind === 'emsMilestone' && ev.emsId === emsId && ev.milestone === 'despawned') {
+          despawned = true;
+        }
+      }
+    }
+    expect(despawned).toBe(true);
   });
 });

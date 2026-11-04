@@ -257,11 +257,12 @@ export class SimLane {
   public nearestEmsId(): string | null {
     let bestPos = Number.POSITIVE_INFINITY;
     let bestId: string | null = null;
+    const boxDist = this.getBoxDistance();
     for (let i = 0; i < this.count; i++) {
       const slot = this.order[i] as number;
       if ((this.flags[slot]! & FLAG_EMS) === 0) continue;
       const pos = this.pos[slot] as number;
-      if (pos > 0 && pos < bestPos) {
+      if (pos > -boxDist && pos < bestPos) {
         bestPos = pos;
         bestId = this.emsIdBySlot.get(slot) ?? null;
       }
