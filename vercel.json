@@ -6,7 +6,15 @@
   "outputDirectory": "packages/web/dist",
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/presentation", "destination": "/presentation.html" },
+    { "source": "/architecture", "destination": "/architecture.html" },
+    { "source": "/structure", "destination": "/structure.html" },
+    { "source": "/components", "destination": "/components.html" },
+    { "source": "/workflows", "destination": "/workflows.html" },
+    { "source": "/system", "destination": "/system.html" },
+    { "source": "/((?!assets/|favicon\\.svg|og\\.png|.*\\.html|.*\\.js|.*\\.css|.*\\.json).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -18,7 +26,7 @@
         { "key": "Permissions-Policy", "value": "geolocation=(), camera=(), microphone=()" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.workers.dev; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.workers.dev https://*.vercel.app https://api.meta.ai; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
         }
       ]
     },
@@ -34,6 +42,30 @@
     },
     {
       "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/presentation.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/architecture.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/structure.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/components.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/workflows.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/system.html",
       "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     }
   ]

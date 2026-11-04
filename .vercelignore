@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Local data & environment
+.env
+.env.local
+.env.*.local
+
+# Git & Editor
+.git/
+.github/
+.gemini/
+.vscode/
+.idea/
+
+# Local media, recordings and temp artifacts
+*.mp4
+*.mkv
+*.webm
+audios/
+recordings/
+tmp/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Docs and design archives not needed at runtime
+docs/design/
+docs/contracts/
