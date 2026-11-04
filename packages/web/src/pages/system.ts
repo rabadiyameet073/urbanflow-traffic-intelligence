@@ -457,7 +457,11 @@ function buildBackendLiveConsole(): HTMLElement {
 
 function buildTree(node: TreeNode, depth: number, filter: string, parentPath = ''): HTMLElement | null {
   const matchesSelf = filter === '' || node.name.toLowerCase().includes(filter) || node.desc.toLowerCase().includes(filter);
-  const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+  // Directory entries in PROJECT_TREE are spelled with a trailing slash
+  // ('packages/', 'src/control/'); stripping it before joining is what keeps
+  // the generated GitHub links free of doubled slashes ('.../packages//core/...').
+  const trimSlash = (segment: string): string => segment.endsWith('/') ? segment.slice(0, -1) : segment;
+  const currentPath = parentPath ? `${trimSlash(parentPath)}/${trimSlash(node.name)}` : trimSlash(node.name);
 
   let matchingChildren: HTMLElement[] = [];
   if (node.children) {
