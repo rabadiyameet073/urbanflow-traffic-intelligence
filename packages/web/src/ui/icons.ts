@@ -48,18 +48,15 @@ function render(paths: readonly IconPath[], label?: string): SVGSVGElement {
 }
 
 export const ICONS = {
-  /** Koboyo-style Traffic Intelligence & Signal Wave Logo. */
+  /** Koboyo-style Traffic Intelligence Radar Beacon Logo (Matches UrbanFlow AI brand identity). */
   logo: (): SVGSVGElement =>
     render([
-      // Central 3-aspect traffic signal housing
-      { d: 'M8 2h8a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z' },
-      // Three signal aperture dots
-      { d: 'M12 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', filled: true },
-      { d: 'M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', filled: true },
-      { d: 'M12 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', filled: true },
-      // Flanking V2X radio / AI telemetry wave pulses
-      { d: 'M3 9a4.5 4.5 0 0 0 0 6' },
-      { d: 'M21 9a4.5 4.5 0 0 1 0 6' },
+      // Outer concentric radar telemetry ring
+      { d: 'M12 3a9 9 0 1 0 9 9 9 9 0 0 0-9-9z' },
+      // Inner dynamic radar pulse sweep arc
+      { d: 'M12 6.5a5.5 5.5 0 1 1-4.8 8.1' },
+      // Luminous core emitter node
+      { d: 'M12 10.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5z', filled: true },
     ], 'UrbanFlow AI Logo'),
   /** Solid triangle — "resume / run". */
   play: (): SVGSVGElement => render([{ d: 'M8 5v14l11-7z', filled: true }]),
