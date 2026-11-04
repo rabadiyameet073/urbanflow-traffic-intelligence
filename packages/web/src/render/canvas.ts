@@ -53,43 +53,97 @@ function paintStatic(
   const { widthPx, heightPx } = viewport;
   ctx.clearRect(0, 0, widthPx, heightPx);
 
-  // Two 3.5 m lanes per approach ⇒ 7 m of asphalt each way.
-  const roadWidthPx = 7 * viewport.pxPerMetre;
-  const half = roadWidthPx / 2;
+  // Two 3.5 m lanes per approach ⇒ 7 m of asphalt each way (14 m total road width across both directions).
+  const laneWidthPx = LANE_WIDTH_M * viewport.pxPerMetre;
+  const half = 2 * laneWidthPx; // 7.0 m from centreline to kerb
+  const roadWidthPx = 2 * half; // 14.0 m asphalt width
   const { centerXPx: cx, centerYPx: cy } = viewport;
 
+  // 1. Asphalt pavement (covers all 8 approach lanes: through and left-turn)
   ctx.fillStyle = palette.road;
   ctx.fillRect(cx - half, 0, roadWidthPx, heightPx);
   ctx.fillRect(0, cy - half, widthPx, roadWidthPx);
 
+  // 2. Road edge kerbs / borders
+  ctx.save();
+  ctx.strokeStyle = palette.roadMarking;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.4;
+  ctx.beginPath();
+  // NW corner kerb
+  ctx.moveTo(cx - half, 0); ctx.lineTo(cx - half, cy - half); ctx.lineTo(0, cy - half);
+  // NE corner kerb
+  ctx.moveTo(cx + half, 0); ctx.lineTo(cx + half, cy - half); ctx.lineTo(widthPx, cy - half);
+  // SW corner kerb
+  ctx.moveTo(cx - half, heightPx); ctx.lineTo(cx - half, cy + half); ctx.lineTo(0, cy + half);
+  // SE corner kerb
+  ctx.moveTo(cx + half, heightPx); ctx.lineTo(cx + half, cy + half); ctx.lineTo(widthPx, cy + half);
+  ctx.stroke();
+  ctx.restore();
+
+  // 3. Double centreline (dividing opposing traffic directions)
+  ctx.save();
+  ctx.strokeStyle = palette.caution;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([]);
+  const d = 2; // double line offset
+  ctx.beginPath();
+  // North approach
+  ctx.moveTo(cx - d, 0); ctx.lineTo(cx - d, cy - 4);
+  ctx.moveTo(cx + d, 0); ctx.lineTo(cx + d, cy - 4);
+  // South approach
+  ctx.moveTo(cx - d, cy + 4); ctx.lineTo(cx - d, heightPx);
+  ctx.moveTo(cx + d, cy + 4); ctx.lineTo(cx + d, heightPx);
+  // West approach
+  ctx.moveTo(0, cy - d); ctx.lineTo(cx - 4, cy - d);
+  ctx.moveTo(0, cy + d); ctx.lineTo(cx - 4, cy + d);
+  // East approach
+  ctx.moveTo(cx + 4, cy - d); ctx.lineTo(widthPx, cy - d);
+  ctx.moveTo(cx + 4, cy + d); ctx.lineTo(widthPx, cy + d);
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. Lane divider lines (dashed lines between through and left-turn lanes in same direction)
+  ctx.save();
   ctx.strokeStyle = palette.roadMarking;
   ctx.lineWidth = 1.5;
   ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.moveTo(cx, 0);
-  ctx.lineTo(cx, cy - half);
-  ctx.moveTo(cx, cy + half);
-  ctx.lineTo(cx, heightPx);
-  ctx.moveTo(0, cy);
-  ctx.lineTo(cx - half, cy);
-  ctx.moveTo(cx + half, cy);
-  ctx.lineTo(widthPx, cy);
+  // SB approach divider (between SB-L and SB-TR)
+  ctx.moveTo(cx - laneWidthPx, 0);
+  ctx.lineTo(cx - laneWidthPx, cy);
+  // NB approach divider (between NB-TR and NB-L)
+  ctx.moveTo(cx + laneWidthPx, cy);
+  ctx.lineTo(cx + laneWidthPx, heightPx);
+  // EB approach divider (between EB-TR and EB-L)
+  ctx.moveTo(0, cy + laneWidthPx);
+  ctx.lineTo(cx, cy + laneWidthPx);
+  // WB approach divider (between WB-L and WB-TR)
+  ctx.moveTo(cx, cy - laneWidthPx);
+  ctx.lineTo(widthPx, cy - laneWidthPx);
   ctx.stroke();
+  ctx.restore();
 
-  // Stop lines, one per approach, on the approach's own half of the road.
+  // 5. Stop lines, one per approach, on the approach's own half of the road (7 m wide)
+  ctx.save();
   ctx.setLineDash([]);
   ctx.strokeStyle = palette.stopLine;
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(cx, cy - half);
-  ctx.lineTo(cx + half, cy - half);
+  // SB approach stop line (from kerb to centreline at cy)
   ctx.moveTo(cx - half, cy);
   ctx.lineTo(cx, cy);
-  ctx.moveTo(cx, cy + half);
-  ctx.lineTo(cx - half, cy + half);
-  ctx.moveTo(cx + half, cy);
-  ctx.lineTo(cx + half, cy - half);
+  // NB approach stop line (from centreline to kerb at cy)
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + half, cy);
+  // EB approach stop line (from centreline to kerb at cx)
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx, cy + half);
+  // WB approach stop line (from kerb to centreline at cx)
+  ctx.moveTo(cx, cy - half);
+  ctx.lineTo(cx, cy);
   ctx.stroke();
+  ctx.restore();
 }
 
 export class TwinCanvasRenderer {
