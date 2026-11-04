@@ -45,6 +45,11 @@ export default defineConfig({
       input: {
         main: 'index.html',
         system: 'system.html',
+        architecture: 'architecture.html',
+        structure: 'structure.html',
+        components: 'components.html',
+        workflows: 'workflows.html',
+        presentation: 'presentation.html',
       },
       output: {
         manualChunks(id: string): string | undefined {

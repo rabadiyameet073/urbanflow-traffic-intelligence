@@ -30,6 +30,7 @@ import type {
   Workflow,
   WorkflowStep,
 } from './system-data.js';
+export { buildLiveView } from './system-live.js';
 import { buildLiveView } from './system-live.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -95,7 +96,7 @@ function edgePath(from: ArchNode, to: ArchNode): string {
 
 // --- Architecture View with Flow Presets & Step Breakdown -----------------------
 
-function buildArchitectView(): HTMLElement {
+export function buildArchitectView(): HTMLElement {
   let activeFlowId = 'full';
   let activePreset = FLOW_PRESETS.find((f) => f.id === activeFlowId) ?? FLOW_PRESETS[0]!;
 
@@ -378,7 +379,7 @@ function buildTree(node: TreeNode, depth: number, filter: string, parentPath = '
   ]);
 }
 
-function buildStructureView(): HTMLElement {
+export function buildStructureView(): HTMLElement {
   let searchFilter = '';
   const treeRoot = h('div', { class: 'sys-tree-root' });
 
@@ -458,7 +459,7 @@ function buildStructureView(): HTMLElement {
 
 // --- Clef Model Components View with Dependency Graph Highlighting --------------
 
-function buildComponentsView(): HTMLElement {
+export function buildComponentsView(): HTMLElement {
   let activePackage = 'all';
   const detail = h('div', {
     class: 'sys-detail',
@@ -820,7 +821,7 @@ function buildWorkflowView(workflow: Workflow, onSwitch: (id: string) => void): 
 
 // --- Judging Rubric & Hackathon Video Demo Script --------------------------------
 
-function buildJudgingView(onGo: (id: string) => void): HTMLElement {
+export function buildJudgingView(onGo?: (id: string) => void): HTMLElement {
   const themes = h(
     'div',
     { class: 'sys-theme-grid' },
@@ -867,7 +868,12 @@ function buildJudgingView(onGo: (id: string) => void): HTMLElement {
             h('button', {
               class: 'sys-rel-chip sys-rel-chip-link',
               attrs: { type: 'button' },
-              on: { click: () => onGo(link.section) },
+              on: {
+                click: () => {
+                  if (onGo) onGo(link.section);
+                  else window.location.href = `/system.html#${link.section}`;
+                },
+              },
               text: link.label,
             }),
           ),
@@ -920,7 +926,7 @@ function buildJudgingView(onGo: (id: string) => void): HTMLElement {
 
 // --- Overview view -----------------------------------------------------------------
 
-function buildAboutView(): HTMLElement {
+export function buildAboutView(): HTMLElement {
   const blocks = h(
     'div',
     { class: 'sys-about-blocks' },
@@ -967,6 +973,56 @@ function buildAboutView(): HTMLElement {
 
 // --- Page Shell ------------------------------------------------------------------
 
+export function buildWorkflowsView(): HTMLElement {
+  let activeId = WORKFLOWS[0]!.id;
+  const holder = h('div', { class: 'sys-wf-holder' });
+  const render = (): void => {
+    const wf = WORKFLOWS.find((w) => w.id === activeId) ?? WORKFLOWS[0]!;
+    holder.replaceChildren(
+      buildWorkflowView(wf, (id) => {
+        activeId = id;
+        render();
+      }),
+    );
+  };
+  render();
+  return holder;
+}
+
+export function buildGlobalNav(activePage: string): HTMLElement {
+  const pages = [
+    { id: 'sim', href: '/', label: '🚦 Simulation Dashboard' },
+    { id: 'architecture', href: '/architecture.html', label: '🏛️ Architecture & Flow' },
+    { id: 'structure', href: '/structure.html', label: '📁 Project Structure' },
+    { id: 'components', href: '/components.html', label: '🧩 Clef Components' },
+    { id: 'workflows', href: '/workflows.html', label: '⚡ Dynamic Workflows' },
+    { id: 'presentation', href: '/presentation.html', label: '🏆 Presentation & Script' },
+    { id: 'system', href: '/system.html', label: '🧭 All-In-One Hub' },
+  ];
+
+  return h('header', { class: 'sys-global-header' }, [
+    h('div', { class: 'sys-global-brand' }, [
+      h('span', { class: 'badge badge-mode', text: 'META AI HACKATHON' }),
+      h('a', { class: 'sys-global-title', attrs: { href: '/' } }, ['UrbanFlow AI']),
+    ]),
+    h('nav', { class: 'sys-global-nav', attrs: { 'aria-label': 'Platform showcase navigation' } }, [
+      ...pages.map((p) =>
+        h(
+          'a',
+          {
+            class: `sys-nav-pill ${p.id === activePage ? 'is-active' : ''}`,
+            attrs: {
+              href: p.href,
+              'aria-current': p.id === activePage ? 'page' : undefined,
+            },
+          },
+          [p.label],
+        ),
+      ),
+    ]),
+  ]);
+}
+
 interface Section {
   id: string;
   label: string;
@@ -982,7 +1038,7 @@ function buildPage(): void {
     { id: 'about', label: 'Overview', build: buildAboutView },
     { id: 'structure', label: 'Project Structure', build: buildStructureView },
     { id: 'components', label: 'Components & Relationships', build: buildComponentsView },
-    { id: 'workflows', label: 'Dynamic Workflows', build: () => buildWorkflows() },
+    { id: 'workflows', label: 'Dynamic Workflows', build: buildWorkflowsView },
     { id: 'live', label: 'Live core', build: buildLiveView },
     { id: 'judging', label: 'Hackathon Rubric & Video Script', build: () => buildJudgingView(activate) },
   ];
@@ -1023,22 +1079,6 @@ function buildPage(): void {
       tab.setAttribute('aria-selected', String(on));
     }
     history.replaceState(null, '', `#${sec.id}`);
-  }
-
-  function buildWorkflows(): HTMLElement {
-    let activeId = WORKFLOWS[0]!.id;
-    const holder = h('div', { class: 'sys-wf-holder' });
-    const render = (): void => {
-      const wf = WORKFLOWS.find((w) => w.id === activeId) ?? WORKFLOWS[0]!;
-      holder.replaceChildren(
-        buildWorkflowView(wf, (id) => {
-          activeId = id;
-          render();
-        }),
-      );
-    };
-    render();
-    return holder;
   }
 
   // --- Guided Demo Tour ---
@@ -1107,7 +1147,7 @@ function buildPage(): void {
     h('span', { text: 'Every metric shown in the live dashboard is measured; every architectural invariant is proven in test suites.' }),
   ]);
 
-  root.append(header, nav, main, footer);
+  root.append(buildGlobalNav('system'), header, nav, main, footer);
 
   const fromHash = window.location.hash.replace('#', '');
   activate(sections.some((x) => x.id === fromHash) ? fromHash : 'architecture');

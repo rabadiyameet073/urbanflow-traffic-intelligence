@@ -243,6 +243,15 @@ function buildHeader(): HTMLElement {
       ),
       motionButton,
       soundButton,
+      h(
+        'a',
+        {
+          class: 'btn btn-primary',
+          attrs: { id: 'link-presentation', href: '/presentation.html' },
+          label: 'Open Hackathon Presentation & Video Script Teleprompter',
+        },
+        ['🏆 Presentation'],
+      ),
       // System Explorer: the static, video-ready architecture briefing page.
       // `/system.html` works under `vite dev` and Vercel `cleanUrls` (which
       // redirects it to the canonical `/system`).
