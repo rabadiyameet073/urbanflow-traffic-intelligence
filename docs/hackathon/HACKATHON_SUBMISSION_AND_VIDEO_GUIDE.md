@@ -110,67 +110,116 @@ UrbanFlow AI integrates Meta AI across a resilient, production-grade architectur
 
 ## 3. Scene-by-Scene Demo Video Recording Script (2:30)
 
-### Video Title:
-**UrbanFlow AI — Adaptive Traffic Intelligence & Emergency Preemption Platform**
+### Video Overview & Transition Structure
+- **0:00 – 0:30 (First 30s):** Motion Graphics Video — Problem Statement, Urban Crisis & Cardiac Survival Risk.
+- **0:31 – 2:30 (Remaining 2m):** Live Screen Recording — Begins at the 31st second by opening `http://localhost:5173/` and walking through the running application.
 
 ---
 
-### Scene 1: The Problem & Live Simulation (0:00 – 0:35)
+### Scene 0: The Urban Mobility Crisis (0:00 – 0:30)
+- **Visual Display:** Animated Motion Graphics Video (Remotion / HTML5 Canvas).
+- **Scene Story:** Establish the global problem before showing the technology. Show the staggering economic cost of traffic and the human tragedy of ambulances stuck at red lights on empty cross-streets.
+- **Screen & Visual Action:**
+  - `0:00 – 0:08`: Brooding satellite grid of a congested metropolis. An economic loss counter accelerates: **"$88,000,000,000 Lost Annually"**.
+  - `0:08 – 0:18`: Camera locks onto an ambulance stopped at a red signal on an empty cross-street. An EKG pulse flashes with a ticking clock: **"Every 60s delay = 7–10% drop in cardiac survival"**.
+  - `0:18 – 0:30`: Glitch transition: *"Legacy 1970s Fixed Signals are Failing Our Cities"*. Title reveal: **"UrbanFlow AI — Real-Time Adaptive Traffic Intelligence"** with footer: **"Curated with Meta Muse • Powered by Meta Llama 3.3"**.
+- **Voiceover (0:00 – 0:30):**
+  > *"Every year, urban traffic congestion costs the global economy over eighty-eight billion dollars.
+  > [pause 0.3s]
+  > Even more critically, emergency vehicles lose precious minutes trapped at red lights on empty cross-streets. In cardiac arrest and stroke emergencies, every sixty seconds of delay reduces patient survival rates by seven to ten percent.
+  > [pause 0.4s]
+  > Legacy fixed-time traffic controllers, designed in the nineteen-seventies, are blind to real-time road conditions. Our cities urgently need verifiable, safety-critical intelligence."*
+
+---
+
+### Scene 1: Live Dual Digital Twin Simulation (0:31 – 1:05)
+- **URL to Show:** [`http://localhost:5173/`](http://localhost:5173/) *(Starts precisely at 0:31)*
+- **Scene Story:** Introduce UrbanFlow AI and demonstrate the core capability through an undeniable side-by-side comparison: legacy baseline vs adaptive controller running under identical seeded vehicle traffic.
+- **Screen & Cursor Action:**
+  - `0:31`: Cut cleanly from motion video to full screen browser at `http://localhost:5173/`.
+  - `0:33 – 0:42`: Hover cursor over the **Left Panel ("Fixed-Time Baseline")**. Point to vehicle queues backing up at red signal heads.
+  - `0:43 – 0:54`: Move cursor to the **Right Panel ("UrbanFlow Adaptive Twin")**. Highlight smooth green-wave phase transitions dynamically adjusting cycle splits based on real-time lane pressure.
+  - `0:55 – 1:05`: Point cursor to top telemetry cards:
+    - **Average Delay:** Show the drop on Adaptive vs Baseline.
+    - **Throughput:** Vehicles per hour.
+    - **Approach Rejection:** Highlight **0.0%**.
+- **Voiceover (0:31 – 1:05):**
+  > *"Welcome to UrbanFlow AI, an adaptive municipal traffic intelligence platform built with the creative direction of Meta Muse.
+  > [pause 0.3s]
+  > Here on our live control center, we are running synchronized dual digital twins under identical vehicle demand seeds.
+  > On the left, the legacy fixed-time controller accumulates long queues and phantom delays.
+  > On the right, UrbanFlow’s adaptive engine dynamically responds to queue pressure, synchronizing green clearance waves to keep intersections moving freely."*
+
+---
+
+### Scene 2: Dynamic Emergency Preemption & Kinematics (1:05 – 1:35)
 - **URL to Show:** [`http://localhost:5173/`](http://localhost:5173/)
-- **Visual Action:**
-  - Screen opens on the dual-canvas digital twin. Vehicles are moving in both Fixed-Time (left) and Adaptive (right) twins.
-  - Mouse moves to the approach controls. Click the red **`[+ EMS]`** button on `EB-TR`.
-  - Zoom in slightly: show the ambulance driving assertively down the approach while queued vehicles ahead yield and accelerate out of the way.
-  - Highlight: Adaptive twin grants immediate green clearance, allowing the ambulance to exit smoothly at $-18\text{m}$. Fixed twin holds the ambulance at red.
-- **Narration (Word-for-Word):**
-  > *"Over eighty percent of urban traffic signals worldwide operate on rigid, 1970s pre-timed schedules. This costs cities billions in wasted fuel and creates dangerous bottlenecks for emergency vehicles—where every sixty-second delay reduces cardiac survival by seven to ten percent.*
-  > 
-  > *UrbanFlow AI solves this. Here on our main dashboard, we are running two identical eight-lane intersections from one seeded PRNG stream. When I inject an emergency ambulance, normal vehicles yield ahead, and our adaptive controller grants immediate green clearance. The ambulance clears the intersection without delay, while the fixed-time baseline leaves it trapped at a red light."*
+- **Scene Story:** Show how UrbanFlow handles life-or-death emergency vehicles with cryptographic preemption and physics-based queue clearance, completely eliminating vehicle stalls.
+- **Screen & Cursor Action:**
+  - `1:05`: Click the **`[Trigger Ambulance]`** button on the control bar (or `+ EMS` on `EB-TR`).
+  - `1:08 – 1:14`: Highlight the red emergency ambulance spawning with its flashing beacon.
+  - `1:15 – 1:21`: Zoom in slightly on the intersection signal:
+    - Conflicting North-South approaches safely transition into Yellow (3.5s) and All-Red (2.0s) clearance intervals.
+    - Eastbound approach receives Green.
+  - `1:22 – 1:28`: Point to queued vehicles ahead accelerating with assertive IDM headway and clearing out of the ambulance's path.
+  - `1:29 – 1:35`: The ambulance glides cleanly across the stop line and exits the junction box without pausing. Point to the green status banner: **"EVP Complete: Transit Time 14.2s (Zero Stall)"**.
+- **Voiceover (1:05 – 1:35):**
+  > *"Now, let’s inject an emergency ambulance into the eastbound approach.
+  > [pause 0.3s]
+  > Notice the instant V2X preemption hand-off. The system securely authenticates the cryptographic token, clears conflicting north-south phases with proper yellow and all-red intervals, and gives our emergency vehicle an unimpeded green corridor.
+  > Thanks to our assertive car-following kinematics and single-lane FIFO departure logic, lead vehicles yield smoothly and the ambulance clears the intersection box with zero stalls."*
 
 ---
 
-### Scene 2: 4-Layer Architecture & Live Backend API Execution (0:35 – 1:15)
-- **URL to Show:** [`http://localhost:5173/architecture.html`](http://localhost:5173/architecture.html)
-- **Visual Action:**
-  - Scroll past the 4-layer SVG architecture diagram (Browser UI → Deterministic Core → Edge Gateway → Data Lake).
-  - Click `EVP Preemption Path` and `Copilot Advisory Loop` buttons: show animated data packets flowing between layers.
-  - Scroll down to the **Live Backend & Edge Gateway Console**.
-  - Click **`[📡 1. Query Edge Health]`**: Terminal prints live JSON showing `status: ok`, Cloudflare Worker active, and MongoDB Atlas connection latency ($\approx 7.2\,\text{ms}$).
-  - Click **`[🚑 2. Test HMAC V2X Preemption]`**: Terminal mints an HMAC-SHA256 token and prints live `decision: accepted` with nonce validation.
-- **Narration (Word-for-Word):**
-  > *"Under the hood, UrbanFlow is built with a strict separation of concerns. AI models and preemption requests are strictly advisory. Only our single-writer Safety Kernel can mutate signal states, mathematically enforcing minimum greens, yellow clearances, and zero conflicting movements.
-  > 
-  > Here in our live backend console, we are running real-time round-trips against our Cloudflare Worker edge gateway. Querying health shows our MongoDB Atlas data lake connected with seven-millisecond latency. Dispatching an authenticated V2X preemption request verifies constant-time HMAC-SHA256 signatures and validates anti-replay nonces in real time."*
+### Scene 3: 4-Layer Architecture & Live Backend Execution (1:35 – 2:05)
+- **URL to Show:** [`http://localhost:5173/architecture.html`](http://localhost:5173/architecture.html) & [`http://localhost:5173/components.html`](http://localhost:5173/components.html)
+- **Scene Story:** Prove industrial engineering depth to the hackathon judges: show the mathematically sound single-writer safety kernel and the live sub-10ms Cloudflare Worker + MongoDB Atlas edge gateway.
+- **Screen & Cursor Action:**
+  - `1:35`: In the top navigation bar, click **"Architecture"** (`/architecture.html`).
+  - `1:38 – 1:45`: Pan down the **4-Layer SVG Architecture Diagram** showing Browser UI → Web Worker Engine → Single-Writer Kernel → Edge Gateway & DB.
+  - `1:46 – 1:54`: Scroll to the **Live Backend Console**:
+    - Click **`[📡 1. Query Edge Health]`**: Terminal prints live JSON response showing `status: ok`, Cloudflare Worker active, and MongoDB connection latency ($\approx 7.2\,\text{ms}$).
+    - Click **`[🚑 2. Test HMAC V2X Preemption]`**: Terminal displays live HMAC-SHA256 signature verification and anti-replay nonce validation.
+  - `1:55 – 2:05`: Click **"Components"** (`/components.html`). Type `safety` in the search box; click the `SafetyKernel` card to show bidirectional dependency highlighting (`dependsOn` and `usedBy`).
+- **Voiceover (1:35 – 2:05):**
+  > *"Behind this interface is a high-assurance four-layer architecture.
+  > To guarantee municipal safety, we enforce a single-writer safety kernel. AI proposals and operator overrides are strictly advisory—conflicting green signals are mathematically impossible.
+  > Our edge gateway deploys globally on Cloudflare Workers with seven-millisecond round-trip telemetry synced directly to MongoDB Atlas.
+  > In our Clef model explorer, every component links directly to audited production code in our public GitHub monorepo."*
 
 ---
 
-### Scene 3: Clef Model Components & Monorepo Codebase (1:15 – 1:50)
-- **URL to Show:** [`http://localhost:5173/components.html`](http://localhost:5173/components.html) and [`http://localhost:5173/structure.html`](http://localhost:5173/structure.html)
-- **Visual Action:**
-  - On the Components page, type `kernel` into the search bar. The component cards filter instantly.
-  - Click the `SafetyKernel` card: the dependency graph highlights inbound dependencies in emerald and consumers in cyan.
-  - Hover over the direct GitHub link (`packages/core/src/control/kernel.ts`).
-  - Switch to the Structure page: expand the monorepo tree (`packages/core`, `packages/web`, `packages/edge`, `packages/bench`, `db`).
-- **Narration (Word-for-Word):**
-  > *"Our entire system is modelled using the Clef component architecture. Every module defines explicit mathematical invariants. For instance, clicking our Safety Kernel highlights its exact dependencies and downstream consumers. Every component card links directly to audited production code in our public GitHub monorepo.
-  > 
-  > The codebase is organized cleanly into modular packages: core physics simulation, edge gateway, shared database adapters, and benchmarking suites—verified with zero circular dependencies."*
-
----
-
-### Scene 4: Meta AI Copilot, Provenance Gate & Benchmarks (1:50 – 2:30)
+### Scene 4: Meta AI Copilot, Provenance Gate & Live Benchmark (2:05 – 2:30)
 - **URL to Show:** [`http://localhost:5173/presentation.html`](http://localhost:5173/presentation.html)
-- **Visual Action:**
-  - Show the Meta Hackathon Rubric Alignment section (Impact 30%, Meta AI Tooling 25%, Technical Depth 20%, Demo 25%).
-  - Highlight the Provenance Gate diagram (`verifySemanticNumbers`).
-  - Click **`[▶ Run Live Benchmark]`**: The live benchmark suite runs across all 8 held-out scenarios right in the browser.
-  - The results table populates with 95% bootstrap confidence intervals and 0 kernel violations.
-- **Narration (Word-for-Word):**
-  > *"For the Meta Global AI Developer Hackathon, we integrated Meta's Llama 3.3 models via Meta Model API to power our operations copilot. To eliminate hallucinations, we built a semantic provenance gate that cross-checks every number in the LLM's diagnosis against raw sensor telemetry, safely falling back to deterministic templates if mismatched.
-  > 
-  > Running our live benchmark suite across five held-out seeds proves that our adaptive controller achieves up to twenty-four percent delay reductions and near-zero approach rejections, with zero safety violations across all runs.
-  > 
-  > UrbanFlow AI demonstrates that edge intelligence and mathematical safety can transform municipal infrastructure. Thank you!"*
+- **Scene Story:** Highlight Meta AI integration (Llama 3.3 via Meta Model API), the hallucination-prevention semantic provenance gate, and live empirical benchmark validation with 95% bootstrap confidence intervals.
+- **Screen & Cursor Action:**
+  - `2:05`: In the top navigation bar, click **"Presentation"** (`/presentation.html`).
+  - `2:08 – 2:13`: Hover over the **Meta Hackathon Rubric Alignment** matrix (Impact 30%, Meta AI Tooling 25%, Technical Depth 20%, Execution 25%).
+  - `2:14 – 2:18`: Point cursor to the **Semantic Provenance Gate** diagram showing `verifySemanticNumbers` preventing LLM hallucination.
+  - `2:18`: Click the blue button: **`[▶ Run Live Benchmark]`**.
+  - `2:20 – 2:25`: The 8 held-out test scenarios run live in the browser, populating the results table with 95% bootstrap confidence intervals.
+  - `2:26 – 2:30`: Highlight: **"24.8% Delay Reduction • 0 Safety Violations"**. End on the project URL `github.com/rabadiyameet073/urbanflow-traffic-intelligence` and attribution: **"Created using Meta Muse • Powered by Meta Llama 3.3"**.
+- **Voiceover (2:05 – 2:30):**
+  > *"For intelligent operational oversight, we integrate Meta Llama 3.3 through the Meta Model API.
+  > To prevent hallucinations, our semantic provenance gate verifies every model-generated metric against raw sensor telemetry before operator delivery.
+  > As demonstrated by our live benchmark across eight held-out scenarios, UrbanFlow AI delivers up to twenty-four percent delay reductions and near-zero approach denials, with zero safety violations.
+  > UrbanFlow AI proves that edge intelligence and provable safety can save lives and transform municipal mobility. Thank you!"*
+
+---
+
+### Complete Voice Generator Copy-Paste Block (0:31 – 2:30)
+
+*Copy and paste the exact text below into ElevenLabs or OpenAI TTS for the live screen recording audio (starting at the 31st second):*
+
+```text
+Welcome to UrbanFlow AI, an adaptive municipal traffic intelligence platform built with the creative direction of Meta Muse. Here on our live control center, we are running synchronized dual digital twins under identical vehicle demand seeds. On the left, the legacy fixed-time controller accumulates long queues and phantom delays. On the right, UrbanFlow’s adaptive engine dynamically responds to queue pressure, synchronizing green clearance waves to keep intersections moving freely.
+
+Now, let’s inject an emergency ambulance into the eastbound approach. Notice the instant V2X preemption hand-off. The system securely authenticates the cryptographic token, clears conflicting north-south phases with proper yellow and all-red intervals, and gives our emergency vehicle an unimpeded green corridor. Thanks to our assertive car-following kinematics and single-lane FIFO departure logic, lead vehicles yield smoothly and the ambulance clears the intersection box with zero stalls.
+
+Behind this interface is a high-assurance four-layer architecture. To guarantee municipal safety, we enforce a single-writer safety kernel. AI proposals and operator overrides are strictly advisory—conflicting green signals are mathematically impossible. Our edge gateway deploys globally on Cloudflare Workers with seven-millisecond round-trip telemetry synced directly to MongoDB Atlas. In our Clef model explorer, every component links directly to audited production code in our public GitHub monorepo.
+
+For intelligent operational oversight, we integrate Meta Llama 3.3 through the Meta Model API. To prevent hallucinations, our semantic provenance gate verifies every model-generated metric against raw sensor telemetry before operator delivery. As demonstrated by our live benchmark across eight held-out scenarios, UrbanFlow AI delivers up to twenty-four percent delay reductions and near-zero approach denials, with zero safety violations. UrbanFlow AI proves that edge intelligence and provable safety can save lives and transform municipal mobility. Thank you!
+```
 
 ---
 
