@@ -188,7 +188,10 @@ function buildHeader(): HTMLElement {
   return h('header', { class: 'app-header' }, [
     h('div', { class: 'brand-section' }, [
       h('span', { class: 'badge badge-mode', text: STRINGS.brand.simulationOnly }),
-      h('h1', { class: 'brand-title', text: STRINGS.brand.title }),
+      h('h1', { class: 'brand-title' }, [
+        ICONS.logo(),
+        h('span', { text: STRINGS.brand.title }),
+      ]),
       seedBadge,
       h('span', {
         class: 'badge badge-safety',

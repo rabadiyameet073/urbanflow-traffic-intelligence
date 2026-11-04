@@ -48,6 +48,19 @@ function render(paths: readonly IconPath[], label?: string): SVGSVGElement {
 }
 
 export const ICONS = {
+  /** Koboyo-style Traffic Intelligence & Signal Wave Logo. */
+  logo: (): SVGSVGElement =>
+    render([
+      // Central 3-aspect traffic signal housing
+      { d: 'M8 2h8a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z' },
+      // Three signal aperture dots
+      { d: 'M12 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', filled: true },
+      { d: 'M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', filled: true },
+      { d: 'M12 19.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', filled: true },
+      // Flanking V2X radio / AI telemetry wave pulses
+      { d: 'M3 9a4.5 4.5 0 0 0 0 6' },
+      { d: 'M21 9a4.5 4.5 0 0 1 0 6' },
+    ], 'UrbanFlow AI Logo'),
   /** Solid triangle — "resume / run". */
   play: (): SVGSVGElement => render([{ d: 'M8 5v14l11-7z', filled: true }]),
   /** Two bars — "pause". */

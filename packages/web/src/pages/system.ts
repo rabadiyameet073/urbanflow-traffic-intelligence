@@ -6,6 +6,7 @@
  * keyboard accessibility. Deep-links any section via URL hash.
  */
 import { h, setClass } from '../ui/dom.js';
+import { ICONS } from '../ui/icons.js';
 import {
   ABOUT_ACHIEVEMENTS,
   ABOUT_BLOCKS,
@@ -1198,7 +1199,10 @@ export function buildGlobalNav(activePage: string): HTMLElement {
   return h('header', { class: 'sys-global-header' }, [
     h('div', { class: 'sys-global-brand' }, [
       h('span', { class: 'badge badge-mode', text: 'META AI HACKATHON' }),
-      h('a', { class: 'sys-global-title', attrs: { href: '/' } }, ['UrbanFlow AI']),
+      h('a', { class: 'sys-global-title', attrs: { href: '/' } }, [
+        ICONS.logo(),
+        h('span', { text: 'UrbanFlow AI' }),
+      ]),
     ]),
     h('nav', { class: 'sys-global-nav', attrs: { 'aria-label': 'Platform showcase navigation' } }, [
       ...pages.map((p) =>
@@ -1320,7 +1324,10 @@ function buildPage(): void {
   const header = h('header', { class: 'sys-header' }, [
     h('div', { class: 'sys-brand' }, [
       h('span', { class: 'badge badge-mode', text: 'META GLOBAL AI DEVELOPER HACKATHON' }),
-      h('h1', { class: 'sys-title', text: 'UrbanFlow AI — Clef System Explorer' }),
+      h('h1', { class: 'sys-title' }, [
+        ICONS.logo(),
+        h('span', { text: 'UrbanFlow AI — Clef System Explorer' }),
+      ]),
       h('p', {
         class: 'sys-tagline',
         text: 'Interactive walkthrough of the architecture, data flow, safety invariants, workflows and Meta AI integration, built from the contents of this repository.',
