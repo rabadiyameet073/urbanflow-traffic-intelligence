@@ -125,9 +125,7 @@ UrbanFlow AI integrates Meta AI across a resilient, production-grade architectur
   - `0:18 – 0:30`: Glitch transition: *"Legacy 1970s Fixed Signals are Failing Our Cities"*. Title reveal: **"UrbanFlow AI — Real-Time Adaptive Traffic Intelligence"** with footer: **"Curated with Meta Muse • Powered by Meta Llama 3.3"**.
 - **Voiceover (0:00 – 0:30):**
   > *"Every year, urban traffic congestion costs the global economy over eighty-eight billion dollars.
-  > [pause 0.3s]
   > Even more critically, emergency vehicles lose precious minutes trapped at red lights on empty cross-streets. In cardiac arrest and stroke emergencies, every sixty seconds of delay reduces patient survival rates by seven to ten percent.
-  > [pause 0.4s]
   > Legacy fixed-time traffic controllers, designed in the nineteen-seventies, are blind to real-time road conditions. Our cities urgently need verifiable, safety-critical intelligence."*
 
 ---
@@ -145,7 +143,6 @@ UrbanFlow AI integrates Meta AI across a resilient, production-grade architectur
     - **Approach Rejection:** Highlight **0.0%**.
 - **Voiceover (0:31 – 1:05):**
   > *"Welcome to UrbanFlow AI, an adaptive municipal traffic intelligence platform built with the creative direction of Meta Muse.
-  > [pause 0.3s]
   > Here on our live control center, we are running synchronized dual digital twins under identical vehicle demand seeds.
   > On the left, the legacy fixed-time controller accumulates long queues and phantom delays.
   > On the right, UrbanFlow’s adaptive engine dynamically responds to queue pressure, synchronizing green clearance waves to keep intersections moving freely."*
@@ -165,7 +162,6 @@ UrbanFlow AI integrates Meta AI across a resilient, production-grade architectur
   - `1:29 – 1:35`: The ambulance glides cleanly across the stop line and exits the junction box without pausing. Point to the green status banner: **"EVP Complete: Transit Time 14.2s (Zero Stall)"**.
 - **Voiceover (1:05 – 1:35):**
   > *"Now, let’s inject an emergency ambulance into the eastbound approach.
-  > [pause 0.3s]
   > Notice the instant V2X preemption hand-off. The system securely authenticates the cryptographic token, clears conflicting north-south phases with proper yellow and all-red intervals, and gives our emergency vehicle an unimpeded green corridor.
   > Thanks to our assertive car-following kinematics and single-lane FIFO departure logic, lead vehicles yield smoothly and the ambulance clears the intersection box with zero stalls."*
 
