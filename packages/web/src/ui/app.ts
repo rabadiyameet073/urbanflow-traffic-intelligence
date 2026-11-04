@@ -128,7 +128,7 @@ function buildHeader(): HTMLElement {
   });
 
   // Module 40 §5 / Module 51 §2: the play/pause control carries an inline SVG
-  // glyph, never a `⏸`/`▶` emoji. The accessible name is only the `aria-label`;
+  // icon, never an emoji character. The accessible name is only the `aria-label`;
   // the state is announced by that label, so the icon alone never carries meaning.
   const pauseButton = h('button', {
     class: 'btn btn-secondary btn-icon',
@@ -320,8 +320,10 @@ function buildIntelligenceBanner(): HTMLElement {
   const phaseTimerBadge = h('span', {
     class: 'badge badge-mono hero-phase-timer',
     attrs: { id: 'hero-phase-timer' },
-    text: '⏱️ 0.0s in phase',
-  });
+  }, [
+    ICONS.timer(),
+    ' 0.0s in phase',
+  ]);
 
   const efficiencyBadge = h('div', {
     class: 'hero-efficiency-badge',
@@ -363,7 +365,7 @@ function buildIntelligenceBanner(): HTMLElement {
   // Live environmental & network savings ticker
   const savingsTicker = h('div', { class: 'hero-savings-ticker' }, [
     h('div', { class: 'hero-saving-item' }, [
-      h('span', { class: 'hero-saving-label', text: '⏱️ Delay Reduction' }),
+      h('span', { class: 'hero-saving-label' }, [ICONS.timer(), ' Delay Reduction']),
       h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-delay' }, text: '0.0s / veh' }),
     ]),
     h('div', { class: 'hero-saving-item' }, [
@@ -846,7 +848,7 @@ function buildTestControlsPanel(): HTMLElement {
 
   const nsGroup = h('div', { class: 'density-group' }, [
     h('div', { class: 'density-group-header' }, [
-      h('span', { class: 'density-group-title', text: '↕ North-South Arterial' }),
+      h('span', { class: 'density-group-title' }, [ICONS.arrowUpDown(), ' North-South Arterial']),
       h('span', { class: 'density-group-sub', text: 'Primary 2-phase through & protected lefts' }),
     ]),
     h('div', { class: 'density-group-lanes' }, nsLanes.map(buildLaneRow)),
@@ -854,7 +856,7 @@ function buildTestControlsPanel(): HTMLElement {
 
   const ewGroup = h('div', { class: 'density-group' }, [
     h('div', { class: 'density-group-header' }, [
-      h('span', { class: 'density-group-title', text: '↔ East-West Cross Street' }),
+      h('span', { class: 'density-group-title' }, [ICONS.arrowLeftRight(), ' East-West Cross Street']),
       h('span', { class: 'density-group-sub', text: 'Cross-arterial through & protected lefts' }),
     ]),
     h('div', { class: 'density-group-lanes' }, ewLanes.map(buildLaneRow)),
@@ -2043,7 +2045,7 @@ function updateKpiTile(tile: KpiTile, refs: KpiRefs, adaptive: KpiSnapshot, fixe
     const warn = (a ?? 0) > 0.5;
     mainEl.classList.toggle('kpi-warn', warn);
     if (warn) {
-      // Module 41 §1.5 / Module 40: the ⚠ pictograph becomes an inline SVG so it
+      // Module 41 §1.5 / Module 40: the warning icon becomes an inline SVG so it
       // survives forced-colours; the measured value stays as a sibling text node
       // (never dropped, never replaced by the icon alone).
       const valueText = mainEl.textContent ?? '';
@@ -2493,7 +2495,7 @@ export function renderApp(root: HTMLElement): {
     // Update live phase timer
     const heroTimer = maybeById('hero-phase-timer');
     if (heroTimer && signal) {
-      heroTimer.textContent = `⏱️ ${signal.timeInStateS.toFixed(1)}s in phase`;
+      heroTimer.replaceChildren(ICONS.timer(), document.createTextNode(` ${signal.timeInStateS.toFixed(1)}s in phase`));
     }
 
     // Update 4-phase pressure distribution chips

@@ -245,7 +245,7 @@
   overflow: hidden;
 }
 
-/* Module 20 §5: denied-entry overflow warning; paired with a ⚠ glyph in JS. */
+/* Module 20 §5: denied-entry overflow warning; paired with a warning badge in JS. */
 .kpi-warn {
   color: var(--color-stop);
   font-weight: 600;
@@ -907,7 +907,7 @@ dialog::backdrop {
 
 
 /* ==========================================================================
-   🧪 Dedicated Interactive Test Controls & Real-Time Traffic Lab
+   Interactive Test Controls & Real-Time Traffic Lab
    ========================================================================== */
 .test-controls-panel {
   background: var(--color-surface);

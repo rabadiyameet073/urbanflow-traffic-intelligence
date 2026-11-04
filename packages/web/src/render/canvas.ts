@@ -299,7 +299,7 @@ export class TwinCanvasRenderer {
       ctx.font = 'bold 9px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const hText = `👆 ${this.hoverLane}`;
+      const hText = `LANE ${this.hoverLane}`;
       const hWidth = ctx.measureText(hText).width;
       ctx.fillStyle = '#0B0F14';
       ctx.fillRect(hMidX - hWidth / 2 - 4, hMidY - 8, hWidth + 8, 16);
@@ -371,7 +371,7 @@ export class TwinCanvasRenderer {
     ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const labelText = `📍 ${lane} (SELECTED)`;
+    const labelText = `[SELECTED] ${lane}`;
     const textWidth = ctx.measureText(labelText).width;
     ctx.fillStyle = '#0B0F14';
     ctx.fillRect(midX - textWidth / 2 - 8, midY - 10, textWidth + 16, 20);

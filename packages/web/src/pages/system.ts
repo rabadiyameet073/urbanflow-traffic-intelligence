@@ -344,7 +344,7 @@ function buildBackendLiveConsole(): HTMLElement {
       attrs: { type: 'button' },
       on: {
         click: async () => {
-          terminal.textContent = '⏳ Querying GET /api/health ...';
+          terminal.textContent = 'Querying GET /api/health ...';
           const t0 = performance.now();
           try {
             const res = await fetch('/api/health');
@@ -357,7 +357,7 @@ function buildBackendLiveConsole(): HTMLElement {
         },
       },
     },
-    ['📡 1. Query Edge Health (/api/health)'],
+    [ICONS.cloud(), ' 1. Query Edge Health (/api/health)'],
   );
 
   const testEvpBtn = h(
@@ -367,7 +367,7 @@ function buildBackendLiveConsole(): HTMLElement {
       attrs: { type: 'button' },
       on: {
         click: async () => {
-          terminal.textContent = '⏳ Minting signed token and dispatching POST /api/evp ...';
+          terminal.textContent = 'Minting signed token and dispatching POST /api/evp ...';
           const t0 = performance.now();
           try {
             const tokenRes = await fetch('/api/evp/demo-token', { method: 'POST' });
@@ -391,7 +391,7 @@ function buildBackendLiveConsole(): HTMLElement {
         },
       },
     },
-    ['2. Test HMAC-signed preemption request (/api/evp)'],
+    [ICONS.shieldCheck(), ' 2. Test HMAC-signed preemption request (/api/evp)'],
   );
 
   const testCopilotBtn = h(
@@ -401,7 +401,7 @@ function buildBackendLiveConsole(): HTMLElement {
       attrs: { type: 'button' },
       on: {
         click: async () => {
-          terminal.textContent = '⏳ Querying POST /api/copilot/diagnose ...';
+          terminal.textContent = 'Querying POST /api/copilot/diagnose ...';
           const t0 = performance.now();
           try {
             const payload = {
@@ -429,7 +429,7 @@ function buildBackendLiveConsole(): HTMLElement {
         },
       },
     },
-    ['🤖 3. Test Meta AI Copilot Diagnosis (/api/copilot/diagnose)'],
+    [ICONS.bot(), ' 3. Test Meta AI Copilot Diagnosis (/api/copilot/diagnose)'],
   );
 
   return h('div', { class: 'sys-backend-live-wrap' }, [
@@ -442,7 +442,7 @@ function buildBackendLiveConsole(): HTMLElement {
         }),
       ]),
       h('div', { class: 'sys-backend-badge-row' }, [
-        h('span', { class: 'sys-backend-pill is-live', text: '● GATEWAY ACTIVE' }),
+        h('span', { class: 'sys-backend-pill is-live', text: 'GATEWAY ACTIVE' }),
         h('span', { class: 'sys-backend-pill', text: 'CLOUDFLARE WORKER' }),
         h('span', { class: 'sys-backend-pill', text: 'MONGODB ATLAS' }),
       ]),
@@ -486,7 +486,7 @@ function buildTree(node: TreeNode, depth: number, filter: string, parentPath = '
             title: `Open ${currentPath} on GitHub`,
           },
         },
-        [node.name, ' ↗'],
+        [node.name, ' ', ICONS.externalLink()],
       ),
       node.badge ? h('span', { class: 'sys-tree-badge', text: node.badge }) : null,
       h('span', { class: 'sys-leaf-desc', text: node.desc }),
@@ -511,7 +511,7 @@ function buildTree(node: TreeNode, depth: number, filter: string, parentPath = '
             click: (e) => e.stopPropagation(),
           },
         },
-        [node.name, ' ↗'],
+        [node.name, ' ', ICONS.externalLink()],
       ),
       node.badge ? h('span', { class: 'sys-tree-badge', text: node.badge }) : null,
       h('span', { class: 'sys-tree-desc', text: node.desc }),
@@ -866,7 +866,7 @@ function renderWorkflowSvg(workflowId: string, currentStep: number): SVGElement 
       'text-anchor': 'middle',
       class: 'sys-wf-stage-code',
     });
-    text(stateTag, isActive ? '● ACTIVE' : isPast ? '✓ DONE' : '○ QUEUED');
+    text(stateTag, isActive ? 'ACTIVE' : isPast ? 'DONE' : 'QUEUED');
 
     g.append(stepNum, label, stateTag);
     svg.append(g);
@@ -1034,7 +1034,7 @@ export function buildJudgingView(onGo?: (id: string) => void): HTMLElement {
         ),
         h('p', { class: 'sys-rubric-look', text: `What Judges Look For: ${r.judgesLookFor}` }),
         h('p', { class: 'sys-rubric-answer', text: r.ourAnswer }),
-        h('p', { class: 'sys-rel-label', text: 'Show in Video Demo' }),
+        h('p', { class: 'sys-rel-label', text: 'Inspect In Architecture' }),
         h(
           'div',
           { class: 'sys-rel-chips' },
@@ -1158,10 +1158,18 @@ export function buildGlobalNav(activePage: string): HTMLElement {
   const getTheme = (): 'dark' | 'light' =>
     document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 
+  const themeIconWrap = h('span', { class: 'sys-theme-icon-wrap' }, [
+    getTheme() === 'light' ? ICONS.sun() : ICONS.moon(),
+  ]);
   const themeLabel = h('span', {
     class: 'sys-theme-label mono',
-    text: getTheme() === 'light' ? '☀️ Light' : '🌙 Dark',
+    text: getTheme() === 'light' ? ' Light' : ' Dark',
   });
+
+  const updateThemeUI = (theme: 'light' | 'dark') => {
+    themeIconWrap.replaceChildren(theme === 'light' ? ICONS.sun() : ICONS.moon());
+    themeLabel.textContent = theme === 'light' ? ' Light' : ' Dark';
+  };
 
   const themeToggleBtn = h(
     'button',
@@ -1182,17 +1190,17 @@ export function buildGlobalNav(activePage: string): HTMLElement {
           } catch {
             // storage unavailable
           }
-          themeLabel.textContent = next === 'light' ? '☀️ Light' : '🌙 Dark';
+          updateThemeUI(next);
         },
       },
     },
-    [themeLabel],
+    [themeIconWrap, themeLabel],
   );
 
   window.addEventListener('storage', (e) => {
     if (e.key === 'uf_v1_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
       document.documentElement.setAttribute('data-theme', e.newValue);
-      themeLabel.textContent = e.newValue === 'light' ? '☀️ Light' : '🌙 Dark';
+      updateThemeUI(e.newValue);
     }
   });
 
@@ -1240,7 +1248,7 @@ function buildPage(): void {
     { id: 'components', label: 'Components & Relationships', build: buildComponentsView },
     { id: 'workflows', label: 'Dynamic Workflows', build: buildWorkflowsView },
     { id: 'live', label: 'Live core', build: buildLiveView },
-    { id: 'judging', label: 'Hackathon Rubric & Video Script', build: () => buildJudgingView(activate) },
+    { id: 'judging', label: 'Hackathon Rubric & Evaluation', build: () => buildJudgingView(activate) },
   ];
 
   const panels = new Map<string, HTMLElement>();

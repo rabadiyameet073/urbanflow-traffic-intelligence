@@ -172,6 +172,79 @@ export const ICONS = {
       { d: 'M12 13l4-4' },
       { d: 'M4 18a9 9 0 1 1 16 0' },
     ]),
+  /** Koboyo sun — light theme. */
+  sun: (): SVGSVGElement =>
+    render([
+      { d: 'M12 2v2' },
+      { d: 'M12 20v2' },
+      { d: 'M2 12h2' },
+      { d: 'M20 12h2' },
+      { d: 'm4.93 4.93 1.41 1.41' },
+      { d: 'm17.66 17.66 1.41 1.41' },
+      { d: 'm4.93 19.07 1.41-1.41' },
+      { d: 'm17.66 6.34 1.41-1.41' },
+      { d: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z' },
+    ]),
+  /** Koboyo moon — dark theme. */
+  moon: (): SVGSVGElement =>
+    render([{ d: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z' }]),
+  /** Koboyo clock/timer — phase time. */
+  timer: (): SVGSVGElement =>
+    render([
+      { d: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z' },
+      { d: 'M12 6v6l4 2' },
+    ]),
+  /** Koboyo cloud / edge gateway. */
+  cloud: (): SVGSVGElement =>
+    render([{ d: 'M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z' }]),
+  /** Koboyo security shield check — HMAC authentication. */
+  shieldCheck: (): SVGSVGElement =>
+    render([
+      { d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+      { d: 'm9 12 2 2 4-4' },
+    ]),
+  /** Koboyo AI bot / copilot. */
+  bot: (): SVGSVGElement =>
+    render([
+      { d: 'M12 8V4' },
+      { d: 'M9 2h6' },
+      { d: 'M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z' },
+      { d: 'M9 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', filled: true },
+      { d: 'M15 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', filled: true },
+      { d: 'M8 17h8' },
+    ]),
+  /** Koboyo terminal / console. */
+  terminal: (): SVGSVGElement =>
+    render([
+      { d: 'm4 17 6-6-6-6' },
+      { d: 'M12 19h8' },
+    ]),
+  /** Koboyo arrow up-down — bidirectional corridor / arterial. */
+  arrowUpDown: (): SVGSVGElement =>
+    render([
+      { d: 'm7 15 5 5 5-5' },
+      { d: 'm7 9 5-5 5 5' },
+    ]),
+  /** Koboyo arrow left-right — cross street. */
+  arrowLeftRight: (): SVGSVGElement =>
+    render([
+      { d: 'm15 7 5 5-5 5' },
+      { d: 'm9 7-5 5 5 5' },
+    ]),
+  /** Koboyo external link / popout. */
+  externalLink: (): SVGSVGElement =>
+    render([
+      { d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6' },
+      { d: 'M15 3h6v6' },
+      { d: 'm10 14 11-11' },
+    ]),
+  /** Koboyo flask / traffic lab experiments. */
+  flask: (): SVGSVGElement =>
+    render([
+      { d: 'M9 3h6' },
+      { d: 'M10 3v6l-4 7a2 2 0 0 0 1.7 3h8.6a2 2 0 0 0 1.7-3l-4-7V3' },
+      { d: 'M8.5 15h7' },
+    ]),
 } as const;
 
 /** Convenience: wrap an icon builder with an accessible label. */
