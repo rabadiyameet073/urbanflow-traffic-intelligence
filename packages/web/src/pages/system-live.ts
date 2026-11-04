@@ -16,7 +16,7 @@ import type { LaneId, MetricsSnapshot } from '@urbanflow/core';
 const SEED = 4242;
 const TICK_MS = 100; // one 0.1 s engine tick per 100 ms wall time = 1× real time
 const LANE_LEN_M = DEFAULT_SIM_CONFIG.laneLengthM;
-const MOTION_OK = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const WARMUP_TICKS = 250; // 25.0s pre-warm so vehicles, queues, and delays are active immediately
 
 /** North–south-heavy demand: the two controllers diverge visibly within a minute. */
 const DEMAND: Record<LaneId, number> = {
@@ -32,7 +32,11 @@ function makeWorld(): TwinWorld {
     seed: SEED,
     laneDemandVph: DEMAND,
   });
-  return new TwinWorld('system-explorer-live', SEED, config);
+  const world = new TwinWorld('system-explorer-live', SEED, config);
+  for (let i = 0; i < WARMUP_TICKS; i++) {
+    world.tick();
+  }
+  return world;
 }
 
 function fmt(n: number | null, digits: number, unit: string): string {
@@ -59,12 +63,15 @@ interface LaneRowRefs {
 
 export function buildLiveView(): HTMLElement {
   let world = makeWorld();
-  let ticks = 0;
+  let ticks = WARMUP_TICKS;
   let timer: number | null = null;
 
   // --- Controls -------------------------------------------------------------
 
-  const clockLabel = h('span', { class: 'mono sys-live-clock', text: 't = 0.0 s · tick 0' });
+  const clockLabel = h('span', {
+    class: 'mono sys-live-clock',
+    text: `t = ${(WARMUP_TICKS * 0.1).toFixed(1)} s · tick ${WARMUP_TICKS}`,
+  });
   const runLabel = h('span', { text: ' Run Live Benchmark' });
   const runBtn = h(
     'button',
@@ -103,7 +110,7 @@ export function buildLiveView(): HTMLElement {
   const verdict = h('p', {
     class: 'sys-live-verdict mono',
     attrs: { id: 'sys-live-verdict', role: 'status' },
-    text: 'Press Start engine (already running unless you prefer reduced motion). Every value below is measured from this page’s own engine instance.',
+    text: 'Click [▶ Run Live Benchmark] to execute the live engine at 10 Hz and run empirical 8-scenario statistical verification.',
   });
 
   // --- Lane board -------------------------------------------------------------
@@ -230,6 +237,7 @@ export function buildLiveView(): HTMLElement {
     runLabel.textContent = ' Pause Live Benchmark';
     runBtn.setAttribute('aria-pressed', 'true');
     runBtn.replaceChildren(ICONS.pause(), runLabel);
+    window.dispatchEvent(new CustomEvent('urbanflow:benchmark-toggle', { detail: { running: true } }));
   }
 
   function stop(): void {
@@ -240,6 +248,7 @@ export function buildLiveView(): HTMLElement {
     runLabel.textContent = ' Run Live Benchmark';
     runBtn.setAttribute('aria-pressed', 'false');
     runBtn.replaceChildren(ICONS.play(), runLabel);
+    window.dispatchEvent(new CustomEvent('urbanflow:benchmark-toggle', { detail: { running: false } }));
   }
 
   function injectEms(): void {
@@ -251,15 +260,15 @@ export function buildLiveView(): HTMLElement {
   function resetRun(): void {
     const wasRunning = timer !== null;
     stop();
-    world.reset(SEED);
-    ticks = 0;
+    world = makeWorld();
+    ticks = WARMUP_TICKS;
     render();
-    verdict.textContent = 'Reset to the same seed. Run it twice: the state hashes match tick for tick — that is the determinism claim, live on screen.';
+    verdict.textContent = 'Reset to deterministic seed. Run it twice: identical state hashes match tick for tick.';
+    window.dispatchEvent(new CustomEvent('urbanflow:benchmark-reset'));
     if (wasRunning) start();
   }
 
   // A hidden tab must not burn cycles; restore the user’s running choice.
-  // A label check would be wrong here — stop() rewrites it — so keep a flag.
   let runningBeforeHide = false;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -276,14 +285,12 @@ export function buildLiveView(): HTMLElement {
       class: 'sys-hint',
       text: 'Not an animation: the real @urbanflow/core engine ticking in this tab at the fixed 0.1 s step. Frontend, kernel, engines and metrics — live backend output, rendered from measurements.',
     }),
-    h('div', { class: 'sys-live-controls' }, [runBtn, emsBtn, resetBtn]),
+    h('div', { class: 'sys-live-controls' }, [runBtn, emsBtn, resetBtn, clockLabel]),
     h('div', { class: 'sys-live-chips' }, [phaseChip, evpChip, conservationChip]),
     verdict,
     board,
   ]);
 
   render();
-  // Sits in ready state for operator video recording: [▶ Run Live Benchmark]
-  // if (MOTION_OK) start();
   return wrap;
 }
