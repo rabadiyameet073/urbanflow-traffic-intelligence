@@ -1204,6 +1204,19 @@ export function buildGlobalNav(activePage: string): HTMLElement {
     }
   });
 
+  const getNavIcon = (id: string): SVGSVGElement => {
+    switch (id) {
+      case 'dashboard': return ICONS.gauge();
+      case 'architecture': return ICONS.layers();
+      case 'structure': return ICONS.database();
+      case 'components': return ICONS.grid();
+      case 'workflows': return ICONS.refresh();
+      case 'presentation': return ICONS.presentation();
+      case 'system': return ICONS.externalLink();
+      default: return ICONS.circle();
+    }
+  };
+
   return h('header', { class: 'sys-global-header' }, [
     h('div', { class: 'sys-global-brand' }, [
       h('span', { class: 'badge badge-mode', text: 'META AI HACKATHON' }),
@@ -1223,7 +1236,7 @@ export function buildGlobalNav(activePage: string): HTMLElement {
               'aria-current': p.id === activePage ? 'page' : undefined,
             },
           },
-          [p.label],
+          [getNavIcon(p.id), ' ', p.label],
         ),
       ),
       themeToggleBtn,
@@ -1251,6 +1264,19 @@ function buildPage(): void {
     { id: 'judging', label: 'Hackathon Rubric & Evaluation', build: () => buildJudgingView(activate) },
   ];
 
+  const getTabIcon = (id: string): SVGSVGElement => {
+    switch (id) {
+      case 'architecture': return ICONS.layers();
+      case 'about': return ICONS.sparkle();
+      case 'structure': return ICONS.database();
+      case 'components': return ICONS.grid();
+      case 'workflows': return ICONS.refresh();
+      case 'live': return ICONS.gauge();
+      case 'judging': return ICONS.check();
+      default: return ICONS.circle();
+    }
+  };
+
   const panels = new Map<string, HTMLElement>();
   const tabs = sections.map((sec) => {
     const panel = h('section', { class: 'sys-panel', attrs: { id: `panel-${sec.id}`, role: 'tabpanel' } });
@@ -1265,8 +1291,7 @@ function buildPage(): void {
         'aria-selected': 'false',
       },
       on: { click: () => activate(sec.id) },
-      text: sec.label,
-    });
+    }, [getTabIcon(sec.id), ' ', sec.label]);
   });
 
   let current = '';

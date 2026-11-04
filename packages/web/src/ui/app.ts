@@ -185,7 +185,21 @@ function buildHeader(): HTMLElement {
     [sound.isEnabled() ? ICONS.soundOn() : ICONS.soundOff(), soundLabel],
   );
 
-  return h('header', { class: 'app-header' }, [
+  const themeButton = h(
+    'button',
+    {
+      class: 'btn btn-secondary',
+      attrs: { id: 'btn-theme-toggle', type: 'button' },
+      label: STRINGS.header.themeToggle,
+      on: { click: () => store.toggleTheme() },
+    },
+    [store.theme.get() === 'light' ? ICONS.sun() : ICONS.moon(), STRINGS.header.themeToggleVisible],
+  );
+  store.theme.subscribe((t) => {
+    themeButton.replaceChildren(t === 'light' ? ICONS.sun() : ICONS.moon(), STRINGS.header.themeToggleVisible);
+  });
+
+    return h('header', { class: 'app-header' }, [
     h('div', { class: 'brand-section' }, [
       h('span', { class: 'badge badge-mode', text: STRINGS.brand.simulationOnly }),
       h('h1', { class: 'brand-title' }, [
@@ -234,16 +248,7 @@ function buildHeader(): HTMLElement {
         },
         [ICONS.keyboard(), STRINGS.header.helpButton],
       ),
-      h(
-        'button',
-        {
-          class: 'btn btn-secondary',
-          attrs: { id: 'btn-theme-toggle', type: 'button' },
-          label: STRINGS.header.themeToggle,
-          on: { click: () => store.toggleTheme() },
-        },
-        [ICONS.theme(), STRINGS.header.themeToggleVisible],
-      ),
+      themeButton,
       motionButton,
       soundButton,
       h(
@@ -253,7 +258,7 @@ function buildHeader(): HTMLElement {
           attrs: { id: 'link-presentation', href: '/presentation.html' },
           label: 'Open the presentation plan and demo script',
         },
-        ['Presentation'],
+        [ICONS.presentation(), ' Presentation'],
       ),
       // System Explorer: the static, video-ready architecture briefing page.
       // `/system.html` works under `vite dev` and Vercel `cleanUrls` (which
@@ -265,7 +270,7 @@ function buildHeader(): HTMLElement {
           attrs: { id: 'link-system-explorer', href: '/system.html' },
           label: STRINGS.header.systemExplorerHelp,
         },
-        [STRINGS.header.systemExplorer],
+        [ICONS.layers(), ' ', STRINGS.header.systemExplorer],
       ),
     ]),
   ]);
@@ -369,15 +374,15 @@ function buildIntelligenceBanner(): HTMLElement {
       h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-delay' }, text: '0.0s / veh' }),
     ]),
     h('div', { class: 'hero-saving-item' }, [
-      h('span', { class: 'hero-saving-label', text: 'Fuel Conserved' }),
+      h('span', { class: 'hero-saving-label' }, [ICONS.droplet(), ' Fuel Conserved']),
       h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-fuel' }, text: '0.00 L' }),
     ]),
     h('div', { class: 'hero-saving-item' }, [
-      h('span', { class: 'hero-saving-label', text: 'CO₂ Prevented' }),
+      h('span', { class: 'hero-saving-label' }, [ICONS.leaf(), ' CO₂ Prevented']),
       h('span', { class: 'hero-saving-val mono', attrs: { id: 'hero-saved-co2' }, text: '0.00 kg' }),
     ]),
     h('div', { class: 'hero-saving-item' }, [
-      h('span', { class: 'hero-saving-label', text: 'Safety Kernel' }),
+      h('span', { class: 'hero-saving-label' }, [ICONS.shieldCheck(), ' Safety Kernel']),
       h('span', { class: 'badge badge-safety', text: '100% Enforced (0 Conflicts)' }),
     ]),
   ]);

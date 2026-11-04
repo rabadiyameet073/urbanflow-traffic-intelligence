@@ -85,8 +85,17 @@ a.btn {
   border-radius: var(--radius-pill);
   padding: var(--space-2) var(--space-4);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   transition: color var(--dur-fast) var(--ease-out-quint),
     border-color var(--dur-fast) var(--ease-out-quint);
+}
+
+.sys-tab svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 .sys-tab:hover {
@@ -1462,6 +1471,12 @@ a.btn {
   border-radius: var(--radius-pill);
   text-decoration: none;
   transition: all 0.15s ease-in-out;
+}
+
+.sys-nav-pill svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .sys-nav-pill:hover,

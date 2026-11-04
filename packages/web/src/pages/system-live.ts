@@ -9,6 +9,7 @@
  * backend output, not an animation standing in for it.
  */
 import { h, setClass } from '../ui/dom.js';
+import { ICONS } from '../ui/icons.js';
 import { DEFAULT_SIM_CONFIG, LANES, SimConfigSchema, TwinWorld } from '@urbanflow/core';
 import type { LaneId, MetricsSnapshot } from '@urbanflow/core';
 
@@ -64,7 +65,7 @@ export function buildLiveView(): HTMLElement {
   // --- Controls -------------------------------------------------------------
 
   const clockLabel = h('span', { class: 'mono sys-live-clock', text: 't = 0.0 s · tick 0' });
-  const runLabel = h('span', { text: 'Start engine' });
+  const runLabel = h('span', { text: ' Start engine' });
   const runBtn = h(
     'button',
     {
@@ -73,7 +74,7 @@ export function buildLiveView(): HTMLElement {
       label: 'Run or pause the real deterministic engine at 10 Hz',
       on: { click: (): void => (timer === null ? start() : stop()) },
     },
-    [runLabel],
+    [ICONS.play(), runLabel],
   );
   const emsBtn = h(
     'button',
@@ -83,7 +84,7 @@ export function buildLiveView(): HTMLElement {
       label: 'Request emergency preemption for the NB through lane',
       on: { click: injectEms },
     },
-    [h('span', { text: 'Inject ambulance' })],
+    [ICONS.ambulance(), h('span', { text: ' Inject ambulance' })],
   );
   const resetBtn = h(
     'button',
@@ -93,7 +94,7 @@ export function buildLiveView(): HTMLElement {
       label: 'Hard-reset to the same seed — determinism means the same future',
       on: { click: resetRun },
     },
-    [h('span', { text: 'Reset run' })],
+    [ICONS.refresh(), h('span', { text: ' Reset run' })],
   );
 
   const phaseChip = h('span', { class: 'sys-live-chip', text: 'boot · all red' });
@@ -226,8 +227,9 @@ export function buildLiveView(): HTMLElement {
       ticks += 1;
       render();
     }, TICK_MS);
-    runLabel.textContent = 'Pause engine';
+    runLabel.textContent = ' Pause engine';
     runBtn.setAttribute('aria-pressed', 'true');
+    runBtn.replaceChildren(ICONS.pause(), runLabel);
   }
 
   function stop(): void {
@@ -235,8 +237,9 @@ export function buildLiveView(): HTMLElement {
       window.clearInterval(timer);
       timer = null;
     }
-    runLabel.textContent = 'Start engine';
+    runLabel.textContent = ' Start engine';
     runBtn.setAttribute('aria-pressed', 'false');
+    runBtn.replaceChildren(ICONS.play(), runLabel);
   }
 
   function injectEms(): void {

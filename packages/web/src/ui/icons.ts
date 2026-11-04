@@ -242,6 +242,39 @@ export const ICONS = {
       { d: 'M10 3v6l-4 7a2 2 0 0 0 1.7 3h8.6a2 2 0 0 0 1.7-3l-4-7V3' },
       { d: 'M8.5 15h7' },
     ]),
+  /** Koboyo presentation / easel display. */
+  presentation: (): SVGSVGElement =>
+    render([
+      { d: 'M2 3h20' },
+      { d: 'M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3' },
+      { d: 'm7 21 5-5 5 5' },
+    ]),
+  /** Koboyo layers / architectural hierarchy. */
+  layers: (): SVGSVGElement =>
+    render([
+      { d: 'm12 2 10 5-10 5-10-5 10-5z' },
+      { d: 'm2 17 10 5 10-5' },
+      { d: 'm2 12 10 5 10-5' },
+    ]),
+  /** Koboyo 2x2 grid / component matrix. */
+  grid: (): SVGSVGElement =>
+    render([
+      { d: 'M3 3h7v7H3z' },
+      { d: 'M14 3h7v7h-7z' },
+      { d: 'M14 14h7v7h-7z' },
+      { d: 'M3 14h7v7H3z' },
+    ]),
+  /** Koboyo droplet / fuel consumption. */
+  droplet: (): SVGSVGElement =>
+    render([
+      { d: 'M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z' },
+    ]),
+  /** Koboyo leaf / eco / CO2 prevention. */
+  leaf: (): SVGSVGElement =>
+    render([
+      { d: 'M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z' },
+      { d: 'M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12' },
+    ]),
 } as const;
 
 /** Convenience: wrap an icon builder with an accessible label. */
