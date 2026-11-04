@@ -23,6 +23,7 @@ import { ICONS } from './icons.js';
 import { buildDiagnosisWindow, requestDiagnosis } from '../copilot/client.js';
 import type { DiagnosisResult } from '../copilot/client.js';
 import { sound } from './sound.js';
+import { buildGlobalNav } from './nav.js';
 
 interface KpiTile {
   key: string;
@@ -2328,6 +2329,7 @@ export function renderApp(root: HTMLElement): {
 
   appendChildren(root, [
     liveStatus,
+    buildGlobalNav('dashboard'),
     buildHeader(),
     twins,
     buildIntelligenceBanner(),
