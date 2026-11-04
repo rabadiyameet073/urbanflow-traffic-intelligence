@@ -11,7 +11,7 @@
 #
 # Exit code 0 means every check passed. Non-zero means at least one failed and
 # the failing check is named in the output. Do not mark the audit item done
-# without pasting this output into docs/AUDIT_LOG.md.
+# without pasting this output into docs/validation/AUDIT_LOG.md.
 
 set -uo pipefail
 

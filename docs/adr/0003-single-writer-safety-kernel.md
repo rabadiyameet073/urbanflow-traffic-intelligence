@@ -18,5 +18,5 @@ Adopt option (a). Controllers and EVP managers emit non-binding `ControlAction` 
 - Negative: Additional layer in the control path; controllers must handle clamp/refusal.
 
 ## Evidence
-`docs/SAFETY_CASE.md` and `packages/core/test/core.test.ts` invariant tests.
+`docs/validation/SAFETY_CASE.md` and `packages/core/test/core.test.ts` invariant tests.
 

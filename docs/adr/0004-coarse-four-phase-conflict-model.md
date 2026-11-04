@@ -15,7 +15,7 @@ Adopt option (a). Any two distinct phases conflict. No overlap phases or permiss
 
 ## Consequences
 - Positive: Exhaustive state verification via BFS is mathematically tractable; simple safety proof; transparent failure modes for judges.
-- Negative: Lower theoretical capacity than a modern dual-ring intersection under heavy asymmetric left-turn demand. Documented in `docs/LIMITATIONS.md`.
+- Negative: Lower theoretical capacity than a modern dual-ring intersection under heavy asymmetric left-turn demand. Documented in `docs/validation/LIMITATIONS.md`.
 
 ## Evidence
 Reachable-state model checker explores 100% of state transitions without state explosion.

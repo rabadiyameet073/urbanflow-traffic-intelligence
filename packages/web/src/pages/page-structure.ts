@@ -7,7 +7,7 @@ function mount(): void {
 
   const hero = h('section', { class: 'sys-page-hero' }, [
     h('span', { class: 'badge badge-mode', text: 'MONOREPO CODEBASE MAP' }),
-    h('h1', { class: 'sys-page-title', text: '📁 Project Structure & Monorepo Hierarchy' }),
+    h('h1', { class: 'sys-page-title', text: 'Project Structure & Monorepo Hierarchy' }),
     h('p', {
       class: 'sys-page-subtitle',
       text: 'Complete directory and file hierarchy across packages/core, packages/web, packages/edge, pipeline, db, docs, and evals. Search in real-time or click any file to open the exact line on GitHub.',

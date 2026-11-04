@@ -42,7 +42,7 @@ export const STRINGS = {
     reduceMotionOn: 'Motion reduced',
     reduceMotionHelp: 'Force-override motion regardless of the system setting',
     // System Explorer (`/system.html`): the video-ready architecture briefing page.
-    systemExplorer: '🧭 System Explorer',
+    systemExplorer: 'System Explorer',
     systemExplorerHelp: 'Open the System Explorer: architecture, project structure, components and workflows',
   },
   twins: {

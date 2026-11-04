@@ -35,8 +35,8 @@ same 10 s window, EWMA and anomaly rules as the Spark job.
 
 There is **no producer** in this repository, so nothing can publish to
 `lane-telemetry` from `make`. `make test-integration` and `make record` exit
-non-zero on purpose instead of pretending to run — see `docs/LIMITATIONS.md`
-item 21 and task T26. The Spark job itself is unexecuted in this environment
+non-zero on purpose instead of pretending to run — see `docs/validation/LIMITATIONS.md`
+item 21. The Spark job itself is unexecuted in this environment
 (no Docker daemon, no Kafka); the pure logic it calls is covered by pytest.
 
 ## Troubleshooting

@@ -1,9 +1,10 @@
 # Module 23 §6: Makefile contract.
 #
-# Two targets deliberately differ from the module's table and are tracked as
-# task T26 / LIMITATIONS 21: `make test` runs the unit + contract suite (that is
-# what CI can actually execute), and `make test-integration` / `make record`
-# assert against a running stack and there is no producer to feed Kafka yet.
+# Two targets deliberately differ from the module's table and are tracked in
+# docs/validation/LIMITATIONS.md item 21: `make test` runs the unit + contract
+# suite (that is what executes locally), and `make test-integration` /
+# `make record` assert against a running stack and there is no producer to feed
+# Kafka yet.
 
 SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -59,10 +60,10 @@ typecheck: ## Run mypy over the library code
 	mypy 2>/dev/null || echo "mypy not installed; run 'pip install mypy==1.11.2'"
 
 # Module 23 §6 integration flow. Requires a running stack AND a producer, which
-# this build does not have yet (task T26). Fails loudly rather than pretending.
+# this build does not have yet. Fails loudly rather than pretending.
 test-integration: ## Integration flow (fails: this build has no producer)
 	@echo "No producer in this build: nothing can be published to lane-telemetry." >&2
-	@echo "See docs/LIMITATIONS.md item 21 and state of agent/tasks.json T26." >&2
+	@echo "See docs/validation/LIMITATIONS.md item 21." >&2
 	exit 1
 
 record: ## Record demo clips (fails: this build has no producer)

@@ -42,7 +42,7 @@ const core = await import(pathToFileURL(CORE_DIST).href);
 
 /**
  * Frozen wire contracts only — the Kafka/HTTP surface a second system would
- * consume. Copilot output shapes are documented in docs/API.md; their schema
+ * consume. Copilot output shapes are documented in docs/design/API.md; their schema
  * objects live in the edge bundle (`copilot/schemas.ts`), out of scope here.
  */
 const SCHEMAS = {

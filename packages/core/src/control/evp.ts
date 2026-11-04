@@ -215,7 +215,7 @@ export class EvpManager {
     // Queue flush & lead calculations (Module 03 §5.2).
     //
     // Two declared simplifications live here, both measured and written up in
-    // `docs/LIMITATIONS.md`:
+    // `docs/validation/LIMITATIONS.md`:
     //   - §5.2 asks for the *measured* count of vehicles ahead of the ambulance;
     //     this build uses a two-vehicle placeholder, because the count has to be
     //     read from the simulator and `EvpRequest` is a frozen wire contract that

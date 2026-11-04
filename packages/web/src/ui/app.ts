@@ -248,9 +248,9 @@ function buildHeader(): HTMLElement {
         {
           class: 'btn btn-primary',
           attrs: { id: 'link-presentation', href: '/presentation.html' },
-          label: 'Open Hackathon Presentation & Video Script Teleprompter',
+          label: 'Open the presentation plan and demo script',
         },
-        ['🏆 Presentation'],
+        ['Presentation'],
       ),
       // System Explorer: the static, video-ready architecture briefing page.
       // `/system.html` works under `vite dev` and Vercel `cleanUrls` (which

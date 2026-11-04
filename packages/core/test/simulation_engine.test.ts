@@ -120,7 +120,7 @@ describe('Module 20 §10 — physics obligations', () => {
   it('discharges the measured saturation flow, below the Module 20 §10.4 band', () => {
     // Module 20 §10.4 expects 1500–2100 veh/h/lane under permanent green and
     // saturating demand. This build measures 1259 veh/h, so the documented band
-    // is NOT met and `docs/LIMITATIONS.md` item 20 says why (the approach
+    // is NOT met and `docs/validation/LIMITATIONS.md` item 20 says why (the approach
     // boundary admits every vehicle at 0.8× the speed limit even when the lane
     // is jammed, so each admission re-shocks the queue).
     //

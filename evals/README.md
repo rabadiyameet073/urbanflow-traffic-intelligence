@@ -23,7 +23,7 @@ when the primary source drops below the recorded top-1 floor.
 ## Honesty rules (Rule 00)
 
 - `out/report.md` is **generated only** — never hand-type numbers into it or
-  into `docs/RESULTS.md`; copy from the generated file.
+  into `docs/validation/RESULTS.md`; copy from the generated file.
 - Baselines without recorded fixtures are reported as omitted, not estimated.
 - "% proposals with positive what-if Δ" is a benchmark (`packages/bench`)
   metric; the replay deliberately does not report it.

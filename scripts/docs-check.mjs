@@ -18,7 +18,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const DOCS = ['README.md', path.join('docs', 'RESULTS.md')];
+const DOCS = ['README.md', path.join('docs', 'validation', 'RESULTS.md')];
 const BANNED = [
   'production-ready',
   'guaranteed safe',

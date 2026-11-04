@@ -391,7 +391,7 @@ function buildBackendLiveConsole(): HTMLElement {
         },
       },
     },
-    ['🚑 2. Test HMAC V2X Preemption (/api/evp)'],
+    ['2. Test HMAC-signed preemption request (/api/evp)'],
   );
 
   const testCopilotBtn = h(
@@ -638,7 +638,7 @@ export function buildComponentsView(): HTMLElement {
               title: `Open ${card.filePath} on GitHub`,
             },
           },
-          [`🔗 ${card.filePath} ↗`],
+          [card.filePath],
         ),
       ]),
       h('p', { class: 'sys-rel-label', text: 'Depends On (Imports)' }),
@@ -735,7 +735,7 @@ export function buildComponentsView(): HTMLElement {
     class: 'sys-comp-search-input',
     attrs: {
       type: 'search',
-      placeholder: 'Search 23 Clef model components (e.g. kernel, evp, copilot, idm, pipeline)...',
+      placeholder: `Search ${COMPONENTS.length} Clef model components (e.g. kernel, evp, copilot, idm, pipeline)...`,
       'aria-label': 'Search Clef model components',
     },
     on: {
@@ -1078,7 +1078,7 @@ export function buildJudgingView(onGo?: (id: string) => void): HTMLElement {
     ]),
     h('p', {
       class: 'sys-hint',
-      text: 'Step-by-step video presentation blueprint. Follow these timestamps, camera view switches, and spoken cues to record an impactful 2.5-minute video demonstration.',
+      text: 'A scene-by-scene plan for the 2.5-minute demo video: timestamps, view switches, and what to say.',
     }),
     scriptCards,
   ]);
@@ -1086,7 +1086,7 @@ export function buildJudgingView(onGo?: (id: string) => void): HTMLElement {
   return h('section', { class: 'sys-judging', label: 'Hackathon pitch' }, [
     h('p', {
       class: 'sys-hint',
-      text: 'Official evaluation criteria from META_GLOBAL_AI_DEVELOPER_HACKATHON_DETAILS.md answered with concrete code evidence. Click any chip to navigate to that architecture section.',
+      text: 'Evaluation criteria from the hackathon brief, each answered with evidence that exists in this repository. Chips link to the matching architecture section.',
     }),
     themes,
     cards,
@@ -1161,13 +1161,13 @@ export function buildWorkflowsView(): HTMLElement {
 
 export function buildGlobalNav(activePage: string): HTMLElement {
   const pages = [
-    { id: 'sim', href: '/', label: '🚦 Simulation Dashboard' },
-    { id: 'architecture', href: '/architecture.html', label: '🏛️ Architecture & Flow' },
-    { id: 'structure', href: '/structure.html', label: '📁 Project Structure' },
-    { id: 'components', href: '/components.html', label: '🧩 Clef Components' },
-    { id: 'workflows', href: '/workflows.html', label: '⚡ Dynamic Workflows' },
-    { id: 'presentation', href: '/presentation.html', label: '🏆 Presentation & Script' },
-    { id: 'system', href: '/system.html', label: '🧭 All-In-One Hub' },
+    { id: 'sim', href: '/', label: 'Simulation Dashboard' },
+    { id: 'architecture', href: '/architecture.html', label: 'Architecture & Flow' },
+    { id: 'structure', href: '/structure.html', label: 'Project Structure' },
+    { id: 'components', href: '/components.html', label: 'Clef Components' },
+    { id: 'workflows', href: '/workflows.html', label: 'Dynamic Workflows' },
+    { id: 'presentation', href: '/presentation.html', label: 'Presentation & Script' },
+    { id: 'system', href: '/system.html', label: 'All-In-One Hub' },
   ];
 
   return h('header', { class: 'sys-global-header' }, [
@@ -1297,7 +1297,7 @@ function buildPage(): void {
       h('h1', { class: 'sys-title', text: 'UrbanFlow AI — Clef System Explorer' }),
       h('p', {
         class: 'sys-tagline',
-        text: 'Frontend to backend, tick to terabyte: complete interactive showcase of architecture, data flow, safety invariants, and Meta AI provenance.',
+        text: 'Interactive walkthrough of the architecture, data flow, safety invariants, workflows and Meta AI integration, built from the contents of this repository.',
       }),
     ]),
     h('div', { class: 'sys-header-actions' }, [

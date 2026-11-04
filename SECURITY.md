@@ -56,6 +56,6 @@ you believe it has. We aim to acknowledge within 72 hours.
 - Physical signal cabinet behaviour, conflict monitors, and malfunction
   management units. This project models them; it does not implement them.
 - Claims that the simulation is safe for regulatory purposes. See
-  [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+  [docs/validation/LIMITATIONS.md](./docs/validation/LIMITATIONS.md).
 - Denial of service through resource exhaustion on a self-hosted deployment
   without a CDN in front of it.

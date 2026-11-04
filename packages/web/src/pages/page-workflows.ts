@@ -7,7 +7,7 @@ function mount(): void {
 
   const hero = h('section', { class: 'sys-page-hero' }, [
     h('span', { class: 'badge badge-mode', text: 'STATE-MACHINE ANIMATED WALKTHROUGHS' }),
-    h('h1', { class: 'sys-page-title', text: '⚡ Dynamic Workflows & Process Visualizations' }),
+    h('h1', { class: 'sys-page-title', text: 'Dynamic Workflows & Process Visualizations' }),
     h('p', {
       class: 'sys-page-subtitle',
       text: 'Step-by-step interactive walkthroughs of the 10 Hz Simulation Loop, Emergency Vehicle Preemption lifecycle, Dual Digital Twin Replay, and the Events-to-Answers Big-Data Pipeline.',

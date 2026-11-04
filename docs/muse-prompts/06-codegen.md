@@ -30,6 +30,6 @@ reports.** Every published figure is produced by a command (`pnpm bench`) and
 diffed against the documents by `pnpm docs:check`. The agent writes code; the
 code writes the number.
 
-That is why [CONTRIBUTING.md](../../CONTRIBUTING.md) forbids hand-editing a
-benchmark artefact and why `packages/bench/out/` is committed rather than
-ignored: the artefact has to be inspectable for the claim to be checkable.
+That is why a benchmark artefact is never hand-edited, and why
+`packages/bench/out/` is committed rather than ignored: the artefact has to be
+inspectable for the claim to be checkable.

@@ -19,7 +19,7 @@ fs.writeFileSync(outPath, JSON.stringify(results, null, 2), 'utf-8');
 
 console.log('Running EVP Detection-Distance Sweep (150m, 300m, 500m)...');
 // Module 25 §7: 40 seeds per distance. The committed ems-sweep.json predates this
-// width (5 seeds, see docs/LIMITATIONS.md); the next release run regenerates it.
+// width (5 seeds, see docs/validation/LIMITATIONS.md); the next release run regenerates it.
 const evpResults = runEvpSweep(Array.from({ length: 40 }, (_, i) => 42 + i));
 const evpOutPath = path.join(outDir, 'ems-sweep.json');
 fs.writeFileSync(evpOutPath, JSON.stringify(evpResults, null, 2), 'utf-8');

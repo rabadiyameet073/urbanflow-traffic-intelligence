@@ -11,7 +11,7 @@
  * Both twins start from t = 0 with the live scenario's config and seed, so the
  * comparison is a fair A/B between two parameter sets on that demand, not a
  * continuation of the run on screen. Cloning mid-run state would need an engine
- * snapshot/restore path that does not exist (see `docs/LIMITATIONS.md`).
+ * snapshot/restore path that does not exist (see `docs/validation/LIMITATIONS.md`).
  */
 import { SimEngine } from '../sim/engine.js';
 import { AdaptiveController } from './adaptive.js';

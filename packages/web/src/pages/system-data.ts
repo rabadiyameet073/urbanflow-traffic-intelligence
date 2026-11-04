@@ -2,7 +2,7 @@
  * System Explorer content model.
  *
  * Every fact in here is transcribed from the repository itself —
- * `docs/ARCHITECTURE.md`, the package `src` trees, `docs/adr/` and the
+ * `docs/design/ARCHITECTURE.md`, the package `src` trees, `docs/adr/` and the
  * pipeline README — never invented. The page renders from this data so the
  * diagrams stay maintainable and a demo can deep-link any section by id.
  */
@@ -78,7 +78,7 @@ export const ARCH_NODES: readonly ArchNode[] = [
     col: 3,
     row: 1,
     detail:
-      'High-performance 2D canvas renderer displaying twin intersections side-by-side. Uses 14m dark asphalt pavement with double amber centrelines, dashed white lane dividers, corner kerbs, and stop lines. Interpolates vehicle positions smoothly between worker frames at display refresh rate.',
+      '2D canvas renderer showing the twin intersections side by side. 14 m asphalt pavement with double amber centrelines, dashed lane dividers, corner kerbs and stop lines. Interpolates vehicle positions between worker frames at display refresh rate.',
     bullets: [
       'Four-buffer transferable pool; if pool is temporarily empty, frame is dropped rather than queueing',
       'Emergency flashing beacons & headlights phased deterministically from sim seconds',
@@ -203,13 +203,13 @@ export const ARCH_NODES: readonly ArchNode[] = [
     id: 'db',
     layer: 'data',
     title: 'MongoDB Operational Store',
-    subtitle: 'shared db · collections: runs, replays, audits, incidents',
+    subtitle: 'shared db · runs · telemetry · evp_events · signals · anomalies',
     col: 2,
     row: 4,
     detail:
-      'Shared persistence layer powered by MongoDB and the shared @urbanflow/db package (ADR-0021). Stores preemption audit logs, verified run telemetry, incident histories, and compressed replay buffers for post-incident playback.',
+      'Shared persistence layer powered by MongoDB and the shared @urbanflow/db package (ADR-0021). Stores verified run telemetry, lane health time series, preemption audit events, signal-state history, and detected anomalies for post-incident playback.',
     bullets: [
-      'Four auto-provisioned collections: incident_logs, audit_events, replays, and runs',
+      'Five auto-provisioned collections: simulation_runs, lane_telemetry, evp_events, signal_states, and anomaly_events',
       'Compound indexing on { ts: -1 }, { seed: 1 }, and TTL expiration for ephemeral data',
       'Average read/write latency < 2.0 ms ensures zero lag on dashboard queries',
       'Immutable audit trail recording every HMAC-verified emergency vehicle preemption',
@@ -586,7 +586,7 @@ export const PROJECT_TREE: readonly TreeNode[] = [
               { name: 'watchdog.ts', desc: 'Hardware heartbeat watchdog: checks controller liveliness; commands FLASH_RED upon software failure.' },
               { name: 'adaptive.ts', desc: 'Max-pressure adaptive phase selection with switching-cost guard (ADR-0005) and phase starvation prevention.' },
               { name: 'fixed.ts', desc: 'Fixed-time 90s timetable baseline (4 phases: NS Left, NS Thru, EW Left, EW Thru).' },
-              { name: 'whatif.ts', desc: 'Branching counterfactual simulation for testing alternative control decisions on historical traces.' },
+              { name: 'what_if.ts', desc: 'Branching counterfactual simulation for testing alternative control decisions on historical traces.' },
             ],
           },
           {
@@ -609,12 +609,12 @@ export const PROJECT_TREE: readonly TreeNode[] = [
       },
       {
         name: 'web/',
-        desc: 'High-performance operator dashboard: vanilla TypeScript, Canvas 2D twin view, Web Worker sim, WCAG AA control room.',
+        desc: 'Operator console: vanilla TypeScript, Canvas 2D twin view, Web Worker simulation, WCAG AA control-room layout.',
         badge: 'Vanilla TS / No Framework',
         children: [
           {
             name: 'src/ui/',
-            desc: 'app.ts (view composition), dom.ts (safe DOM without innerHTML), judge-tour.ts (automated demo walkthrough), camera-overlay.ts (SAM vision).',
+            desc: 'app.ts (view composition), dom.ts (safe DOM without innerHTML), judge/tour.ts (automated demo walkthrough), icons.ts (SVG iconography), sound.ts (audio cues).',
           },
           {
             name: 'src/render/',
@@ -626,7 +626,7 @@ export const PROJECT_TREE: readonly TreeNode[] = [
           },
           {
             name: 'src/state/',
-            desc: 'store.ts (unidirectional reactive view model), storage.ts (browser persistence), console.ts (in-app audit log).',
+            desc: 'store.ts (unidirectional reactive view model), storage.ts (browser persistence), console-tail.ts (in-app audit log tail).',
           },
           {
             name: 'src/pages/',
@@ -640,14 +640,14 @@ export const PROJECT_TREE: readonly TreeNode[] = [
       },
       {
         name: 'edge/',
-        desc: 'Edge Gateway running on Cloudflare Workers + Durable Objects. Provides zero-trust security and Meta AI integration.',
-        badge: 'Zero-Trust Gateway',
+        desc: 'Edge gateway on Cloudflare Workers + Durable Objects. Verifies signed preemption requests and hosts the advisory AI copilot.',
+        badge: 'Signed Request Gateway',
         children: [
           { name: 'src/index.ts', desc: 'Router table, request validation sequence, origin allow-list check, uniform JSON error envelopes.' },
           { name: 'src/security/', desc: 'HMAC-SHA256 signature verification, IP rate limiter, timestamp skew window check (±30s).' },
           { name: 'src/copilot/', desc: 'Meta Llama / Muse Spark integration, circuit breaker, cache, and Provenance Verification Gate (verifySemanticNumbers).' },
           { name: 'src/do/Room.ts', desc: 'Cloudflare Durable Object: strongly consistent multi-operator coordination, rate limits, and nonce store.' },
-          { name: 'src/db/mongo.ts', desc: 'MongoDB client, connection pooling, compound indexing, collection provisioning, audit log persistence.' },
+          { name: 'src/budget/guard.ts', desc: 'LLM cost-budget guard: per-IP token and dollar ceilings that shed to the deterministic template rung before a spike becomes a bill.' },
         ],
       },
       {
@@ -675,8 +675,20 @@ export const PROJECT_TREE: readonly TreeNode[] = [
   },
   {
     name: 'docs/',
-    desc: 'Comprehensive technical documentation: ARCHITECTURE.md, 21 Architecture Decision Records (ADRs), API specs, security guides.',
+    desc: 'Design record: architecture spec, 21 ADRs, API contract, safety case, results ledger, runbooks and presentation material.',
     badge: '21 ADRs & Specs',
+    children: [
+      { name: 'adr/', desc: 'Architecture Decision Records 0001–0021.' },
+      { name: 'design/', desc: 'Architecture spec, API contract, data dictionary, distributed & security walkthrough.' },
+      { name: 'validation/', desc: 'Safety case, benchmark results, test report, limitations, accessibility, audit log.' },
+      { name: 'hackathon/', desc: 'Demo script, submission fields, credits, Meta AI API notes.' },
+      { name: 'runbooks/', desc: 'Deploy guide plus seven operational runbooks.' },
+      { name: 'presentation/', desc: 'Big-data slide deck outline and the python-pptx generator.' },
+      { name: 'reference/', desc: 'Original source briefs, playbook and hackathon rules (provenance, non-binding).' },
+      { name: 'specs/instruction/', desc: 'Engineering specification pack, modules 01–64: platform, system design, backend, frontend, design, languages, quality audits.' },
+      { name: 'muse-prompts/', desc: 'Versioned prompts for the AI surfaces.' },
+      { name: 'assets/', desc: 'architecture.png and junction.png diagrams.' },
+    ],
   },
   {
     name: 'evals/',
@@ -795,6 +807,16 @@ export const COMPONENTS: readonly ComponentCard[] = [
     usedBy: ['twin'],
   },
   {
+    id: 'whatif',
+    pkg: 'core',
+    title: 'core/control/what_if.ts',
+    role: 'Digital-twin what-if verifier: runs two 5-minute twins on one seed — current vs proposed parameters — and compares person-delay before any operator change is applied.',
+    invariants: 'Approved only above a 3% person-delay gain with zero kernel dry-run invariant violations.',
+    filePath: 'packages/core/src/control/what_if.ts',
+    dependsOn: ['contracts', 'engine', 'kernel', 'adaptive'],
+    usedBy: ['app'],
+  },
+  {
     id: 'metrics',
     pkg: 'core',
     title: 'core/metrics/metrics.ts',
@@ -887,10 +909,10 @@ export const COMPONENTS: readonly ComponentCard[] = [
   {
     id: 'copilot',
     pkg: 'edge',
-    title: 'edge/copilot/index.ts',
-    role: 'Meta AI Copilot: fallback ladder (Muse Spark → Meta Llama → Deterministic Template), circuit breaker, Provenance Verification Gate (verifySemanticNumbers).',
+    title: 'edge/copilot/router.ts',
+    role: 'Meta AI Copilot: fallback ladder (Muse Spark → Meta Llama → Deterministic Template), circuit breaker, cache, and Provenance Verification Gate (verifySemanticNumbers).',
     invariants: 'All quoted metrics verified against sim engine; zero hallucination tolerance.',
-    filePath: 'packages/edge/src/copilot/index.ts',
+    filePath: 'packages/edge/src/copilot/router.ts',
     dependsOn: ['edge'],
     usedBy: ['web'],
   },
@@ -917,12 +939,12 @@ export const COMPONENTS: readonly ComponentCard[] = [
   {
     id: 'db',
     pkg: 'db',
-    title: 'packages/edge/src/db/mongo.ts',
-    role: 'Shared persistence store: MongoDB driver, collection provisioning (runs, replays, audits, incidents), compound indexing, and historical analytics querying.',
+    title: 'db/src/repository.ts',
+    role: 'Shared persistence package (ADR-0021): MongoDB client, collection provisioning (simulation_runs, lane_telemetry, evp_events, signal_states, anomaly_events), compound indexing, and analytics querying.',
     invariants: 'Sub-2ms query latency; immutable preemption audit trail.',
-    filePath: 'packages/edge/src/db/mongo.ts',
-    dependsOn: ['contracts'],
-    usedBy: ['edge'],
+    filePath: 'db/src/repository.ts',
+    dependsOn: ['mongodb'],
+    usedBy: ['edge', 'pipeline'],
   },
   {
     id: 'bench',
@@ -1265,7 +1287,7 @@ export const VIDEO_DEMO_SCRIPT: readonly DemoScriptScene[] = [
     title: 'Big-Data Lake & Hackathon Rubric Alignment',
     camera: 'System Explorer -> Judging (/system.html#judging)',
     speech:
-      '"Under the hood, all simulation telemetry streams to our Apache Spark and TypeScript lite pipeline, storing columnar Parquet records and indexing into MongoDB with sub-2 millisecond latency. With 125 automated tests, zero-framework vanilla TypeScript, and 7 architectural fitness gates, UrbanFlow AI bridges cutting-edge AI with uncompromised engineering safety."',
+      '"Under the hood, windowed simulation events flow into the batch pipeline — a zero-dependency TypeScript lite processor for local runs and PySpark with Kafka for the full stack — and are stored as Parquet and MongoDB time-series collections. 133 automated tests, framework-free vanilla TypeScript, and 7 architecture fitness gates keep it honest: the AI advises, the safety kernel decides."',
     actions: [
       'Switch to the "Hackathon pitch" rubric tab',
       'Show the 4 weighted evaluation categories and 100% test pass badge',

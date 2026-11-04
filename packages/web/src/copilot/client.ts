@@ -58,7 +58,7 @@ const SAMPLE_HORIZON_S = 60;
 /**
  * Same-origin by default. A deployment can point the Copilot/EVP calls at the
  * edge gateway two ways (Module 22 §2): a build-time `VITE_API_BASE_URL` (Vercel,
- * see docs/DEPLOY.md §2b) or a runtime `<meta name="urbanflow-api-base">`. The
+ * see docs/runbooks/DEPLOY.md §2b) or a runtime `<meta name="urbanflow-api-base">`. The
  * meta tag wins so a Pages/GitHub mirror can override a baked-in origin without
  * a rebuild; an empty/absent value from either keeps same-origin.
  */

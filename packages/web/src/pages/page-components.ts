@@ -1,4 +1,5 @@
 import { h } from '../ui/dom.js';
+import { COMPONENTS } from './system-data.js';
 import { buildComponentsView, buildGlobalNav } from './system.js';
 
 function mount(): void {
@@ -7,10 +8,10 @@ function mount(): void {
 
   const hero = h('section', { class: 'sys-page-hero' }, [
     h('span', { class: 'badge badge-mode', text: 'CLEF MODEL COMPONENT MATRIX' }),
-    h('h1', { class: 'sys-page-title', text: '🧩 Clef Model Components & Live Dependency Graph' }),
+    h('h1', { class: 'sys-page-title', text: 'Clef Model Components & Dependency Graph' }),
     h('p', {
       class: 'sys-page-subtitle',
-      text: 'Interactive component matrix featuring 23 modular units. Click any component card to highlight its direct imports (blue) and downstream consumers (purple) in real time.',
+      text: `Interactive component matrix featuring ${COMPONENTS.length} modular units. Click any component card to highlight its direct imports (green) and downstream consumers (blue) in real time.`,
     }),
   ]);
 

@@ -5,6 +5,21 @@ entries track the work that changed behaviour or changed a published number.
 
 ## [Unreleased] — submission-v1
 
+### Changed — repository tidy
+
+- `docs/` is now organised by topic: `design/` (architecture, API, data
+  dictionary, distributed & security guide), `validation/` (safety case,
+  results, test report, limitations, accessibility, audit log), `hackathon/`
+  (demo script, submission fields, Meta AI notes, credits) and `runbooks/`
+  (deploy guide + seven runbooks). `docs/README.md` is the index. Every link
+  and code comment that pointed at the old flat paths was rewritten, and
+  `pnpm docs:check` follows `docs/validation/RESULTS.md` now.
+- Removed `CONTRIBUTING.md`, `.github/` (CI workflow and CODEOWNERS),
+  `.gitattributes` and the `.pytest_cache` directories. Nothing in the build
+  or test chain depended on them; `pnpm verify` remains the single gate and
+  LIMITATIONS item 35 records that the audit script lives in the spec pack
+  for manual runs instead of CI.
+
 ### Added — architectural fitness functions as a gate (Module 10 §8)
 
 - **`pnpm fitness`** (`scripts/fitness.mjs`) checks seven properties with no new

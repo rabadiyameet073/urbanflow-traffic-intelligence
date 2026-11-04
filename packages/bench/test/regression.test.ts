@@ -9,7 +9,7 @@
  * It is opt-in (`pnpm test:regression` or URBANFLOW_REGRESSION=1) because the
  * 8 × 10 × 2 controller-minute sweep takes minutes, not seconds — the default
  * vitest run must stay fast. A failure here is the gate doing its job: fix the
- * controller or disclose the loss in `docs/LIMITATIONS.md`, never the threshold.
+ * controller or disclose the loss in `docs/validation/LIMITATIONS.md`, never the threshold.
  *
  * `stadium-dump` carries the pre-existing disclosed 12.3 % loss (LIMITATIONS
  * §11); the gate pins that known loss and fails only on *new* degradation
@@ -23,7 +23,7 @@ const GATE_SEEDS = Array.from({ length: 10 }, (_, i) => 5001 + i);
 const GATE_DURATION_S = 1200; // 20 simulated minutes
 const WORSE_LIMIT_PCT = 5;
 
-// Measured and disclosed in docs/LIMITATIONS.md item 11; pinned, not forgiven.
+// Measured and disclosed in docs/validation/LIMITATIONS.md item 11; pinned, not forgiven.
 const KNOWN_LOSSES: Record<string, number> = {
   'stadium-dump': 12.3,
 };

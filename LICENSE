@@ -24,4 +24,4 @@ SOFTWARE.
 
 Note on scope: UrbanFlow AI is a traffic simulation and decision-support
 prototype. It is not a certified traffic-signal controller and must not be used
-to operate physical signal hardware. See docs/LIMITATIONS.md.
+to operate physical signal hardware. See docs/validation/LIMITATIONS.md.

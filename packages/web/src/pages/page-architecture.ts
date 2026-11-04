@@ -7,7 +7,7 @@ function mount(): void {
 
   const hero = h('section', { class: 'sys-page-hero' }, [
     h('span', { class: 'badge badge-mode', text: 'DISTRIBUTED DATA FLOW ENGINE' }),
-    h('h1', { class: 'sys-page-title', text: '🏛️ Architecture & End-to-End Data Flow' }),
+    h('h1', { class: 'sys-page-title', text: 'Architecture & End-to-End Data Flow' }),
     h('p', {
       class: 'sys-page-subtitle',
       text: 'Four-tier distributed architecture spanning zero-blocking browser UI, Web Worker simulation core, Cloudflare edge gateway with HMAC security, Meta Llama AI Copilot, streaming Parquet data lake, and MongoDB operational store.',

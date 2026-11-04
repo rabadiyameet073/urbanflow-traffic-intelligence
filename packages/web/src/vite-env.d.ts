@@ -9,7 +9,7 @@ interface ImportMetaEnv {
   /**
    * Edge gateway origin for the Copilot / EVP calls. Empty (or unset) means
    * same-origin. On Vercel this is injected at build time (see
-   * `docs/DEPLOY.md` §2b); a runtime `<meta name="urbanflow-api-base">` still
+   * `docs/runbooks/DEPLOY.md` §2b); a runtime `<meta name="urbanflow-api-base">` still
    * wins over it so a Pages/GitHub mirror can override without a rebuild.
    */
   readonly VITE_API_BASE_URL?: string;

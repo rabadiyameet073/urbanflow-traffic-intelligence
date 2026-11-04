@@ -11,7 +11,7 @@ Tuning adaptive controller parameters (switching costs, margins, hold times) on 
 - (b) Random seed evaluation without partitioning.
 
 ## Decision
-Adopt option (a). All controller hyper-parameters are tuned on training seeds. Benchmark reports published in `docs/RESULTS.md` and `packages/bench/out/results.json` run strictly on held-out seeds with 95% bootstrap confidence intervals.
+Adopt option (a). All controller hyper-parameters are tuned on training seeds. Benchmark reports published in `docs/validation/RESULTS.md` and `packages/bench/out/results.json` run strictly on held-out seeds with 95% bootstrap confidence intervals.
 
 ## Consequences
 - Positive: Scientific rigor, defensible numbers, resilience against random seed cherry-picking.

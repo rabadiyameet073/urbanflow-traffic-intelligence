@@ -5,17 +5,17 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?style=for-the-badge&logo=typescript)
 ![Node](https://img.shields.io/badge/Node.js-v24-green?style=for-the-badge&logo=nodedotjs)
 ![Architecture Gates](https://img.shields.io/badge/Architecture_Gates-7%2F7_PASS-brightgreen?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-119_Passed-success?style=for-the-badge)
-![MongoDB](https://img.shields.io/badge/Database-MongoDB_Time--Series-emerald?style=for-the-badge&logo=mongodb)
+![Tests](https://img.shields.io/badge/Tests-125_Passing-success?style=for-the-badge)
+![MongoDB](https://img.shields.io/badge/Database-MongoDB_Time--Series-4DB33D?style=for-the-badge&logo=mongodb)
 ![Licence](https://img.shields.io/badge/Licence-MIT-orange?style=for-the-badge)
 
 ### Adaptive traffic-signal intelligence with a formal safety kernel, emergency-vehicle preemption, and an advisory-only Meta AI copilot.
 
-[Live Demo Target](https://urbanflow-ai.pages.dev) • [Presentation Deck (13 Slides)](presentation/BIGDATA_PRESENTATION.md) • [PowerPoint (.pptx)](presentation/UrbanFlow_BigData_Presentation.pptx) • [Distributed & Security Guide](DISTRIBUTED_AND_SECURITY_GUIDE.md) • [Demo Script](docs/DEMO_SCRIPT.md)
+[Live Demo Target](https://urbanflow-ai.pages.dev) • [Presentation Deck (13 Slides)](docs/presentation/BIGDATA_PRESENTATION.md) • [PowerPoint (.pptx)](docs/presentation/UrbanFlow_BigData_Presentation.pptx) • [Distributed & Security Guide](./docs/design/DISTRIBUTED_AND_SECURITY_GUIDE.md) • [Demo Script](./docs/hackathon/DEMO_SCRIPT.md)
 
 </div>
 
-> **Simulation only.** UrbanFlow AI is a research simulator and decision-support prototype. It is not connected to physical signal cabinets, is not certified for any safety function, and makes no claim about real-world deployment. See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+> **Simulation only.** UrbanFlow AI is a research simulator and decision-support prototype. It is not connected to physical signal cabinets, is not certified for any safety function, and makes no claim about real-world deployment. See [docs/validation/LIMITATIONS.md](./docs/validation/LIMITATIONS.md).
 
 ---
 
@@ -35,7 +35,7 @@
 
 ## System Architecture Overview
 
-UrbanFlow is engineered around an **uncompromising boundary**: AI models, heuristics, and emergency preemption managers emit **advisory requests only**. Only the deterministic **Safety Kernel** can write physical `SignalState`, and it strictly enforces six non-negotiable safety invariants.
+UrbanFlow is engineered around a **strict boundary**: AI models, heuristics, and emergency preemption managers emit **advisory requests only**. Only the deterministic **Safety Kernel** can write physical `SignalState`, and it strictly enforces six non-negotiable safety invariants.
 
 ```
                            [ Edge Gateway (Cloudflare Workers / Node) ]
@@ -72,7 +72,7 @@ UrbanFlow is engineered around an **uncompromising boundary**: AI models, heuris
 
 ## Honest Headline Results
 
-Measured by `pnpm bench` on **5 held-out seeds (1001–1005)**, paired fixed-time vs adaptive, 600 s per run, 95 % bootstrap CI over per-seed relative differences. Positive = Adaptive produced less person-delay. Full ledger, method and caveats: [docs/RESULTS.md](docs/RESULTS.md).
+Measured by `pnpm bench` on **5 held-out seeds (1001–1005)**, paired fixed-time vs adaptive, 600 s per run, 95 % bootstrap CI over per-seed relative differences. Positive = Adaptive produced less person-delay. Full ledger, method and caveats: [docs/validation/RESULTS.md](./docs/validation/RESULTS.md).
 
 | Scenario | Fixed | Adaptive | Δ | 95 % CI | CI excludes 0 |
 |---|---|---|---|---|---|
@@ -97,7 +97,7 @@ Person-delay only reflects vehicles that completed their transit. Under heavy sa
 |---|---|---|---|
 | **Near Saturation** | 43.94 % | **29.43 %** | 14.5 % more total vehicles served |
 | **Balanced Parity** | 11.64 % | **0.05 %** | Near-zero approach rejection |
-| **Blocked Lane Incident** | 14.66 % | **0.77 %** | Massive reduction in spillback congestion |
+| **Blocked Lane Incident** | 14.66 % | **0.77 %** | Approach denial nearly eliminated during incident response |
 
 ---
 
@@ -138,7 +138,7 @@ Traffic signals represent critical urban infrastructure. UrbanFlow treats every 
 - **Formal Conflict Proof (`I5`):** `assertInvariants(nextState)` mathematically guarantees zero simultaneous conflicting non-red states.
 - **Fail-Safe Fallback (`I6`):** Hardware watchdog isolation command transitions directly to `FLASH_RED`, with recovery gated through mandatory `ALL_RED`.
 
-*Code References:* [kernel.ts](packages/core/src/control/kernel.ts) • [hmac.ts](packages/core/src/helpers/hmac.ts) • [evp.ts](packages/core/src/control/evp.ts) • [watchdog.ts](packages/core/src/control/watchdog.ts) • [Detailed Guide](DISTRIBUTED_AND_SECURITY_GUIDE.md)
+*Code References:* [kernel.ts](packages/core/src/control/kernel.ts) • [hmac.ts](packages/core/src/helpers/hmac.ts) • [evp.ts](packages/core/src/control/evp.ts) • [watchdog.ts](packages/core/src/control/watchdog.ts) • [Detailed Guide](./docs/design/DISTRIBUTED_AND_SECURITY_GUIDE.md)
 
 ---
 
@@ -172,7 +172,7 @@ UrbanFlow utilizes **MongoDB** via [`@urbanflow/db`](db/) as its operational tim
 ### Why NoSQL for Real-Time Traffic Systems?
 - **Lock-Free Ingestion:** Relational SQL engines rely on table/row-level ACID locks that stall under high sensor ingestion frequencies. MongoDB's WiredTiger storage engine provides document-level concurrency and lock-free writes.
 - **Deterministic Idempotent Keys:** Records use compound keys `_id = run_id | lane | window_start_ms`, guaranteeing zero duplicate records during replay sweeps.
-- **Sub-Millisecond Edge Latency:** Local development queries resolve in `~0.6 ms`, providing live operational audit trails without blocking signal timing loops.
+- **Fast Local Queries:** against the seeded development dataset, queries resolve in well under a millisecond, so the audit trail does not block the timing loop. No production latency figures are claimed (see [docs/validation/LIMITATIONS.md](./docs/validation/LIMITATIONS.md)).
 
 ---
 
@@ -238,7 +238,7 @@ node scripts/fitness.mjs
 # 2. Run Cyber Security & Fuzz Attack Test Suite (HMAC auth, replay defense, 1000 fuzz strings)
 npx vitest run packages/core/test/system_design.test.ts packages/edge/test/edge.test.ts
 
-# 3. Run entire unit & property test suite (119 tests)
+# 3. Run entire unit & property test suite (125 tests; 8 regression tests run via `pnpm test:regression`)
 pnpm test
 
 # 4. Verify documentation consistency against benchmark JSON artefacts
@@ -253,11 +253,6 @@ pnpm typecheck
 ## Project Deliverables & Repository Map
 
 ```
-├── presentation/                      # Big Data presentation deck & generators
-│   ├── BIGDATA_PRESENTATION.md        # 13-Slide master deck with complete spoken speaker notes
-│   ├── UrbanFlow_BigData_Presentation.pptx # Standalone 16:9 widescreen PowerPoint deck
-│   ├── generate_pptx.py              # Automated python-pptx presentation builder
-│   └── PPT_PROMPTS_AND_GUIDE.md      # Copy-paste prompts for Gamma.app / Claude
 ├── packages/
 │   ├── core/                          # Deterministic simulation engine & safety kernel
 │   │   ├── src/control/kernel.ts      # Authoritative single-writer safety kernel (I1–I6)
@@ -275,14 +270,19 @@ pnpm typecheck
 │   └── bench/                         # Paired-seed statistical benchmarking suite
 ├── db/                                # Shared @urbanflow/db package (MongoDB operational sink)
 ├── pipeline/                          # Local streaming engine (urbanflow_lite.ts) & Kafka configs
-├── docs/                              # Formal architecture specifications, safety cases & ADRs
-│   ├── ARCHITECTURE.md                # Component boundaries and communication protocols
-│   ├── SAFETY_CASE.md                 # Formal safety arguments and mathematical invariant proofs
-│   ├── RESULTS.md                     # Full benchmark ledger with bootstrap confidence intervals
-│   └── adr/                           # 21 Architecture Decision Records (ADR 0001–0021)
-├── DISTRIBUTED_AND_SECURITY_GUIDE.md  # Clickable guide to all distributed & security code
-├── traffic_signal_bigdata_project.md  # 735-line comprehensive university technical report
-└── SMART_CITY_TRAFFIC_INTELLIGENCE_PLATFORM.md # Enterprise platform blueprint
+├── evals/                             # LLM evaluation harness (replay, live, floors)
+├── scripts/                           # Build, docs-check, fitness and dev helper scripts
+├── docs/                              # Everything a reviewer needs, by topic
+│   ├── design/                        # ARCHITECTURE, API contract, data dictionary, distributed & security guide
+│   ├── validation/                    # SAFETY_CASE, RESULTS, TEST_REPORT, LIMITATIONS, ACCESSIBILITY, AUDIT_LOG
+│   ├── hackathon/                     # DEMO_SCRIPT, SUBMISSION_FIELDS, CREDITS, META_API_NOTES
+│   ├── adr/                           # 21 Architecture Decision Records (ADR 0001–0021)
+│   ├── runbooks/                      # Deploy guide + 7 operational runbooks
+│   ├── presentation/                  # Big Data deck, .pptx, and generate_pptx.py
+│   ├── assets/                        # architecture.png, junction.png
+│   ├── muse-prompts/                  # Meta AI (Muse) prompt versions used in the copilot
+│   ├── reference/                     # Source briefs, playbook & hackathon details (provenance)
+│   └── specs/instruction/             # Engineering specification pack (modules 01–64)
 ```
 
 ---
@@ -291,13 +291,13 @@ pnpm typecheck
 
 | Specification Document | Focus Area |
 |---|---|
-| [docs/SAFETY_CASE.md](docs/SAFETY_CASE.md) | Invariant proofs, safety claims, and empirical verification |
-| [DISTRIBUTED_AND_SECURITY_GUIDE.md](DISTRIBUTED_AND_SECURITY_GUIDE.md) | File-by-file code guide with direct line numbers |
-| [docs/RESULTS.md](docs/RESULTS.md) | Complete benchmark ledger, paired seeds, and bootstrap CIs |
-| [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 3-minute video presentation script with timestamps |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System components, data flows, and determinism guarantees |
-| [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Clear boundaries of the simulation and unverified domains |
-| [docs/TEST_REPORT.md](docs/TEST_REPORT.md) | Master audit of all test suites and pass criteria |
+| [docs/validation/SAFETY_CASE.md](./docs/validation/SAFETY_CASE.md) | Invariant proofs, safety claims, and empirical verification |
+| [docs/design/DISTRIBUTED_AND_SECURITY_GUIDE.md](./docs/design/DISTRIBUTED_AND_SECURITY_GUIDE.md) | File-by-file code guide with direct line numbers |
+| [docs/validation/RESULTS.md](./docs/validation/RESULTS.md) | Complete benchmark ledger, paired seeds, and bootstrap CIs |
+| [docs/hackathon/DEMO_SCRIPT.md](./docs/hackathon/DEMO_SCRIPT.md) | 3-minute video presentation script with timestamps |
+| [docs/design/ARCHITECTURE.md](./docs/design/ARCHITECTURE.md) | System components, data flows, and determinism guarantees |
+| [docs/validation/LIMITATIONS.md](./docs/validation/LIMITATIONS.md) | Clear boundaries of the simulation and unverified domains |
+| [docs/validation/TEST_REPORT.md](./docs/validation/TEST_REPORT.md) | Master audit of all test suites and pass criteria |
 | [SECURITY.md](SECURITY.md) | Vulnerability disclosure policy and threat model |
 
 ---
@@ -308,7 +308,7 @@ pnpm typecheck
 |---|---|
 | **Technical Depth** | Bit-deterministic microscopic simulation; single-writer safety kernel; Durable Objects replay store; transferable zero-copy memory buffers; constant-time HMAC-SHA256 authentication. |
 | **Use of Meta AI** | Advisory incident diagnosis via Muse Spark and Llama; `verifySemanticNumbers` provenance gate protecting against hallucinations; SAM 3.1 visual attention masks. |
-| **Safety & Correctness** | Formally defined Invariants I1–I6 in [docs/SAFETY_CASE.md](docs/SAFETY_CASE.md); 119 automated tests; zero kernel conflicts across all benchmark runs. |
+| **Safety & Correctness** | Formally defined Invariants I1–I6 in [docs/validation/SAFETY_CASE.md](./docs/validation/SAFETY_CASE.md); 125 automated tests (plus 8 regression tests); zero kernel conflicts across all benchmark runs. |
 | **Honest Measurement** | Paired-seed benchmarking across 5 held-out seeds with 95% bootstrap confidence intervals; full reporting of parity and losses; automated `pnpm docs:check` drift detection. |
 | **Craft & Polish** | 21 Architecture Decision Records (ADRs); 7 operational runbooks; WCAG 2.2 AA accessible operator interface; 7 automated fitness gates passing. |
 
@@ -316,4 +316,4 @@ pnpm typecheck
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). All third-party assets and models are credited in [docs/CREDITS.md](docs/CREDITS.md).
+MIT — see [LICENSE](LICENSE). All third-party assets and models are credited in [docs/hackathon/CREDITS.md](./docs/hackathon/CREDITS.md).

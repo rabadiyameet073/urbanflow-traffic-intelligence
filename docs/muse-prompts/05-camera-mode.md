@@ -41,4 +41,4 @@ degradation, and the build does not require a model at runtime.
 
 **Not claimed:** that a detector was trained, evaluated, or measured on these
 fixtures. No precision/recall figure appears anywhere in this repository,
-because none was measured. See [LIMITATIONS.md](../LIMITATIONS.md).
+because none was measured. See [LIMITATIONS.md](../validation/LIMITATIONS.md).

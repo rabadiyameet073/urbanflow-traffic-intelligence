@@ -21,7 +21,7 @@
     "eval:replay": "tsx evals/replay.mjs",
     "eval:live": "tsx evals/live.mjs",
     "fitness": "node scripts/fitness.mjs",
-    "check:meta": "node instruction/helpers/check-meta.mjs packages/web/dist/index.html",
+    "check:meta": "node scripts/check-meta.mjs packages/web/dist/index.html",
     "security": "node scripts/fitness.mjs --only=secrets,headers,writer"
   },
   "devDependencies": {
