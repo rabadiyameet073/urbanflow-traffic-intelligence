@@ -704,13 +704,11 @@ export class SimEngine {
           effectiveV0 = Math.max(effectiveV0, TIMING.EMS_CRUISE_MPS);
           if (this.config.emsFiltering && pos > 0) {
             lane.flags[slot] = lane.flags[slot]! | FLAG_FILTERING;
-            if (signalIndication === 'G') {
-              // Open path through clearing queue when green
-              effectiveGap = Math.max(leaderDist, 25.0);
-            }
+            // Assertive following maintaining headway without clipping into leader
+            effectiveGap = Math.max(0.5, leaderDist);
           } else if (pos <= 0) {
             // Inside the intersection box: clear right-of-way to exit
-            effectiveGap = Math.max(leaderDist, 30.0);
+            effectiveGap = Math.max(leaderDist, 20.0);
           }
         }
 
@@ -767,7 +765,20 @@ export class SimEngine {
         }
       }
 
-      // 5. Check sustained stall at entry boundary (only if jammed at entry and cannot enter)
+      // Re-sort lane.order so order[0] is strictly the vehicle with smallest pos (furthest downstream)
+      // Insertion sort is O(N) and preserves bit-determinism
+      for (let i = 1; i < lane.count; i++) {
+        const curSlot = lane.order[i] as number;
+        const curPos = lane.pos[curSlot] as number;
+        let j = i - 1;
+        while (j >= 0 && (lane.pos[lane.order[j] as number] as number) > curPos) {
+          lane.order[j + 1] = lane.order[j] as number;
+          j--;
+        }
+        lane.order[j + 1] = curSlot;
+      }
+
+      // 5. Check sustained stall at entry boundary (only if jammed at entry under un-preempted red)
       for (let idx = lane.count - 1; idx >= 0; idx--) {
         const emsSlot = lane.order[idx] as number;
         if ((lane.flags[emsSlot]! & FLAG_EMS) === 0) continue;
@@ -782,6 +793,12 @@ export class SimEngine {
 
         const stalledNow = (lane.vel[emsSlot] as number) < EMS_STALL_MPS;
         if (!stalledNow) {
+          lane.clearEmsStall(emsSlot);
+          continue;
+        }
+
+        // Under green, traffic is moving or about to discharge — never despawn
+        if (signalIndication === 'G') {
           lane.clearEmsStall(emsSlot);
           continue;
         }

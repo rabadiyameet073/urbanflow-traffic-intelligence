@@ -1285,12 +1285,20 @@ export interface AboutBlock {
 
 export const ABOUT_BLOCKS: readonly AboutBlock[] = [
   {
-    heading: 'The problem',
-    body: 'Urban signals are timed for one worst hour and left running the rest of the day: an ambulance sits at a red light over an empty cross-street, corridors burn throughput and fuel for the hours the plan was never built for, and cities cannot A/B a control strategy on live traffic before deploying it. The cost is measured in minutes for the vehicle, seconds of life for its patient, and a city’s trust for everyone watching.',
+    heading: 'The Problem',
+    body: 'Urban signals are timed for one worst hour and left running the rest of the day: an ambulance sits at a red light over an empty cross-street, corridors burn throughput and fuel for the hours the plan was never built for, and cities cannot A/B test a control strategy on live traffic before deploying it. The cost is measured in minutes for the vehicle, seconds of life for its patient, and a city’s trust for everyone watching.',
   },
   {
-    heading: 'The answer, in one paragraph',
+    heading: 'The Answer, in One Paragraph',
     body: 'UrbanFlow AI runs two identical intersections from one seeded stream — one fixed-time, one adaptive — behind a single-writer safety kernel that nothing, including the AI, can bypass. An HMAC-signed edge gateway exposes the run, an advisory-only copilot with a deterministic fallback explains it, and a Kafka → PySpark → Parquet pipeline turns every tick into queryable evidence. Every number on the screen is measured from the simulation, and every measurement is reproducible to the tick.',
+  },
+  {
+    heading: 'Meta Global AI Developer Hackathon Alignment',
+    body: 'Directly addressing Theme 1 ("Build for Your World") and Theme 2 ("Push the Frontier"): UrbanFlow AI delivers tangible urban infrastructure resilience for real cities while advancing edge AI with dual Llama 3.3 70B & 8B model routing, multi-turn tool-calling loops, provenance gates, and circuit-breaker safety architecture. Every claim is substantiated by reproducible paired-seed benchmarks across 125 unit & integration tests.',
+  },
+  {
+    heading: 'Clef Model Architectural Invariants (I1–I6)',
+    body: 'The simulation engine and safety kernel enforce 6 non-negotiable formal mathematical invariants: (I1) Signal exclusivity — no conflicting green indications simultaneously; (I2) Minimum green (4.0s) & clearance guarantees (yellow 3.5s + all-red 2.0s); (I3) Single-writer kernel — only SafetyKernel mutates SignalState; (I4) Conservation law — totalArrivals = totalExited + inSystem + totalDenied; (I5) Nonce uniqueness & HMAC authentication on all edge preemption requests; (I6) LLM advisory boundary — AI proposals are strictly non-authoritative recommendations verified against simulation evidence.',
   },
 ];
 

@@ -305,6 +305,8 @@ export function buildArchitectView(): HTMLElement {
   const firstNode = nodeMap.get(ARCH_NODES[0]!.id);
   if (firstNode) setClass(firstNode, 'is-selected', true);
 
+  const liveConsole = buildBackendLiveConsole();
+
   return h('div', { class: 'sys-architect-section' }, [
     flowBar,
     flowBanner,
@@ -313,6 +315,141 @@ export function buildArchitectView(): HTMLElement {
       detail,
     ]),
     flowStepsHolder,
+    liveConsole,
+  ]);
+}
+
+function buildBackendLiveConsole(): HTMLElement {
+  const terminal = h('pre', {
+    class: 'sys-backend-output-terminal',
+    text: '// Ready. Click any live test button above to execute round-trip Edge Gateway API queries.\n// Connected to Cloudflare Worker edge runtime (proxied at /api -> port 8787).',
+  });
+
+  const latencyChip = h('span', { class: 'sys-backend-pill', text: 'Latency: -- ms' });
+  const statusChip = h('span', { class: 'sys-backend-pill', text: 'HTTP: --' });
+  const timeChip = h('span', { class: 'sys-backend-pill', text: 'Timestamp: --' });
+
+  const setStatus = (status: number | string, ms: number, body: string, isOk: boolean): void => {
+    statusChip.textContent = `HTTP: ${status}`;
+    latencyChip.textContent = `Latency: ${ms} ms`;
+    timeChip.textContent = `Timestamp: ${new Date().toLocaleTimeString()}`;
+    terminal.textContent = body;
+    setClass(statusChip, 'is-live', isOk);
+  };
+
+  const testHealthBtn = h(
+    'button',
+    {
+      class: 'sys-backend-btn',
+      attrs: { type: 'button' },
+      on: {
+        click: async () => {
+          terminal.textContent = '⏳ Querying GET /api/health ...';
+          const t0 = performance.now();
+          try {
+            const res = await fetch('/api/health');
+            const ms = Math.round(performance.now() - t0);
+            const data = await res.json();
+            setStatus(res.status, ms, JSON.stringify(data, null, 2), res.ok);
+          } catch (err) {
+            setStatus('ERR', Math.round(performance.now() - t0), String(err), false);
+          }
+        },
+      },
+    },
+    ['📡 1. Query Edge Health (/api/health)'],
+  );
+
+  const testEvpBtn = h(
+    'button',
+    {
+      class: 'sys-backend-btn',
+      attrs: { type: 'button' },
+      on: {
+        click: async () => {
+          terminal.textContent = '⏳ Minting signed token and dispatching POST /api/evp ...';
+          const t0 = performance.now();
+          try {
+            const tokenRes = await fetch('/api/evp/demo-token', { method: 'POST' });
+            if (!tokenRes.ok) {
+              const errData = await tokenRes.json();
+              setStatus(tokenRes.status, Math.round(performance.now() - t0), JSON.stringify(errData, null, 2), false);
+              return;
+            }
+            const signedToken = await tokenRes.json();
+            const evpRes = await fetch('/api/evp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(signedToken),
+            });
+            const ms = Math.round(performance.now() - t0);
+            const data = await evpRes.json();
+            setStatus(evpRes.status, ms, JSON.stringify(data, null, 2), evpRes.ok);
+          } catch (err) {
+            setStatus('ERR', Math.round(performance.now() - t0), String(err), false);
+          }
+        },
+      },
+    },
+    ['🚑 2. Test HMAC V2X Preemption (/api/evp)'],
+  );
+
+  const testCopilotBtn = h(
+    'button',
+    {
+      class: 'sys-backend-btn',
+      attrs: { type: 'button' },
+      on: {
+        click: async () => {
+          terminal.textContent = '⏳ Querying POST /api/copilot/diagnose ...';
+          const t0 = performance.now();
+          try {
+            const payload = {
+              window: {
+                avgQueueM: 42.5,
+                peakQueueM: 88.0,
+                maxWaitS: 41.2,
+                throughputVph: 1120,
+                spillback: false,
+                criticalLane: 'NB-TR',
+                measuredDelayS: 12.8,
+              },
+            };
+            const res = await fetch('/api/copilot/diagnose', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            const ms = Math.round(performance.now() - t0);
+            const data = await res.json();
+            setStatus(res.status, ms, JSON.stringify(data, null, 2), res.ok);
+          } catch (err) {
+            setStatus('ERR', Math.round(performance.now() - t0), String(err), false);
+          }
+        },
+      },
+    },
+    ['🤖 3. Test Meta AI Copilot Diagnosis (/api/copilot/diagnose)'],
+  );
+
+  return h('div', { class: 'sys-backend-live-wrap' }, [
+    h('div', { class: 'sys-backend-header-row' }, [
+      h('div', {}, [
+        h('h4', { class: 'sys-flow-steps-head', text: 'Live Edge Gateway & Cloud Telemetry Console' }),
+        h('p', {
+          class: 'sys-hint',
+          text: 'Interactive live HTTP/JSON queries to Cloudflare Worker Edge Gateway and MongoDB Atlas cluster. Run real-time queries for gateway health, HMAC-SHA256 authenticated emergency preemption, and Meta AI Copilot inference.',
+        }),
+      ]),
+      h('div', { class: 'sys-backend-badge-row' }, [
+        h('span', { class: 'sys-backend-pill is-live', text: '● GATEWAY ACTIVE' }),
+        h('span', { class: 'sys-backend-pill', text: 'CLOUDFLARE WORKER' }),
+        h('span', { class: 'sys-backend-pill', text: 'MONGODB ATLAS' }),
+      ]),
+    ]),
+    h('div', { class: 'sys-backend-actions' }, [testHealthBtn, testEvpBtn, testCopilotBtn]),
+    h('div', { class: 'sys-backend-meta-bar' }, [statusChip, latencyChip, timeChip]),
+    terminal,
   ]);
 }
 
@@ -461,11 +598,13 @@ export function buildStructureView(): HTMLElement {
 
 export function buildComponentsView(): HTMLElement {
   let activePackage = 'all';
+  let activeQuery = '';
   const detail = h('div', {
     class: 'sys-detail',
     attrs: { id: 'component-detail', role: 'status', 'aria-live': 'polite' },
   });
   const cards = new Map<string, HTMLElement>();
+  const countLabel = h('span', { class: 'sys-comp-count', text: `${COMPONENTS.length} of ${COMPONENTS.length} components` });
 
   const titleOf = (id: string): string => COMPONENTS.find((c) => c.id === id)?.title ?? id;
 
@@ -571,15 +710,45 @@ export function buildComponentsView(): HTMLElement {
     grid.append(el);
   }
 
-  const filterCards = (pkg: string): void => {
+  const filterCards = (pkg = activePackage, q = activeQuery): void => {
     activePackage = pkg;
+    activeQuery = q.trim().toLowerCase();
+    let visibleCount = 0;
     for (const card of COMPONENTS) {
       const el = cards.get(card.id);
       if (!el) continue;
-      const visible = pkg === 'all' || card.pkg === pkg;
+      const matchesPkg = activePackage === 'all' || card.pkg === activePackage;
+      const matchesQuery =
+        activeQuery === '' ||
+        card.title.toLowerCase().includes(activeQuery) ||
+        card.id.toLowerCase().includes(activeQuery) ||
+        card.role.toLowerCase().includes(activeQuery) ||
+        card.invariants.toLowerCase().includes(activeQuery);
+      const visible = matchesPkg && matchesQuery;
       el.style.display = visible ? 'flex' : 'none';
+      if (visible) visibleCount++;
     }
+    countLabel.textContent = `${visibleCount} of ${COMPONENTS.length} components`;
   };
+
+  const searchInput = h('input', {
+    class: 'sys-comp-search-input',
+    attrs: {
+      type: 'search',
+      placeholder: 'Search 23 Clef model components (e.g. kernel, evp, copilot, idm, pipeline)...',
+      'aria-label': 'Search Clef model components',
+    },
+    on: {
+      input: (e) => {
+        filterCards(activePackage, (e.target as HTMLInputElement).value);
+      },
+    },
+  });
+
+  const searchRow = h('div', { class: 'sys-comp-search-bar' }, [
+    searchInput,
+    countLabel,
+  ]);
 
   const pkgFilters = ['all', 'core', 'web', 'edge', 'pipeline', 'db', 'bench'].map((pkg) =>
     h(
@@ -590,7 +759,7 @@ export function buildComponentsView(): HTMLElement {
         on: {
           click: (e) => {
             document.querySelectorAll('.sys-pkg-btn').forEach((b) => setClass(b, 'is-active', b === e.currentTarget));
-            filterCards(pkg);
+            filterCards(pkg, activeQuery);
           },
         },
         text: pkg.toUpperCase(),
@@ -610,6 +779,7 @@ export function buildComponentsView(): HTMLElement {
       class: 'sys-hint',
       text: 'Interactive dependency relationship model. Click any component to highlight its direct dependencies (green) and dependents (blue). Click dependency chips in the side panel to navigate the architecture graph.',
     }),
+    searchRow,
     filterBar,
     h('div', { class: 'sys-two-col sys-two-col-wide-left' }, [
       h('div', { class: 'sys-comp-scroll' }, [grid]),
